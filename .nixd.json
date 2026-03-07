@@ -1,0 +1,13 @@
+{
+  "nixpkgs": {
+    "expr": "import (builtins.getFlake \".\").inputs.nixpkgs {}"
+  },
+  "options": {
+    "nixos": {
+      "expr": "(builtins.getFlake \".\").nixosConfigurations.code.options"
+    },
+    "home-manager": {
+      "expr": "(builtins.getFlake \".\").nixosConfigurations.code.options.home-manager.users.type.getSubOptions []"
+    }
+  }
+}
