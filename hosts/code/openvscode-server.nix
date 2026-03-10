@@ -22,6 +22,7 @@
       python3Packages.pip
       ruff # py linter
       ty # py lang server. should ship with the ext but just in case
+      neovim
     ];
   };
 }
