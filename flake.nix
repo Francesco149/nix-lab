@@ -3,7 +3,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nut = {
-      url = "github:Francesco149/nix-utils";
+      url = "path:/opt/src/nix-utils";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -59,10 +59,7 @@
       perSystem =
         { pkgs, ... }:
         {
-          devShells.default = nut.lib.mkDevShell {
-            inherit pkgs;
-            shell = import ./lib/devShell.nix { inherit pkgs; };
-          };
+          devShells.default = nut.lib.mkDevShell (import ./lib/devShell.nix { inherit pkgs; });
         };
     };
 

@@ -1,7 +1,7 @@
 {
   nut.ssh.authorizedKeys = [
     # workstation
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGv7sF12IrUHiIV4VT6e5x2S0WSil3f4bBt4AwYG7mA/ headpats@bazzite"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF0Hj5jOmw03+LxHO7xOkcPSMknxRXflt+qznZ0SRCQG headpats@cutestation"
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOggpEtx3bYTi/Qr59aaAi2RyAwvsBv04tyPVPGd/9j4 headpats@DESKTOP-2FRVAC7"
     # streaming pc
     "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNTISALC2cQaRAtgsLUK1V5Ko1s8eO8/1WHkdnH/ifiglrbftmfZ72HHSSht54lUsRR6CvGnDRQPJfySI1xCHhg= loli@HCUP"

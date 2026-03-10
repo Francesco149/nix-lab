@@ -16,7 +16,16 @@
     zellij # modern tmux alternative
     diskus
     dust # tree view of disk usage, better du
+    gh # to get github token
   ];
+
+  services.gpg-agent = {
+    enable = true;
+    enableZshIntegration = true;
+    pinentry.package = pkgs.pinentry-curses;
+  };
+
+  programs.gpg.enable = true;
 
   # shell
   programs.fish = {
