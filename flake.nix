@@ -16,13 +16,6 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    nixvim = {
-      url = "github:nix-community/nixvim";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-parts.follows = "nut/flake-parts";
-      inputs.systems.follows = "deploy-rs/utils/systems";
-    };
   };
 
   outputs =
@@ -41,11 +34,6 @@
           hmModules.root = [
             ./modules/hm/git.nix
             ./modules/hm/misc.nix
-
-            (import ./modules/hm/nixvim.nix {
-              inherit inputs;
-              imports = [ ./lib/nixvim-ssh.nix ];
-            })
           ];
         };
       };

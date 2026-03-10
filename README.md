@@ -34,9 +34,6 @@ modules/
   system.nix
   tailscale.nix
   ssh.nix
-lib/
-  nixvim.nix            # shared nixvim config
-  nixvim-ssh.nix        # ssh-specific nixvim overrides (OSC52 clipboard etc)
 ```
 
 ---
