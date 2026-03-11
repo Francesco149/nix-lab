@@ -55,7 +55,8 @@ nixos-rebuild switch --flake .#code
 
 ## first time setup
 
-There's a few things that still can'y be dont fully declaratively so we will have to run some commands after the first deploy.
+There's a few things that still can't be done fully declaratively so we will
+have to run some commands after the first deploy.
 
 ### code
 
