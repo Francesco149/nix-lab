@@ -38,6 +38,9 @@ modules/
 
 ## deploying
 
+Note: if you're not me, you have to change the nix-utils input to not be a local
+path in `flake.nix` .
+
 With [deploy-rs](https://github.com/serokell/deploy-rs):
 
 ```sh
