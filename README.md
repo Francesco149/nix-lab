@@ -27,13 +27,11 @@ hosts/
     code.nix            # machine-specific NixOS config
     hm/
       home.nix          # per-machine home-manager config
+  ...
 modules/
   hm/                   # shared home-manager modules
-  docker.nix
-  nix.nix
-  system.nix
-  tailscale.nix
-  ssh.nix
+  ...
+  # shared modules
 ```
 
 ---
@@ -76,10 +74,14 @@ headscale nodes approve-routes --identifier <node-id> --routes 10.0.10.0/24
 
 ### relay
 
-Set up split DNS in headscale:
+Bring up tailscale and verify that it sees the home ip's
 
 ```sh
-headscale dns nameservers set --split "box.headpats.uk=10.0.10.1" "10.in-addr.arpa=10.0.10.1"
+tailscale up --accept-routes --login-server=https://hs.headpats.uk
+ping 10.0.10.1
 ```
 
-That only routes queries for `*.box.headpats.uk` and reverse lookups for `10.x.x.x` to your OPNsense, everything else uses the node's normal DNS. The `10.in-addr.arpa` entry handles reverse DNS for your LAN IPs.
+The split DNS config in headscale only routes queries for `*.box.headpats.uk`
+and reverse lookups for `10.x.x.x` to my OPNsense, everything else uses the
+node's normal DNS. The `10.in-addr.arpa` entry handles reverse DNS for the LAN
+IPs.
