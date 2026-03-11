@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 {
   # software I would want to always have available.
   # - things I use all the time
@@ -17,6 +17,7 @@
     diskus
     dust # tree view of disk usage, better du
     gh # to get github token
+    moreutils # ts to timestamp lines of output plus other nice utils
   ];
 
   services.gpg-agent = {
@@ -30,7 +31,11 @@
   # shell
   programs.fish = {
     enable = true;
-    interactiveShellInit = (builtins.readFile ./fish/init.fish) + (builtins.readFile ./fish/dev.fish);
+    interactiveShellInit = ''
+      # we can tap into nix variables and consts from here if needed
+    ''
+    + (builtins.readFile ./fish/init.fish)
+    + (builtins.readFile ./fish/dev.fish);
   };
 
   # automatically enter dev shells
@@ -49,7 +54,7 @@
           ".git"
           ".nix-defexpr"
           ".direnv"
-          "result"
+          "result*"
         ];
         excludeFlags = map (d: "--exclude ${d}") excluded;
       in

@@ -53,3 +53,46 @@ function check-inputs
     echo $metadata | jq -r '.locks.nodes | to_entries[] | select(.key != "root") | 
         "\(.key): \(.value.locked.narHash // "follows \(.value.follows | join("/"))")"'
 end
+
+function rsync-shallow
+  rsync -a \
+    --exclude='.git' \
+    --exclude='.direnv' \
+    --exclude='result*' \
+    --exclude='.nix-defexpr' \
+    $argv
+end
+
+# use my workstation when it happens to be online, for faster eval and builds.
+# XXX: we rsync without the git repo then init a shallow repo to go faster
+# XXX: we have to override the nut input as it won't match the flake.lock
+# as an added bonus, we don't have to worry about unstaged changes when
+# deploying remotely.
+
+set -g rd_host 100.64.0.6
+set -g rd_user headpats
+
+function remote-deploy
+  set dest {$rd_user}@{$rd_host}
+  rsync-shallow . {$dest}:/tmp/remote-deploy/
+  rsync-shallow /opt/src/nix-utils/ {$dest}:/tmp/nut/
+  ssh $dest "
+    cd /tmp/nut
+    git init
+    git add -A
+    cd /tmp/remote-deploy
+    git init
+    git add -A
+    nix flake lock --allow-dirty-locks --override-input nut git+file:///tmp/nut
+    deploy $argv
+  "
+end
+
+function deploy
+  set tsip (tailscale ip | sed 1q)
+  if test $tsip != $rd_host; and tailscale ping -c 1 $rd_host &>/dev/null
+    remote-deploy $argv --skip-checks
+  else
+    command deploy $argv --skip-checks
+  end
+end
