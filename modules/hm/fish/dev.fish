@@ -21,37 +21,37 @@ function build-system
 end
 
 function check-inputs
-    set metadata (nix flake metadata --json)
+  set metadata (nix flake metadata --json)
 
-    echo "=== Duplicate input check ==="
+  echo "=== Duplicate input check ==="
 
-    set inputs (echo $metadata | jq -r '.locks.nodes | keys[]' | grep -v root)
+  set inputs (echo $metadata | jq -r '.locks.nodes | keys[]' | grep -v root)
 
-    set found_dupes 0
-    for input in $inputs
-        set matches (echo $metadata | jq -r --arg i $input \
-            '.locks.nodes | to_entries[] | select(.key == $i or (.key | startswith($i + "_"))) | .key')
+  set found_dupes 0
+  for input in $inputs
+    set matches (echo $metadata | jq -r --arg i $input \
+      '.locks.nodes | to_entries[] | select(.key == $i or (.key | startswith($i + "_"))) | .key')
 
-        if test (count $matches) -gt 1
-            set found_dupes 1
-            echo ""
-            echo "⚠ $input has multiple versions:"
-            for match in $matches
-                set hash (echo $metadata | jq -r --arg m $match \
-                    '.locks.nodes[$m].locked.narHash // "follows"')
-                echo "  - $match: $hash"
-            end
-        end
+    if test (count $matches) -gt 1
+      set found_dupes 1
+      echo ""
+      echo "⚠ $input has multiple versions:"
+      for match in $matches
+        set hash (echo $metadata | jq -r --arg m $match \
+          '.locks.nodes[$m].locked.narHash // "follows"')
+        echo " - $match: $hash"
+      end
     end
+  end
 
-    if test $found_dupes -eq 0
-        echo "✓ no duplicates found"
-    end
+  if test $found_dupes -eq 0
+    echo "✓ no duplicates found"
+  end
 
-    echo ""
-    echo "=== All inputs ==="
-    echo $metadata | jq -r '.locks.nodes | to_entries[] | select(.key != "root") | 
-        "\(.key): \(.value.locked.narHash // "follows \(.value.follows | join("/"))")"'
+  echo ""
+  echo "=== All inputs ==="
+  echo $metadata | jq -r '.locks.nodes | to_entries[] | select(.key != "root") | 
+    "\(.key): \(.value.locked.narHash // "follows \(.value.follows | join("/"))")"'
 end
 
 function rsync-shallow
@@ -95,4 +95,20 @@ function deploy
   else
     command deploy $argv --skip-checks
   end
+end
+
+function refresh-nix-tokens
+    set host (test -n "$argv[1]"; and echo $argv[1]; or echo "root@nixos")
+    set github_token (gh auth token)
+
+    if test -z "$github_token"
+        echo "Error: could not get GitHub token from gh auth token"
+        return 1
+    end
+
+    ssh $host bash -c "'
+        mkdir -p \$HOME/.config/nix
+        echo \"extra-access-tokens = github.com=$github_token\" > \$HOME/.config/nix/nix.conf
+        echo \"Token written to \$HOME/.config/nix/nix.conf\"
+    '"
 end

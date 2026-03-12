@@ -2,6 +2,7 @@
   imports = [
     ./dockge.nix
     ./openvscode-server.nix
+    ./cache.nix
   ];
 
   # enable other machines in the tailnet to see my home lan

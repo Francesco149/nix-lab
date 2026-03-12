@@ -2,6 +2,8 @@
 {
   services.openvscode-server = {
     enable = true;
+    # required for docker to be able to see us through
+    # the dockerhost interface.
     host = "0.0.0.0";
     withoutConnectionToken = true; # auth handled by authentik
     user = "root";

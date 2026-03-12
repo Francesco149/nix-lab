@@ -13,4 +13,11 @@
     # dockge + openvscode-server dev vm
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO51fsBkesFI7L3+AH2gcn+lEx9S0XzVRcYf6tFujvIr root@code"
   ];
+
+  # always skip key verification for new VMs
+  programs.ssh.extraConfig = ''
+    Host nixos
+      StrictHostKeyChecking no
+      UserKnownHostsFile /dev/null
+  '';
 }
