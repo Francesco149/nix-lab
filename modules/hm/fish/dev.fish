@@ -112,3 +112,19 @@ function refresh-nix-tokens
         echo \"Token written to \$HOME/.config/nix/nix.conf\"
     '"
 end
+
+# instead of:
+#   nix shell nixpkgs#ns nixpkgs#bar github:some/flake#baz
+# we can now type
+#   ns foo bar github:some/flake#baz
+function ns
+  set -l pkgs
+  for arg in $argv
+    if string match -q '*#*' -- $arg
+      set -a pkgs $arg
+    else
+      set -a pkgs "nixpkgs#$arg"
+    end
+  end
+  nix shell $pkgs
+end
