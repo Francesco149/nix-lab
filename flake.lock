@@ -105,11 +105,11 @@
       "locked": {
         "lastModified": 1773405381,
         "narHash": "sha256-moGQySAOwYI7GfR7rysyFjGjBzxCPHfPLBZNDJfRNAs=",
-        "path": "/opt/src/nix-utils",
+        "path": "/opt/src/nut",
         "type": "path"
       },
       "original": {
-        "path": "/opt/src/nix-utils",
+        "path": "/opt/src/nut",
         "type": "path"
       }
     },
