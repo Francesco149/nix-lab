@@ -75,7 +75,7 @@ set -g rd_user headpats
 function remote-deploy
   set dest {$rd_user}@{$rd_host}
   rsync-shallow . {$dest}:/tmp/remote-deploy/
-  rsync-shallow /opt/src/nix-utils/ {$dest}:/tmp/nut/
+  rsync-shallow /opt/src/nut/ {$dest}:/tmp/nut/
   ssh $dest "
     cd /tmp/nut
     git init

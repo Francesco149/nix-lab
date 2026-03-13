@@ -3,7 +3,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nut = {
-      url = "path:/opt/src/nix-utils";
+      url = "path:/opt/src/nut";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

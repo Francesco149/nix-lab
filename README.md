@@ -3,7 +3,7 @@
 My personal NixOS configuration. Not intended to be used directly, but feel free
 to poke around for reference or inspiration.
 
-Built with [nix-utils](https://github.com/Francesco149/nix-utils), my own flake
+Built with [nut](https://github.com/Francesco149/nut), my own flake
 library that cuts out the boilerplate of wiring up deploy-rs, home-manager, and
 flake-parts. If you are building something similar, that is probably a better
 starting point than this repo.
@@ -38,7 +38,7 @@ modules/
 
 ## deploying
 
-Note: if you're not me, you have to change the nix-utils input to not be a local
+Note: if you're not me, you have to change the nut input to not be a local
 path in `flake.nix` .
 
 With [deploy-rs](https://github.com/serokell/deploy-rs):
