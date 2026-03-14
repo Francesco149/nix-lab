@@ -16,21 +16,24 @@
     nut.lib.mf {
       inherit self inputs;
       dir = ./.;
-      hosts = {
-        code = {
-          modules = [
-            ./modules/docker.nix
-            ./modules/nix.nix
-          ];
 
-          hmModules.root = [
-            ./modules/hm/git.nix
-            ./modules/hm/misc.nix
-          ];
-        };
+      hosts.code = {
+        modules = [
+          ./modules/docker.nix
+          ./modules/nix.nix
+          ./modules/system-interactive.nix
+        ];
+
+        hmModules.root = [
+          ./modules/hm/git.nix
+          ./modules/hm/misc.nix
+        ];
       };
 
+      hosts.relay = [ ./modules/beszel.nix ];
+
       modules = [
+        (nut.lib.dumb "lab" (import ./lib/lab.nix))
         ./modules/system.nix
         ./modules/tailscale.nix
         ./modules/ssh.nix

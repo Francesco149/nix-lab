@@ -1,14 +1,26 @@
 function diff-system
   set host $argv[1]
+  set key $argv[2]  # optional: path to ssh key
+
   if test -z "$host"
-    echo "Usage: diff-system <machine>"
+    echo "Usage: diff-system <machine> [ssh-key]"
     return 1
   end
+
+  # fish list = multiple args, not a single string
+  set ssh_opts
+  if test -n "$key"
+    set ssh_opts -i $key -o IdentitiesOnly=yes
+    set -x NIX_SSHOPTS "-i $key -o IdentitiesOnly=yes"
+  end
+
   set machine (nix eval --raw .#deploy.nodes.$host.hostname)
   set new_path (nom build .#nixosConfigurations.$host.config.system.build.toplevel --no-link --print-out-paths 2>&1 | tail -1)
-  set current (ssh root@$machine readlink /run/current-system)
+  set current (ssh $ssh_opts root@$machine readlink /run/current-system)
   nix copy --no-check-sigs --from ssh-ng://root@$machine $current
   nvd diff $current $new_path
+
+  set -e NIX_SSHOPTS
 end
 
 function build-system
