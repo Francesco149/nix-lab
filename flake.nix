@@ -1,21 +1,13 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nut.url = "path:/opt/src/nut";
+    deploy-rs.url = "github:serokell/deploy-rs";
+    home-manager.url = "github:nix-community/home-manager";
 
-    nut = {
-      url = "path:/opt/src/nut";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    deploy-rs = {
-      url = "github:serokell/deploy-rs";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    home-manager = {
-      url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nut.inputs.nixpkgs.follows = "nixpkgs";
+    deploy-rs.inputs.nixpkgs.follows = "nixpkgs";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
