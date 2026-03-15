@@ -89,3 +89,18 @@ The split DNS config in headscale only routes queries for `*.box.headpats.uk`
 and reverse lookups for `10.x.x.x` to my OPNsense, everything else uses the
 node's normal DNS. The `10.in-addr.arpa` entry handles reverse DNS for the LAN
 IPs.
+
+### if a machine fails to deploy
+
+Usually it's because it needs to reboot instead of switching to the config in
+place. Take note of the /nix/store path that deploy was trying to use.
+
+```sh
+ssh root@machine
+nix-env --profile /nix/var/nix/profiles/system --set /nix/store/path-to-system
+/nix/store/path-to-system/bin/switch-to-configuration boot
+reboot
+```
+
+If it says `failed to acquire lock` just do a force shutdown and reboot to clear
+that and try those commands again.
