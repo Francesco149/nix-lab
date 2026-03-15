@@ -104,8 +104,11 @@
   services.nginx = {
     enable = true;
 
-    # NOTE: we can't use port 80 because it's used for acme challenges for the
-    #       certs. make sure onlySSL is true to not try to grab port 80
+    # port 80 is occupied by the stream proxy, so don't let the headscale vhost
+    # also try to grab it, and ACME will sort itself out on 443.
+
+    # this way the mail server at home is also able to do cert generation, but
+    # on port 80 which we tunnel over.
 
     virtualHosts.${config.lab.domains.headscale} = {
       onlySSL = true;
