@@ -69,6 +69,7 @@ rec {
   ports.beszel-agent = 45876;
   ports-udp.headscale = 41641;
   ports.headscale-internal = 8080;
+  ports.openvscode-server-internal = 3010;
 
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 

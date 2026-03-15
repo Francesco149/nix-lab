@@ -1,10 +1,11 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 {
   services.openvscode-server = {
     enable = true;
     # required for docker to be able to see us through
     # the dockerhost interface.
     host = "0.0.0.0";
+    port = config.lab.ports.openvscode-server-internal;
     withoutConnectionToken = true; # auth handled by authentik
     user = "root";
     group = "root";
