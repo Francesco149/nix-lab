@@ -116,7 +116,7 @@ Hashed password files are expected at `/var/lib/secrets/<user>-hashed-password`
 on the `mail` machine. Generate them with:
 
 ```sh
-nix run nixpkgs#apacheHttpd -- htpasswd -nBC 12 "" | tr -d ':\n' | sudo tee /var/lib/secrets/loli-hashed-password
+nix-shell -p mkpasswd --run 'mkpasswd -sm bcrypt' > /var/lib/secrets/loli-hashed-password
 ```
 
 ### Gmail OAuth2 tokens
