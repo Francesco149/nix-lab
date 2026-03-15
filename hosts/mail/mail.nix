@@ -35,7 +35,7 @@
     # help improve email security across the internet by sending feedback on
     # authentication failures, spoofing attempts, and TLS encryption issues.
     dmarcReporting.enable = true;
-    tlsrpt = true;
+    tlsrpt.enable = true;
 
     # since 26.05 we explicitly use nginx for the cert
     x509.useACMEHost = config.mailserver.fqdn;
