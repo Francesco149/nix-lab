@@ -63,6 +63,7 @@ rec {
   ports.smtp-relay = 25;
   ports.http = 80;
   ports.https = 443;
+  ports.smtps = 465;
   ports.smtp = 587;
   ports.imap = 993;
   ports.managesieve = 4190;

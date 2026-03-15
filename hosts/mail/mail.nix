@@ -65,6 +65,7 @@
     allowedTCPPorts = [
       config.lab.ports.imap
       config.lab.ports.smtp
+      config.lab.ports.smtps
       config.lab.ports.managesieve
       config.lab.ports.beszel-agent
     ];
