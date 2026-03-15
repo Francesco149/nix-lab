@@ -28,7 +28,7 @@ def xoauth2_string(user, token):
     s = f"user={user}\x01auth=Bearer {token}\x01\x01"
     return s.encode()  # imaplib handles the base64 itself
 
-def fetch(creds_file, maildir_path):
+def fetch(creds_file, maildir_path, search_filter="UNSEEN"):
     name = os.path.basename(creds_file).removeprefix("gmail-").removesuffix(".json")
     email = name
 
@@ -39,7 +39,7 @@ def fetch(creds_file, maildir_path):
     imap.authenticate("XOAUTH2", lambda _: auth_string)
     imap.select("INBOX")
 
-    _, data = imap.search(None, "UNSEEN")
+    _, data = imap.search(None, search_filter)
     uids = data[0].split()
     print(f"{email}: {len(uids)} new messages")
 
@@ -57,9 +57,10 @@ def fetch(creds_file, maildir_path):
 if __name__ == "__main__":
     secrets_dir = sys.argv[1]
     maildir_path = sys.argv[2]
+    search_filter = sys.argv[3] if len(sys.argv) > 3 else "UNSEEN"
 
     for creds_file in sorted(f"{secrets_dir}/{f}" for f in os.listdir(secrets_dir) if f.startswith("gmail-") and f.endswith(".json")):
         try:
-            fetch(creds_file, maildir_path)
+            fetch(creds_file, maildir_path, search_filter)
         except Exception as e:
             print(f"Error fetching {creds_file}: {e}", file=sys.stderr)
