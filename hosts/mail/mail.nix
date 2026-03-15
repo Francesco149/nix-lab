@@ -36,6 +36,7 @@
     # authentication failures, spoofing attempts, and TLS encryption issues.
     dmarcReporting.enable = true;
     tlsrpt.enable = true;
+    systemContact = config.lab.mail.main.addr;
 
     # since 26.05 we explicitly use nginx for the cert
     x509.useACMEHost = config.mailserver.fqdn;
