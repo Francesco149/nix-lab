@@ -1,5 +1,9 @@
 { config, ... }:
 {
+  imports = [
+    ./mail-fetch.nix
+  ];
+
   # relay only for outbound mail, so it comes from the vps ip. the relay's
   # domain needs to be different than the domain used by the mail server at
   # home. this is to avoid a loop. for example:

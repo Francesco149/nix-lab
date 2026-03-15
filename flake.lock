@@ -94,12 +94,12 @@
     "git-hooks": {
       "inputs": {
         "flake-compat": [
-          "nixos-maileserver",
+          "nixos-mailserver",
           "flake-compat"
         ],
         "gitignore": "gitignore",
         "nixpkgs": [
-          "nixos-maileserver",
+          "nixos-mailserver",
           "nixpkgs"
         ]
       },
@@ -120,7 +120,7 @@
     "gitignore": {
       "inputs": {
         "nixpkgs": [
-          "nixos-maileserver",
+          "nixos-mailserver",
           "git-hooks",
           "nixpkgs"
         ]
@@ -159,7 +159,7 @@
         "type": "github"
       }
     },
-    "nixos-maileserver": {
+    "nixos-mailserver": {
       "inputs": {
         "blobs": "blobs",
         "flake-compat": "flake-compat_2",
@@ -221,7 +221,7 @@
       "inputs": {
         "deploy-rs": "deploy-rs",
         "home-manager": "home-manager",
-        "nixos-maileserver": "nixos-maileserver",
+        "nixos-mailserver": "nixos-mailserver",
         "nixpkgs": "nixpkgs",
         "nut": "nut"
       }

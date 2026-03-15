@@ -4,19 +4,19 @@
     nut.url = "path:/opt/src/nut";
     deploy-rs.url = "github:serokell/deploy-rs";
     home-manager.url = "github:nix-community/home-manager";
-    nixos-maileserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/master";
+    nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/master";
 
     nut.inputs.nixpkgs.follows = "nixpkgs";
     deploy-rs.inputs.nixpkgs.follows = "nixpkgs";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
-    nixos-maileserver.inputs.nixpkgs.follows = "nixpkgs";
+    nixos-mailserver.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
     {
       self,
       nut,
-      nixos-maileserver,
+      nixos-mailserver,
       ...
     }@inputs:
 
@@ -42,7 +42,7 @@
       ];
 
       hosts.mail = [
-        nixos-maileserver.nixosModule
+        nixos-mailserver.nixosModule
         ./modules/local.nix
         ./modules/tailscale-home-lan.nix
       ];
