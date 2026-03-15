@@ -34,7 +34,7 @@
 
     # help improve email security across the internet by sending feedback on
     # authentication failures, spoofing attempts, and TLS encryption issues.
-    dmarcReporting = true;
+    dmarcReporting.enable = true;
     tlsrpt = true;
 
     # since 26.05 we explicitly use nginx for the cert
