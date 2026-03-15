@@ -1,31 +1,41 @@
 # anything that would otherwise be a magic number/string goes here. it's not as
 # efficient as surgically scoping everything but much less cumbersome.
 
-{
-  certs.email = "francesco149@gmail.com"; # for automatic cert management
+rec {
+  tailnet.prefix = "100.64.0";
 
   # change these after deploying and bringing tailscale up on both machines.
   # check `tailscale ip` on each machine or `headscale nodes list` on the relay
-  tailnet.mail = "100.64.0.1";
-  tailnet.relay = "100.64.0.2";
+  tailnet.mail = "${tailnet.prefix}.1";
+  tailnet.relay = "${tailnet.prefix}.2";
 
   # public ip of your vps
   internet.relay = "198.46.149.19";
 
   # all of these point to internet.relay. see README.md for records setup
   domains.base = "headpats.uk";
-  domains.mail = "mail.headpats.uk"; # PTR, spf1, mx records point to this
-  domains.fqdn = "smtp.headpats.uk"; # must be different than the relay's
-  domains.headscale = "hs.headpats.uk";
+  domains.mail = "mail.${domains.base}"; # PTR, spf1, mx records point to this
+  domains.fqdn = "smtp.${domains.base}"; # must be different than the relay's
+  domains.headscale = "hs.${domains.base}";
 
   # internal sub-domain for self hosted stuff. it's an actual domain to get
   # actual valid ssl certs, but it doesn't point to anything publicly, the dns
   # server on my router just overrides it.
-  domains.internal = "box.headpats.uk";
+  domains.internal = "box.${domains.base}";
+  domains.nix-cache = "cache.${domains.internal}";
 
-  mail.master = "loli"; # this user is aliased to postmaster
+  mail.main.user = "loli";
+  mail.main.addr = mail.main.user + "@" + domains.base;
+  mail.master = mail.main.user; # this user is aliased to postmaster
   mail.users = [
-    "loli" # remember to generate hashed password files, see README
+    mail.main.user # remember to generate hashed password files, see README
+  ];
+
+  fzf.excluded = [
+    ".git"
+    ".nix-defexpr"
+    ".direnv"
+    "result*"
   ];
 
   ssh.authorized-keys = [
@@ -60,7 +70,7 @@
   ports-udp.headscale = 41641;
   ports.headscale-internal = 8080;
 
-  tailnet.prefixes = [ "100.64.0.0/10" ];
+  tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 
   # router ip (default gateway)
   lan.gateway = "10.0.10.1";

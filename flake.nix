@@ -4,14 +4,21 @@
     nut.url = "path:/opt/src/nut";
     deploy-rs.url = "github:serokell/deploy-rs";
     home-manager.url = "github:nix-community/home-manager";
+    nixos-maileserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/master";
 
     nut.inputs.nixpkgs.follows = "nixpkgs";
     deploy-rs.inputs.nixpkgs.follows = "nixpkgs";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    nixos-maileserver.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
-    { self, nut, ... }@inputs:
+    {
+      self,
+      nut,
+      nixos-maileserver,
+      ...
+    }@inputs:
 
     nut.lib.mf {
       inherit self inputs;
@@ -20,23 +27,28 @@
       hosts.code = {
         modules = [
           ./modules/docker.nix
-          ./modules/nix.nix
-          ./modules/system-interactive.nix
+          ./modules/interactive.nix
+          ./modules/tailscale-home-lan.nix
+          ./modules/local.nix
         ];
 
         hmModules.root = [
-          ./modules/hm/git.nix
-          ./modules/hm/misc.nix
+          ./modules/hm/common.nix
         ];
       };
 
-      hosts.relay = [ ./modules/beszel.nix ];
+      hosts.relay = [
+        ./modules/beszel.nix
+      ];
+
+      hosts.mail = [
+        nixos-maileserver.nixosModule
+        ./modules/local.nix
+      ];
 
       modules = [
         (nut.lib.dumb "lab" (import ./lib/lab.nix))
-        ./modules/system.nix
-        ./modules/tailscale.nix
-        ./modules/ssh.nix
+        ./modules/common.nix
       ];
 
       perSystem =

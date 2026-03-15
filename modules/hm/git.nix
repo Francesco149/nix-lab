@@ -8,7 +8,11 @@
       init.defaultBranch = "master"; # more aura and makes you horny
       pull.rebase = true;
     };
-    ignores = [ "result" "result-*" ".direnv" ];
+    ignores = [
+      "result"
+      "result*"
+      ".direnv"
+      "*.swp"
+    ];
   };
 }
-

@@ -1,5 +1,20 @@
-{ pkgs, ... }:
+{ pkgs, osConfig, ... }:
+let
+  excludeFlagsList = map (d: "--exclude ${d}") osConfig.lab.fzf.excluded;
+  excludeFlags = builtins.concatStringsSep " " excludeFlagsList;
+in
 {
+  programs.git = {
+    enable = true;
+    settings = {
+      user.name = "headpats";
+      user.email = osConfig.lab.mail.main.addr;
+      init.defaultBranch = "master"; # more aura and makes you horny
+      pull.rebase = true;
+    };
+    ignores = osConfig.lab.fzf.excluded;
+  };
+
   # software I would want to always have available.
   # - things I use all the time
   # - critical tools in case I have no internet to do nix-shell
@@ -33,6 +48,7 @@
     enable = true;
     interactiveShellInit = ''
       # we can tap into nix variables and consts from here if needed
+      set -g fzf_exclude_flags ${excludeFlags}
     ''
     + (builtins.readFile ./fish/init.fish)
     + (builtins.readFile ./fish/dev.fish);
@@ -48,17 +64,7 @@
   # fuzzy file finder
   programs.fzf = {
     enable = true;
-    defaultCommand =
-      let
-        excluded = [
-          ".git"
-          ".nix-defexpr"
-          ".direnv"
-          "result*"
-        ];
-        excludeFlags = map (d: "--exclude ${d}") excluded;
-      in
-      "fd --type f --hidden --follow ${builtins.concatStringsSep " " excludeFlags}";
+    defaultCommand = "fd --type f --hidden --follow " + excludeFlags;
   };
 
   # shell tab completions/suggestions

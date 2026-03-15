@@ -67,12 +67,7 @@ function check-inputs
 end
 
 function rsync-shallow
-  rsync -a \
-    --exclude='.git' \
-    --exclude='.direnv' \
-    --exclude='result*' \
-    --exclude='.nix-defexpr' \
-    $argv
+  rsync -a $fzf_exclude_flags $argv
 end
 
 # use my workstation when it happens to be online, for faster eval and builds.
