@@ -44,6 +44,7 @@
       hosts.mail = [
         nixos-maileserver.nixosModule
         ./modules/local.nix
+        ./modules/tailscale-home-lan.nix
       ];
 
       modules = [
