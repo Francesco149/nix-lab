@@ -102,6 +102,74 @@ the tailnet (`openFirewall = false`). There is no SSH tunnel needed.
 
 ---
 
+## dockge containers (code)
+
+Dockge is used as a low-friction way to spin up and experiment with containers.
+Stacks here are considered temporary — once something proves useful it gets
+migrated into the NixOS config properly.
+
+| stack          | description                                                                                                                                                                                                                                                                |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kurrier`      | Modern Gmail-style webmail frontend. Still in early development. Stock caddy in the compose is disabled since the NixOS host runs caddy. Port bindings can't be restricted to localhost without breaking it — acceptable since it's designed to be internet-facing anyway. |
+| `immich-stack` | Small utility that automatically stacks the RAW and compressed versions of photos in Immich.                                                                                                                                                                               |
+| `authentik`    | Identity provider / SSO. Protects internal services via Caddy's `forward_auth` — see the `(authentik)` snippet in `caddy.nix`.                                                                                                                                             |
+
+---
+
+## roundcube gotchas
+
+The NixOS `services.roundcube` module has a few rough edges when running behind
+Caddy with a non-default PostgreSQL port.
+
+### nginx SSL conflict
+
+The module defaults to `forceSSL = true`, which makes nginx try to bind 443 and
+an HTTP→HTTPS redirect on port 8000. Both conflict with existing services. Since
+Caddy handles TLS termination, force both off and pin the listen address to
+localhost:
+
+```nix
+services.nginx.virtualHosts.${host} = {
+  forceSSL = lib.mkForce false;
+  enableACME = lib.mkForce false;
+  listen = lib.mkForce [
+    { addr = "127.0.0.1"; port = lab.ports.roundcube; }
+  ];
+};
+```
+
+### PostgreSQL port
+
+Kurrier's Docker container occupies the default PostgreSQL port (5432), so the
+NixOS postgres runs on a custom port (`lab.ports.postgresql = 5433`). This
+breaks roundcube in two places:
+
+1. The module's generated DSN hardcodes `unix(/run/postgresql)` with no port, but
+   the socket file is named after the port and has moved. Override `db_dsnw` in
+   `extraConfig` using the `unix(path:port)` PHP DSN syntax:
+
+```nix
+   $config['db_dsnw'] = 'pgsql://roundcube@unix(/run/postgresql:5433)/roundcube';
+```
+
+1. The `roundcube-setup` service (which initialises the DB schema) invokes `psql`
+   without a port. Fix by injecting `PGPORT` into its environment:
+
+```nix
+   systemd.services.roundcube-setup.environment.PGPORT = toString lab.ports.postgresql;
+```
+
+### maxAttachmentSize type error
+
+The `maxAttachmentSize` option expects a signed integer but dividing by `1.37`
+produces a float. Wrap in `builtins.floor`:
+
+```nix
+maxAttachmentSize = builtins.floor (lab.mail.messageSizeLimit / 1024 / 1024 / 1.37);
+```
+
+---
+
 ## DNS records
 
 All A records point to `198.46.149.19`.
