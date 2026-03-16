@@ -133,7 +133,7 @@ Then create the TXT record `mail._domainkey.headpats.uk` with that value.
 All secrets live outside the Nix store. They must be created manually before or
 just after the first deploy.
 
-Make sure to create the secrets dir as root and make it only traversable, with
+Make sure to create the secrets dir as root and make it non-traversable, with
 the exception of `mail` where virtualMail needs to see the gmail secrets.
 
 ```sh
