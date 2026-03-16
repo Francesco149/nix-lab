@@ -21,6 +21,7 @@
 
   # Enable ACME HTTP-01 challenge with nginx.
   # this auto generates and renews a cert for the domain
+  services.nginx.enable = true;
   services.nginx.virtualHosts.${config.mailserver.fqdn}.enableACME = true;
 
   mailserver = {
@@ -73,24 +74,6 @@
       config.lab.ports.managesieve
       config.lab.ports.beszel-agent
     ];
-  };
-
-  # tunnel beszel agent port to the remote relay through headscale. at the
-  # moment, this is needed because my beszel container can't see the tailnet,
-  # but I'm planning to fix it
-
-  services.nginx = {
-    enable = true;
-    streamConfig = ''
-      upstream beszel_agent {
-        server ${config.lab.tailnet.relay}:${toString config.lab.ports.beszel-agent};
-      }
-
-      server {
-        listen ${toString config.lab.ports.beszel-agent};
-        proxy_pass beszel_agent;
-      }
-    '';
   };
 
 }

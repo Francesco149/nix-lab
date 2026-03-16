@@ -66,6 +66,7 @@ rec {
   ports.smtps = 465;
   ports.smtp = 587;
   ports.imap = 993;
+  ports.beszel = 8090;
   ports.managesieve = 4190;
   ports.beszel-agent = 45876;
   ports-udp.headscale = 41641;

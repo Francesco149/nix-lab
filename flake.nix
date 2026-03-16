@@ -37,9 +37,7 @@
         ];
       };
 
-      hosts.relay = [
-        ./modules/beszel.nix
-      ];
+      hosts.relay = [ ];
 
       hosts.mail = [
         nixos-mailserver.nixosModule
@@ -50,6 +48,7 @@
       modules = [
         (nut.lib.dumb "lab" (import ./lib/lab.nix))
         ./modules/common.nix
+        ./modules/beszel.nix
       ];
 
       perSystem =
