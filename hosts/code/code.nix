@@ -4,6 +4,7 @@
     ./dockge.nix
     ./openvscode-server.nix
     ./cache.nix
+    ./caddy.nix
   ];
 
   # enable other machines in the tailnet to see my home lan
@@ -15,6 +16,6 @@
   services.beszel.hub = {
     enable = true;
     port = config.lab.ports.beszel;
-    host = "0.0.0.0";
+    host = "127.0.0.1";
   };
 }

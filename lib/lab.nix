@@ -60,18 +60,32 @@ rec {
   # these are purely for labeling at the moment
 
   ports.ssh = 22;
-  ports.smtp-relay = 25;
   ports.http = 80;
   ports.https = 443;
+
+  ports.smtp-relay = 25;
   ports.smtps = 465;
   ports.smtp = 587;
   ports.imap = 993;
-  ports.beszel = 8090;
   ports.managesieve = 4190;
-  ports.beszel-agent = 45876;
-  ports-udp.headscale = 41641;
+
   ports.headscale = 8080;
+  ports-udp.headscale = 41641;
+  ports.beszel-agent = 45876;
+
   ports.openvscode-server = 3010;
+  ports.beszel = 8090;
+  ports.cache = 8765;
+
+  # docker containers
+  ports.kurrier = 3000;
+  ports.kurrier-dav = 3001;
+  ports.dockge = 5001;
+  ports.rackpeek = 8080;
+  ports.authentik = 9000;
+
+  # lxc on proxmox
+  ports.immich = 2283;
 
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 

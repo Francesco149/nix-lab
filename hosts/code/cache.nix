@@ -1,3 +1,4 @@
+{ config, ... }:
 {
   # simple on-demand caching of nixos packages.
   # to use, add:'
@@ -22,8 +23,8 @@
       listen = [
         {
           # make sure we are also listening on dockerhost
-          addr = "0.0.0.0";
-          port = 8765;
+          addr = "127.0.0.1";
+          port = config.lab.ports.cache;
         }
       ];
 
