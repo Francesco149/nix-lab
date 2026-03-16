@@ -23,6 +23,7 @@ rec {
   # server on my router just overrides it.
   domains.internal = "box.${domains.base}";
   domains.nix-cache = "cache.${domains.internal}";
+  domains.roundcube = "mail.${domains.internal}";
 
   mail.main.user = "loli";
   mail.main.addr = mail.main.user + "@" + domains.base;
@@ -68,6 +69,7 @@ rec {
   ports.smtp = 587;
   ports.imap = 993;
   ports.managesieve = 4190;
+  ports.postgresql = 5433; # avoid conflict with kurrier container
 
   ports.headscale = 8080;
   ports-udp.headscale = 41641;
@@ -80,6 +82,7 @@ rec {
   # docker containers
   ports.kurrier = 3000;
   ports.kurrier-dav = 3001;
+  ports.roundcube = 3100;
   ports.dockge = 5001;
   ports.rackpeek = 8080;
   ports.authentik = 9000;
@@ -115,4 +118,5 @@ rec {
   fetchmail.secrets-dir = "${secrets.dir}/fetchmail";
 
   mail.mkHashedPasswordFileName = user: "${secrets.dir}/${user}-hashed-password";
+  mail.messageSizeLimit = 20971520;
 }

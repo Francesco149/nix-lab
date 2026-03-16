@@ -5,6 +5,7 @@
     ./openvscode-server.nix
     ./cache.nix
     ./caddy.nix
+    ./roundcube.nix
   ];
 
   # enable other machines in the tailnet to see my home lan
@@ -18,4 +19,7 @@
     port = config.lab.ports.beszel;
     host = "127.0.0.1";
   };
+
+  # avoid conflict with kurrier container by not using default port
+  services.postgresql.settings.port = config.lab.ports.postgresql;
 }

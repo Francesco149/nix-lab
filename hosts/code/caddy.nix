@@ -74,7 +74,7 @@ in
       }
     '';
 
-    virtualHosts."mail.box.headpats.uk".extraConfig = ''
+    virtualHosts."kurrier.box.headpats.uk".extraConfig = ''
       @worker {
         path /webdav/*
       }
