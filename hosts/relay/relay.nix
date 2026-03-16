@@ -28,14 +28,14 @@
 
   services.headscale = {
     enable = true;
-    port = config.lab.ports.headscale-internal;
+    port = config.lab.ports.headscale;
     settings = {
       database = {
         type = "sqlite3";
         sqlite.path = config.lab.headscale.db-path;
       };
       server_url = "https://${config.lab.domains.headscale}";
-      listen_addr = "127.0.0.1:${toString config.lab.ports.headscale-internal}";
+      listen_addr = "127.0.0.1:${toString config.lab.ports.headscale}";
       ip_prefixes = config.lab.tailnet.prefixes;
       noise.private_key_path = config.lab.headscale.noise.private-key-path;
       dns = {
@@ -117,7 +117,7 @@
       # headscale wants to be the root location so we can't do something like
       # /headscale/ but we can do hs.domain.example
       locations."/" = {
-        proxyPass = "http://127.0.0.1:${toString config.lab.ports.headscale-internal}";
+        proxyPass = "http://127.0.0.1:${toString config.lab.ports.headscale}";
 
         # headscale uses websockets for the control protocol. we also have to
         # disable buffering for the websockets to work properly. set longer
