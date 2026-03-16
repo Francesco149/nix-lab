@@ -31,8 +31,7 @@ hosts/
       home.nix                # per-machine home-manager config
   mail/
     configuration.nix         # hardware/boot config
-    mail.nix                  # mailserver, postfix outbound relay, nginx ACME,
-                              #   tunnel to the relay's beszel agent
+    mail.nix                  # mailserver, postfix outbound relay, nginx ACME
     mail-fetch.nix            # systemd service+timer to pull Gmail via IMAP OAuth2
     mail-fetch/
       fetch.py                # Python script: OAuth2 token refresh + IMAP fetch
@@ -53,7 +52,7 @@ utils/
 
 ## architecture overview
 
-```
+```text
 internet → relay (198.46.149.19)
              ├── port 25   → stream proxy → mail:25   (inbound SMTP relay)
              ├── port 80   → stream proxy → mail:80   (ACME HTTP-01)
@@ -68,9 +67,8 @@ mail (home)
   │     domain: headpats.uk
   │     ACME: HTTP-01 via nginx (port 80 tunneled through relay)
   ├── postfix outbound → relayhost: 100.64.0.2:25
-  ├── mail-fetch timer (every 5 min)
-  │     fetch.py /var/lib/secrets/fetchmail /var/vmail/headpats.uk/loli/mail/
-  └── beszel-agent port tunneled to relay via nginx stream proxy
+  └── mail-fetch timer (every 5 min)
+        fetch.py /var/lib/secrets/fetchmail /var/vmail/headpats.uk/loli/mail/
 ```
 
 Outbound mail leaves from the relay's public IP (`198.46.149.19 / mail.headpats.uk`)
@@ -151,6 +149,8 @@ Then lock it down. The service runs with `beszel-secrets` as a supplementary
 group (declared in `modules/beszel.nix`), so:
 
 ```sh
+mkdir -p /var/lib/secrets
+chmod 700 /var/lib/secrets # 711 if on mail, explained later
 groupadd -f beszel-secrets
 chown root:beszel-secrets /var/lib/secrets/beszel-agent
 chmod 640 /var/lib/secrets/beszel-agent
@@ -162,10 +162,7 @@ Restart the agent to pick it up:
 systemctl restart beszel-agent
 ```
 
-Note: on `mail`, the beszel-agent port is tunneled out to the relay via nginx
-stream proxy because the beszel container on the relay can't reach the tailnet
-directly. The agent still binds locally at port 45876 — beszel hub connects to
-it through `relay:45876 → mail:45876`.
+Or better yet, just have it set up before you deploy the agent.
 
 ### Gmail OAuth2 tokens
 
@@ -331,7 +328,8 @@ tailscale up --advertise-routes=10.0.10.0/24 \
   --login-server=https://hs.headpats.uk
 ```
 
-Open the URL it prints, copy the `headscale nodes register` command, and run it on the relay:
+Open the URL it prints, copy the `headscale nodes register` command, and run it
+on the relay:
 
 ```sh
 headscale nodes register --key nodekey:xxxxxxxxxxxxxxxx --user default
@@ -386,8 +384,9 @@ The relay is mostly stateless — headscale state is the only thing worth preser
    ```
 
 6. **Re-join all tailscale nodes** (the noise key stays the same so they should
-   reconnect automatically, but if not, re-run `tailscale up` on each node — it will
-   print a URL and a `headscale nodes register` command to run on the relay).
+   reconnect automatically, but if not, re-run `tailscale up` on each node — it
+   will print a URL and a `headscale nodes register` command to run on the
+   relay).
 
 7. **Test**: ping across tailnet, send a test email inbound and outbound.
 
