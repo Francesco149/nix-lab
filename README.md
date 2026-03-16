@@ -12,11 +12,11 @@ starting point than this repo.
 
 ## machines
 
-| host    | description                                                               |
-| ------- | ------------------------------------------------------------------------- |
-| `code`  | home server running docker, openvscode-server, and dockge                 |
-| `mail`  | home server running nixos-mailserver (dovecot + postfix), Gmail IMAP sync |
-| `relay` | VPS (198.46.149.19) — headscale, postfix relay, nginx stream proxy        |
+| host    | description                                                                |
+| ------- | -------------------------------------------------------------------------- |
+| `code`  | home server — openvscode-server, dockge, caddy (reverse proxy), beszel hub |
+| `mail`  | home server running nixos-mailserver (dovecot + postfix), Gmail IMAP sync  |
+| `relay` | VPS (198.46.149.19) — headscale, postfix relay, nginx stream proxy         |
 
 ---
 
@@ -27,6 +27,10 @@ hosts/
   code/
     configuration.nix         # hardware/boot config
     code.nix                  # machine-specific NixOS config
+    caddy.nix                 # caddy reverse proxy with cloudflare DNS plugin
+    cache.nix                 # nginx-based nix binary cache proxy
+    dockge.nix                # dockge docker stack manager (NixOS OCI container)
+    openvscode-server.nix     # openvscode-server NixOS service
     hm/
       home.nix                # per-machine home-manager config
   mail/
@@ -40,6 +44,7 @@ hosts/
     configuration.nix         # hardware/boot config
     relay.nix                 # headscale, postfix relay, nginx stream proxy
 modules/
+  beszel.nix                  # beszel agent — applied globally to all hosts
   tailscale-home-lan.nix      # shared tailscale config for home machines
   hm/                         # shared home-manager modules
 lib/
@@ -59,7 +64,8 @@ internet → relay (198.46.149.19)
              ├── port 443  → nginx (headscale at hs.headpats.uk)
              └── headscale → tailnet (100.64.0.0/10)
                                ├── relay  (100.64.0.2)
-                               └── mail   (100.64.0.1)
+                               ├── mail   (100.64.0.1)
+                               └── code   (100.64.0.5)
 
 mail (home)
   ├── nixos-mailserver (dovecot IMAP + postfix)
@@ -67,13 +73,32 @@ mail (home)
   │     domain: headpats.uk
   │     ACME: HTTP-01 via nginx (port 80 tunneled through relay)
   ├── postfix outbound → relayhost: 100.64.0.2:25
-  └── mail-fetch timer (every 5 min)
-        fetch.py /var/lib/secrets/fetchmail /var/vmail/headpats.uk/loli/mail/
+  ├── mail-fetch timer (every 5 min)
+  │     fetch.py /var/lib/secrets/fetchmail /var/vmail/headpats.uk/loli/mail/
+  └── beszel-agent → hub on code (over tailnet)
+
+code (home)
+  ├── caddy (NixOS service, ports 80/443, cloudflare DNS-01 for ACME)
+  │     reverse proxies: dockge, authentik, openvscode-server, beszel hub,
+  │                      immich, nix cache, rackpeek, mail relay UIs, LAN devices
+  ├── beszel hub (hw.box.headpats.uk)
+  │     agents connect directly over tailnet (no SSH tunnel)
+  │       ├── code  — tailnet-ip:beszel-agent-port
+  │       ├── mail  — tailnet-ip:beszel-agent-port
+  │       └── relay — tailnet-ip:beszel-agent-port
+  └── beszel-agent (self-monitoring, same as all other hosts)
+
+relay (VPS)
+  └── beszel-agent → hub on code (over tailnet)
 ```
 
 Outbound mail leaves from the relay's public IP (`198.46.149.19 / mail.headpats.uk`)
 so SPF and PTR both resolve correctly. The mail server's own hostname is
 `smtp.headpats.uk` to avoid a relay loop (relay is `mail.headpats.uk`).
+
+The beszel agent module (`modules/beszel.nix`) is applied globally to all hosts
+via `flake.nix`. Each agent communicates with the hub on `code` directly over
+the tailnet (`openFirewall = false`). There is no SSH tunnel needed.
 
 ---
 
@@ -108,7 +133,7 @@ Then create the TXT record `mail._domainkey.headpats.uk` with that value.
 All secrets live outside the Nix store. They must be created manually before or
 just after the first deploy.
 
-Make sure to create the serets dir as root make make it only traversable with
+Make sure to create the secrets dir as root and make it only traversable, with
 the exception of `mail` where virtualMail needs to see the gmail secrets.
 
 ```sh
@@ -129,14 +154,27 @@ nix-shell -p mkpasswd --run 'mkpasswd -sm bcrypt' > /var/lib/secrets/loli-hashed
 chmod 600 /var/lib/secrets/loli-hashed-password
 ```
 
+### caddy
+
+Caddy uses DNS-01 validation via the Cloudflare plugin and reads its token from
+an `EnvironmentFile`. Create it on `code`:
+
+```sh
+cat > /var/lib/secrets/caddy <<EOF
+CLOUDFLARE_API_TOKEN=<your-cloudflare-api-token>
+EOF
+chmod 600 /var/lib/secrets/caddy
+```
+
 ### beszel agent key
 
-The beszel agent reads its credentials from `/var/lib/secrets/beszel-agent` (a
-systemd `EnvironmentFile`). Both values come from the beszel hub when you add
-the system — open the hub, click **Add system**, and it will show you the key
-and token.
+The beszel agent module (`modules/beszel.nix`) is applied to every host. Each
+one needs its own credentials file. The values come from the beszel hub when you
+add the system — open the hub at `hw.box.headpats.uk`, click **Add system**,
+use the host's tailnet IP and the agent port from `lab.ports.beszel-agent`, and
+it will show you the key and token.
 
-Create the file with:
+Create the file on each host with:
 
 ```sh
 cat > /var/lib/secrets/beszel-agent <<EOF
@@ -238,6 +276,7 @@ With [deploy-rs](https://github.com/serokell/deploy-rs):
 
 ```sh
 deploy            # all machines
+deploy .#code     # code only
 deploy .#mail     # mail server only
 deploy .#relay    # relay only
 ```
@@ -245,6 +284,7 @@ deploy .#relay    # relay only
 Or directly on the machine:
 
 ```sh
+nixos-rebuild switch --flake .#code
 nixos-rebuild switch --flake .#mail
 nixos-rebuild switch --flake .#relay
 ```
@@ -280,6 +320,8 @@ Things that can't be done declaratively and must be run after the first deploy.
    Run that on the relay. Tailscale will then complete the handshake.
 
 3. **Verify headscale is reachable** at `https://hs.headpats.uk`.
+
+4. **Set up the beszel agent** — see [beszel agent key](#beszel-agent-key) above.
 
 ### mail
 
@@ -342,6 +384,17 @@ headscale nodes list  # find the node id
 headscale routes list --identifier <node-id>
 headscale routes enable --route <route-id>
 ```
+
+**Create caddy secret** — see [caddy](#caddy) above. Caddy won't start without
+`/var/lib/secrets/caddy`.
+
+**Set up the beszel hub** — the hub runs on `code` at `hw.box.headpats.uk`. On
+first boot it will be empty. Once tailscale is up and the other hosts have their
+agent keys configured, add each system in the hub UI using its tailnet IP and
+`lab.ports.beszel-agent`.
+
+**Set up the beszel agent on code itself** — see [beszel agent key](#beszel-agent-key)
+above. The hub monitors `code` too.
 
 ---
 
@@ -421,7 +474,7 @@ covers mail passwords, Gmail tokens, and the beszel agent credentials).
 
    # fix ownership
    ssh new-mail
-   chown -R virtualMual:virtualMail /var/vmail
+   chown -R virtualMail:virtualMail /var/vmail
 
    chown root:root /var/lib/secrets
    chown root:virtualMail /var/lib/secrets/fetchmail
@@ -506,4 +559,41 @@ headscale nodes list
 
 # check TLS cert status
 openssl s_client -connect smtp.headpats.uk:993 -quiet 2>&1 | head -5
+
+# check caddy is up and reload config without restart
+systemctl status caddy
+systemctl reload caddy
+
+# check beszel agent on any host
+systemctl status beszel-agent
+journalctl -u beszel-agent -n 50
 ```
+
+---
+
+## acknowledgements
+
+This setup wouldn't exist without a handful of projects doing the hard work:
+
+- **[nixpkgs](https://github.com/NixOS/nixpkgs)** — the foundation everything
+  runs on. The module system approach is exactly right.
+
+- **[deploy-rs](https://github.com/serokell/deploy-rs)** for remote NixOS
+  deployment that just works.
+
+- **[home-manager](https://github.com/nix-community/home-manager)** for
+  declarative user environment management. You don't know you need it until
+  you have it.
+
+- **[nix](https://github.com/NixOS/nix)** itself, a genuinely novel idea that
+  keeps proving its worth.
+
+If any of these projects have made your life better, please consider supporting
+them. Most are maintained by small teams or individuals giving their time freely:
+
+- [NixOS Foundation](https://nixos.org/donate/) supports nixpkgs and NixOS
+- [Serokell](https://serokell.io/) maintains deploy-rs
+- [home-manager
+  contributors](https://github.com/nix-community/home-manager/graphs/contributors).
+  Consider sponsoring active maintainers directly on GitHub
+- [flake-parts](https://github.com/hercules-ci/flake-parts) by Hercules CI
