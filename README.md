@@ -465,6 +465,20 @@ then try those commands again.
 
 ---
 
+## bypassing the local cache
+
+This is useful when restarting caddy or fixing a broken configuration. Anything
+that would bring down the caching reverse proxy. I guess this would be an
+argument in favor of using the port number so that we're not dependent on caddy
+for the cache to work.
+
+```sh
+nixos-rebuild switch --flake .#code --option substituters "https://cache.nixos.org https://nix-community.cachix.org"
+deploy .#code -- --option substituters "https://cache.nixos.org https://nix-community.cachix.org"
+```
+
+---
+
 ## useful diagnostics
 
 ```sh
