@@ -33,10 +33,6 @@
     # enables filters using sieve scripts
     enableManageSieve = true;
 
-    # STARTTLS on port 587/tcp disabled by default since 25.11
-    enableSubmission = true;
-    enableSubmissionSsl = true;
-
     # help improve email security across the internet by sending feedback on
     # authentication failures, spoofing attempts, and TLS encryption issues.
     dmarcReporting.enable = true;
@@ -69,7 +65,6 @@
   networking.firewall = {
     allowedTCPPorts = [
       config.lab.ports.imap
-      config.lab.ports.smtp
       config.lab.ports.smtps
       config.lab.ports.managesieve
       config.lab.ports.beszel-agent
