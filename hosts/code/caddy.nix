@@ -65,7 +65,7 @@ in
     '';
 
     virtualHosts."img.box.headpats.uk".extraConfig = ''
-      reverse_proxy localhost:${toString p.immich}
+      reverse_proxy immich.soy:${toString p.immich}
     '';
 
     virtualHosts."hw.box.headpats.uk".extraConfig = ''
