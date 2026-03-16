@@ -110,6 +110,17 @@ Then create the TXT record `mail._domainkey.headpats.uk` with that value.
 All secrets live outside the Nix store. They must be created manually before or
 just after the first deploy.
 
+Make sure to create the serets dir as root make make it only traversable with
+the exception of `mail` where virtualMail needs to see the gmail secrets.
+
+```sh
+mkdir -p /var/lib/secrets
+chmod 700 /var/lib/secrets
+
+# only on mail
+chmod 711 /var/lib/secrets
+```
+
 ### mail server password files
 
 Hashed password files are expected at `/var/lib/secrets/<user>-hashed-password`
@@ -117,7 +128,44 @@ on the `mail` machine. Generate them with:
 
 ```sh
 nix-shell -p mkpasswd --run 'mkpasswd -sm bcrypt' > /var/lib/secrets/loli-hashed-password
+chmod 600 /var/lib/secrets/loli-hashed-password
 ```
+
+### beszel agent key
+
+The beszel agent reads its credentials from `/var/lib/secrets/beszel-agent` (a
+systemd `EnvironmentFile`). Both values come from the beszel hub when you add
+the system — open the hub, click **Add system**, and it will show you the key
+and token.
+
+Create the file with:
+
+```sh
+cat > /var/lib/secrets/beszel-agent <<EOF
+KEY=<public-key-from-beszel-hub>
+TOKEN=<token-from-beszel-hub>
+EOF
+```
+
+Then lock it down. The service runs with `beszel-secrets` as a supplementary
+group (declared in `modules/beszel.nix`), so:
+
+```sh
+groupadd -f beszel-secrets
+chown root:beszel-secrets /var/lib/secrets/beszel-agent
+chmod 640 /var/lib/secrets/beszel-agent
+```
+
+Restart the agent to pick it up:
+
+```sh
+systemctl restart beszel-agent
+```
+
+Note: on `mail`, the beszel-agent port is tunneled out to the relay via nginx
+stream proxy because the beszel container on the relay can't reach the tailnet
+directly. The agent still binds locally at port 45876 — beszel hub connects to
+it through `relay:45876 → mail:45876`.
 
 ### Gmail OAuth2 tokens
 
@@ -149,15 +197,29 @@ Each Gmail account has one file named `gmail-<email>.json`:
 3. Copy the resulting file to the mail server:
 
    ```sh
+   # on mail
+   mkdir -p /var/lib/secrets/fetchmail
+
+   # on the machine you ran the script on
    scp gmail-user@gmail.com.json mail:/var/lib/secrets/fetchmail/
    ```
 
-   The `mail-fetch` service runs as `vmailUser` so make sure the directory and
-   file are readable by that user:
+   The `mail-fetch` service runs as `mailserver.vmailUserName` so make sure the
+   directory and file are readable by that user:
 
    ```sh
-   chown -R vmail:vmail /var/lib/secrets/fetchmail
+   # dir is readable by virtualMail but dont allow messing with dir structure
+   chown root:virtualMail /var/lib/secrets/fetchmail
+
+   # files only readable by virtualMail
+   chown virtualMail:virtualMail /var/lib/secrets/fetchmail/*.json
    chmod 600 /var/lib/secrets/fetchmail/*.json
+
+   # make sure dir is readable
+   chmod 750 /var/lib/secrets/fetchmail
+
+   # make sure parent dir is traversable
+   chmod 711 /var/lib/secrets
    ```
 
 4. Trigger a manual fetch to verify it works:
@@ -331,7 +393,8 @@ The relay is mostly stateless — headscale state is the only thing worth preser
 
 ### migrating the mail server to new hardware
 
-Mail state is in two places: the Maildir and the secrets.
+Mail state is in two places: the Maildir and `/var/lib/secrets` (which now
+covers mail passwords, Gmail tokens, and the beszel agent credentials).
 
 1. **Back up Maildir**:
 
@@ -356,10 +419,28 @@ Mail state is in two places: the Maildir and the secrets.
    ```sh
    rsync -avz ./vmail-backup/ new-mail:/var/vmail/
    rsync -avz ./secrets-backup/ new-mail:/var/lib/secrets/
+
    # fix ownership
-   ssh new-mail chown -R vmail:vmail /var/vmail /var/lib/secrets
-   ssh new-mail chmod 600 /var/lib/secrets/fetchmail/*.json
+   ssh new-mail
+   chown -R virtualMual:virtualMail /var/vmail
+
+   chown root:root /var/lib/secrets
+   chown root:virtualMail /var/lib/secrets/fetchmail
+
+   chmod 711 /var/lib/secrets
+   chmod 750 /var/lib/secrets/fetchmail
+
+   chown root:root /var/lib/secrets/*-hashed-password
+   chmod 600 /var/lib/secrets/*-hashed-password
+   chmod 600 /var/lib/secrets/fetchmail/*.json
+   groupadd -f beszel-secrets
+   chown root:beszel-secrets /var/lib/secrets/beszel-agent
+   chmod 640 /var/lib/secrets/beszel-agent
    ```
+
+   Also check that the files inside `/var/vmail` are not world readable. if you
+   messed up the permissions on the backup you could fix with `chmod -R go=` but
+   some files might need different permissions.
 
 5. **Re-run tailscale first-time steps** (see above).
 

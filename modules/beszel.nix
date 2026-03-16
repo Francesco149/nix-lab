@@ -1,7 +1,7 @@
 {
   services.beszel.agent = {
     enable = true;
-    environmentFile = "/etc/secrets/beszel-agent";
+    environmentFile = "/var/lib/secrets/beszel-agent";
     openFirewall = false; # we will use the tailnet ip
   };
 
