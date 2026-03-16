@@ -90,11 +90,12 @@ rec {
 
   lan.zone = "10.in-addr.arpa";
 
+  secrets.dir = "/var/lib/secrets";
   headscale.db-path = "/var/lib/headscale/db.sqlite";
   headscale.noise.private-key-path = "/var/lib/headscale/noise_private.key";
   derp.urls = [ "https://controlplane.tailscale.com/derpmap/default" ];
 
   # where the oauth tokens for gmail accounts are stored. this might be used for
   # other tokens as well in the future
-  fetchmail.secrets-dir = "/var/lib/secrets/fetchmail";
+  fetchmail.secrets-dir = "${secrets.dir}/fetchmail";
 }
