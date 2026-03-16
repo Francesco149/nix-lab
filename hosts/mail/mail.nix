@@ -49,7 +49,7 @@
       map (user: {
         name = "${user}@${config.lab.domains.base}";
         value = {
-          hashedPasswordFile = "${config.secrets.dir}/${user}-hashed-password";
+          hashedPasswordFile = config.lab.mail.mkHashedPasswordFileName user;
         }
         // (
           if user == config.lab.mail.master then

@@ -98,4 +98,6 @@ rec {
   # where the oauth tokens for gmail accounts are stored. this might be used for
   # other tokens as well in the future
   fetchmail.secrets-dir = "${secrets.dir}/fetchmail";
+
+  mail.mkHashedPasswordFileName = user: "${secrets.dir}/${user}-hashed-password";
 }
