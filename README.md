@@ -185,13 +185,13 @@ Traffic shaping using `fq_codel` is configured to mitigate bufferbloat:
 - **Download:** 100 Mbit/s
 - **Upload:** 18 Mbit/s
 
-### reverse proxy & auth
-
-- **Caddy plugin:** Reverse proxies internal management UIs (`sense.box`,
-  `prox.box`, etc.).
+### auth
 
 - **Authentik LDAP:** Management access is authenticated via the central
-  Authentik instance (`code.soy:389`).
+  Authentik instance (`code.soy:389`). Completely optional as you can still log
+  in as root when it's down, this was purely an experiment and did not achieve
+  what I wanted, which is being able to use the authentik session to bypass
+  credentials entry like I do with services that support SSO.
 
 ---
 
