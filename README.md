@@ -147,6 +147,49 @@ the tailnet (`openFirewall = false`). There is no SSH tunnel needed.
 
 ---
 
+## opnsense (`uwusense.soy`)
+
+The home network edge is managed by OPNsense running on a dedicated mini-PC.
+
+### PPPoE optimizations (critical)
+
+Because FreeBSD defaults to single-core processing for PPPoE, these tunables are applied to distribute the load across all available cores, preventing bottlenecks during high packet volumes:
+
+- `net.isr.dispatch = deferred`
+- `net.isr.maxthreads = -1`
+
+### interfaces & networks
+
+| interface   | physical          | network          | description                                        |
+| :---------- | :---------------- | :--------------- | :------------------------------------------------- |
+| **WAN**     | `pppoe0`          | DHCP / PPPoE     | Primary internet connection.                       |
+| **LAN**     | `igc1`            | `10.0.10.1/24`   | Main trusted network (`.soy` domain).              |
+| **Homelab** | `vlan01` (tag 20) | `10.0.30.1/24`   | Isolated lab network.                              |
+| **Modem**   | `igc0`            | `192.168.1.2/24` | Direct connection to the ISP modem for management. |
+
+### DNS & DHCP
+
+DNS is split between **Unbound** and **Dnsmasq**:
+
+- **Unbound (Port 53):** Primary resolver with DNSBL (adblocking).
+- **Dnsmasq (Port 53053):** Handles DHCP leases and local `.soy` resolution.
+- **Host Overrides:** Wildcard records route `*.box.headpats.uk` to `10.0.10.53` (Caddy).
+
+### traffic shaping (bufferbloat)
+
+Traffic shaping using `fq_codel` is configured to mitigate bufferbloat:
+
+- **Download:** 100 Mbit/s
+- **Upload:** 18 Mbit/s
+
+### reverse proxy & auth
+
+- **Caddy plugin:** Reverse proxies internal management UIs (`sense.box`, `prox.box`, etc.).
+
+* **Authentik LDAP:** Management access is authenticated via the central Authentik instance (`code.soy:389`).
+
+---
+
 ## dockge containers (code)
 
 Dockge is used as a low-friction way to spin up and experiment with containers.
