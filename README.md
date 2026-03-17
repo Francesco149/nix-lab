@@ -12,11 +12,46 @@ starting point than this repo.
 
 ## machines
 
-| host    | description                                                                |
-| ------- | -------------------------------------------------------------------------- |
-| `code`  | home server — openvscode-server, dockge, caddy (reverse proxy), beszel hub |
-| `mail`  | home server running nixos-mailserver (dovecot + postfix), Gmail IMAP sync  |
-| `relay` | VPS (198.46.149.19) — headscale, postfix relay, nginx stream proxy         |
+| host     | description                                                                               |
+| -------- | ----------------------------------------------------------------------------------------- |
+| `code`   | Proxmox VM (home) — openvscode-server, dockge, caddy (reverse proxy), beszel hub          |
+| `mail`   | Proxmox VM (home) — nixos-mailserver (dovecot + postfix), Gmail IMAP sync, DMARC analyzer |
+| `relay`  | VPS (198.46.149.19) — headscale, postfix relay, nginx stream proxy                        |
+| `immich` | Proxmox LXC (home, not NixOS) — Immich photo server, iGPU HW transcoding + OpenVINO       |
+
+---
+
+## hardware
+
+### home server (Proxmox host)
+
+Mini-PC running [Proxmox VE](https://www.proxmox.com/):
+
+- **CPU**: Intel N300
+- **RAM**: 16 GB
+- **Storage**: 2 TB M.2 NVMe SSD + 2 TB SATA SSD, in ZFS RAIDZ1
+
+Both `code`, `mail`, and `immich` run on this box.
+
+> **Thermal note**: the SATA SSD physically blocks the fan, so it runs warm. The
+> fans kick in around 80 °C and consistently pull temps back down to ~60 °C. It's
+> been stable, just not cool.
+
+### router
+
+Same mini-PC form factor running OPNsense, stock 512 GB SSD. No thermal issues
+since there's no SATA drive blocking the fan.
+
+### VPS (`relay`)
+
+[RackNerd](https://racknerd.com/) — cheapest plan from a New Year's deal:
+
+- **vCPU**: 1
+- **RAM**: 1 GB (~30% used)
+- **Disk**: 24 GB (~30% used)
+- **Bandwidth**: 2 TB/month (barely touched)
+
+CPU sits essentially idle.
 
 ---
 
@@ -37,6 +72,7 @@ hosts/
     configuration.nix         # hardware/boot config
     mail.nix                  # mailserver, postfix outbound relay, nginx ACME
     mail-fetch.nix            # systemd service+timer to pull Gmail via IMAP OAuth2
+    dmarc.nix                 # dmarc-analyzer service + LAN firewall rules
     mail-fetch/
       fetch.py                # Python script: OAuth2 token refresh + IMAP fetch
                               #   into Maildir
@@ -47,6 +83,9 @@ modules/
   beszel.nix                  # beszel agent — applied globally to all hosts
   tailscale-home-lan.nix      # shared tailscale config for home machines
   hm/                         # shared home-manager modules
+    fish/
+      init.fish               # prompt, base aliases, fzf config
+      dev.fish                # deploy helpers, nix dev workflow functions
 lib/
   lab.nix                     # all magic numbers: IPs, domains, ports, paths
 utils/
@@ -67,7 +106,7 @@ internet → relay (198.46.149.19)
                                ├── mail   (100.64.0.1)
                                └── code   (100.64.0.5)
 
-mail (home)
+mail (home, Proxmox VM)
   ├── nixos-mailserver (dovecot IMAP + postfix)
   │     fqdn: smtp.headpats.uk
   │     domain: headpats.uk
@@ -75,9 +114,10 @@ mail (home)
   ├── postfix outbound → relayhost: 100.64.0.2:25
   ├── mail-fetch timer (every 5 min)
   │     fetch.py /var/lib/secrets/fetchmail /var/vmail/headpats.uk/loli/mail/
+  ├── dmarc-analyzer (port 8741, LAN-only, firewall allows code only)
   └── beszel-agent → hub on code (over tailnet)
 
-code (home)
+code (home, Proxmox VM)
   ├── caddy (NixOS service, ports 80/443, cloudflare DNS-01 for ACME)
   │     reverse proxies: dockge, authentik, openvscode-server, beszel hub,
   │                      immich, nix cache, rackpeek, mail relay UIs, LAN devices
@@ -87,6 +127,11 @@ code (home)
   │       ├── mail  — tailnet-ip:beszel-agent-port
   │       └── relay — tailnet-ip:beszel-agent-port
   └── beszel-agent (self-monitoring, same as all other hosts)
+
+immich (home, Proxmox LXC — not NixOS, provisioned via Proxmox VE Community Scripts)
+  ├── Immich server (port 2283, proxied through code's caddy at img.box.headpats.uk)
+  ├── hardware video transcoding via passed-through iGPU
+  └── OpenVINO ML acceleration (smart search, face recognition)
 
 relay (VPS)
   └── beszel-agent → hub on code (over tailnet)
@@ -111,8 +156,135 @@ migrated into the NixOS config properly.
 | stack          | description                                                                                                                                                                                                                                                                |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `kurrier`      | Modern Gmail-style webmail frontend. Still in early development. Stock caddy in the compose is disabled since the NixOS host runs caddy. Port bindings can't be restricted to localhost without breaking it — acceptable since it's designed to be internet-facing anyway. |
-| `immich-stack` | Small utility that automatically stacks the RAW and compressed versions of photos in Immich.                                                                                                                                                                               |
+| `immich-stack` | Small utility that automatically stacks the RAW and compressed versions of photos in Immich. Immich itself runs as a Proxmox LXC — see the machines table.                                                                                                                 |
 | `authentik`    | Identity provider / SSO. Protects internal services via Caddy's `forward_auth` — see the `(authentik)` snippet in `caddy.nix`.                                                                                                                                             |
+
+---
+
+## dmarc-analyzer
+
+[dmarc-analyzer](https://github.com/Francesco149/dmarc-analyzer) is a local
+flake input. It runs on `mail` and is reverse-proxied through `code`'s caddy at
+`dmarc.box.headpats.uk`, behind authentik.
+
+Two moving parts:
+
+- **`dmarc-scanner`** — oneshot systemd service on a timer. Runs as
+  `vmailUser` (needs read access to the `700`-mode Maildir). Extracts DMARC
+  aggregate report XMLs from the postmaster inbox and writes `reports.json` to
+  `/var/lib/dmarc-analyzer/data/`.
+- **`dmarc-server`** — minimal Python HTTP server serving the self-contained
+  frontend and `reports.json`. Bound to `mail`'s LAN IP.
+
+Firewall rules in `hosts/mail/dmarc.nix` allow only `code`'s LAN IP to reach
+port 8741 on `mail`. Caddy proxies through to `mail.soy` (local DNS alias) and
+wraps it with authentik auth.
+
+The flake input is wired in `flake.nix`:
+
+```nix
+inputs.dmarc-analyzer.url = "git+file:///opt/src/dmarc-analyzer";
+# ...
+hosts.mail = [
+  inputs.dmarc-analyzer.nixosModules.dmarc-analyzer
+  # ...
+];
+```
+
+Config in `hosts/mail/dmarc.nix`:
+
+```nix
+services.dmarc-analyzer = {
+  enable = true;
+  mailDir = "/var/vmail/${lab.domains.base}/${lab.mail.master}/mail";
+  scanUser = config.mailserver.vmailUserName;
+  port = lab.ports.dmarc-analyzer;
+  listenHost = lab.lan.mail;
+};
+```
+
+---
+
+## fish commands
+
+Custom fish functions live in `modules/hm/fish/dev.fish` and are loaded on
+machines with the `interactive` module. They assume you're in the `nix-lab` repo
+directory.
+
+### `deploy [args]`
+
+Wraps `deploy-rs`. Detects whether the current machine is the designated
+workstation (`rd_host = 100.64.0.6`). If it is, runs `deploy` directly. If not
+(e.g. on a laptop), delegates to `remote-deploy` so builds run on the faster
+machine.
+
+```sh
+deploy            # deploy all nodes
+deploy .#mail     # deploy one node
+```
+
+### `remote-deploy [args]`
+
+Deploys from a non-workstation machine by:
+
+1. `rsync-shallow`ing the repo and local flake inputs (`nut`, `dmarc-analyzer`)
+   to the workstation under `/tmp/`
+2. SSHing in, initialising shallow git repos from those copies, overriding the
+   flake inputs to point at them, then running `deploy`
+
+Unstaged changes deploy cleanly without polluting git history, and heavy Nix
+eval/builds happen on the faster workstation.
+
+### `rsync-shallow`
+
+`rsync -a` with the fzf exclude flags (`.git`, `.direnv`, `result*`, etc.).
+Used internally by `remote-deploy`.
+
+### `diff-system <host> [ssh-key]`
+
+Builds the new system closure, fetches the current one from the target, and runs
+`nvd diff` between them. Useful before deploying.
+
+```sh
+diff-system mail
+diff-system relay ~/.ssh/id_relay
+```
+
+### `build-system <host>`
+
+Builds the system closure locally (via `nom`) without deploying. Good for
+catching build errors early.
+
+```sh
+build-system code
+```
+
+### `check-inputs`
+
+Scans `flake.lock` for duplicate versions of the same input (e.g. two different
+`nixpkgs` revisions pulled in by different deps) and prints a full input list
+with nar hashes.
+
+### `refresh-nix-tokens [host]`
+
+Pushes a fresh GitHub token (from `gh auth token`) into
+`~/.config/nix/nix.conf` on a remote host. Useful when private flake inputs
+fail to fetch on a fresh VM.
+
+```sh
+refresh-nix-tokens              # targets root@nixos (default fresh VM hostname)
+refresh-nix-tokens root@mail
+```
+
+### `ns [pkg ...] [flake#pkg ...]`
+
+Shorthand for `nix shell`. Bare names get `nixpkgs#` prepended automatically;
+full flake refs pass through unchanged.
+
+```sh
+ns git ripgrep                 # → nix shell nixpkgs#git nixpkgs#ripgrep
+ns github:some/flake#tool      # → nix shell github:some/flake#tool
+```
 
 ---
 
@@ -607,6 +779,10 @@ deploy .#code -- --option substituters "https://cache.nixos.org https://nix-comm
 systemctl status mail-fetch.timer
 journalctl -u mail-fetch -n 50
 
+# check dmarc scanner
+systemctl status dmarc-scanner.timer
+journalctl -u dmarc-scanner -n 50
+
 # check postfix queue on mail server
 mailq
 
@@ -652,6 +828,9 @@ This setup wouldn't exist without a handful of projects doing the hard work:
 - **[home-manager](https://github.com/nix-community/home-manager)** for
   declarative user environment management. You don't know you need it until
   you have it.
+
+- **[nixos-mailserver](https://gitlab.com/simple-nixos-mailserver/nixos-mailserver)**
+  for making self-hosted mail not a complete nightmare.
 
 - **[nix](https://github.com/NixOS/nix)** itself, a genuinely novel idea that
   keeps proving its worth.
