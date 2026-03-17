@@ -14,9 +14,6 @@ function fish_prompt
   echo -n " λ "
 end
 
-fzf --fish | source
-carapace _carapace fish | source
-
 alias cat bat
 alias grep rg
 alias du dust

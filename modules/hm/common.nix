@@ -65,6 +65,7 @@ in
   programs.fzf = {
     enable = true;
     defaultCommand = "fd --type f --hidden --follow " + excludeFlags;
+    enableFishIntegration = true;
   };
 
   # shell tab completions/suggestions
