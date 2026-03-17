@@ -5,6 +5,16 @@
     ./dmarc.nix
   ];
 
+  # because of the mail server, dns resolutuon goes through kresd which uses
+  # cloudflare. this allows it to see our local domains by redirecting
+  # resolution for back to my router so we can see the package cache.
+  services.kresd.extraConfig = ''
+    modules = { 'policy' }
+    policy.add(policy.suffix(policy.FORWARD('${config.lab.lan.gateway}'), {
+      todname('${config.lab.domains.internal}')
+    }))
+  '';
+
   # relay only for outbound mail, so it comes from the vps ip. the relay's
   # domain needs to be different than the domain used by the mail server at
   # home. this is to avoid a loop. for example:
