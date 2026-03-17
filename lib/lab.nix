@@ -13,6 +13,7 @@ rec {
   internet.relay = "198.46.149.19";
 
   lan.prefix = "10.0.10";
+  lan.mask = "${lan.prefix}.0/24";
   lan.code = "${lan.prefix}.53";
   lan.mail = "${lan.prefix}.55";
 
