@@ -883,6 +883,10 @@ This setup wouldn't exist without a handful of projects doing the hard work:
 - **[nix](https://github.com/NixOS/nix)** itself, a genuinely novel idea that
   keeps proving its worth.
 
+- **[OPNsense](https://opnsense.org/)** — for providing a rock-solid, BSD-based
+  routing platform that can actually handle high-performance PPPoE with the
+  right tuning.
+
 If any of these projects have made your life better, please consider supporting
 them. Most are maintained by small teams or individuals giving their time freely:
 
@@ -892,3 +896,4 @@ them. Most are maintained by small teams or individuals giving their time freely
   contributors](https://github.com/nix-community/home-manager/graphs/contributors).
   Consider sponsoring active maintainers directly on GitHub
 - [flake-parts](https://github.com/hercules-ci/flake-parts) by Hercules CI
+- [Deciso](https://www.deciso.com/) sponsors the OPNsense project
