@@ -416,6 +416,28 @@ Then create the TXT record `mail._domainkey.headpats.uk` with that value.
 
 ---
 
+## mail server notes
+
+The `mail` machine runs
+[nixos-mailserver](https://gitlab.com/simple-nixos-mailserver/nixos-mailserver),
+which brings up kresd (Knot Resolver) as a local DNSSEC-validating resolver in
+place of systemd-resolved. This means local domains that only exist on the
+router (e.g. `box.headpats.uk`) won't resolve unless explicitly forwarded — see
+the `services.kresd.extraConfig` forward-zone policy in `hosts/mail/mail.nix`.
+
+### kresd DNS cache stale after policy changes
+
+kresd caches results in lmdb on disk, so stale NXDOMAIN entries survive service
+restarts and silently ignore updated policy rules until the cache is cleared:
+
+```sh
+systemctl stop kresd@1
+rm -rf /var/cache/knot-resolver/*
+systemctl start kresd@1
+```
+
+---
+
 ## secrets
 
 All secrets live outside the Nix store. They must be created manually before or
