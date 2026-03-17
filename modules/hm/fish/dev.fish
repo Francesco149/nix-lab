@@ -80,19 +80,32 @@ set -g rd_host 100.64.0.6
 set -g rd_user headpats
 
 function remote-deploy
-  set dest {$rd_user}@{$rd_host}
-  rsync-shallow . {$dest}:/tmp/remote-deploy/
-  rsync-shallow /opt/src/nut/ {$dest}:/tmp/nut/
-  ssh $dest "
-    cd /tmp/nut
-    git init
-    git add -A
+  set -l dest $rd_user@$rd_host
+  set -l remote_script '
+    echo "--> initializing shallow repos"
+
+    set inputs dmarc-analyzer remote-deploy
+    for dir in nut $inputs
+      cd /tmp/$dir || continue
+      git init
+      git add -A
+    end
+
+    echo "--> committing nix war crimes"
     cd /tmp/remote-deploy
-    git init
-    git add -A
-    nix flake lock --allow-dirty-locks --override-input nut git+file:///tmp/nut
-    deploy $argv
-  "
+    for dir in $inputs
+      nix flake lock --allow-dirty-locks --override-input $dir git+file:///tmp/$dir
+    end
+
+    echo "--> deploying"
+  '
+  echo "--> making a shallow copy of the repos"
+  rsync-shallow . $dest:/tmp/remote-deploy/
+  rsync-shallow /opt/src/nut/ $dest:/tmp/nut/
+  rsync-shallow /opt/src/dmarc-analyzer/ $dest:/tmp/dmarc-analyzer/
+
+  echo "--> ssh-ing into workstation"
+  ssh $dest "$remote_script; deploy $argv"
 end
 
 function deploy
