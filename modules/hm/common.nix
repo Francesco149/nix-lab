@@ -62,9 +62,17 @@ in
   };
 
   # fuzzy file finder
-  programs.fzf = {
+  programs.fzf = rec {
     enable = true;
+
+    # find command for running `fzf` directly and CTRL+T respectively
     defaultCommand = "fd --type f --hidden --follow " + excludeFlags;
+    fileWidgetCommand = defaultCommand;
+
+    # ALT-C
+    changeDirWidgetCommand = "fd --type d --hidden --follow " + excludeFlags;
+
+    # install shell hooks
     enableFishIntegration = true;
   };
 
