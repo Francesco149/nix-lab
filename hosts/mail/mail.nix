@@ -2,6 +2,7 @@
 {
   imports = [
     ./mail-fetch.nix
+    ./dmarc.nix
   ];
 
   # relay only for outbound mail, so it comes from the vps ip. the relay's

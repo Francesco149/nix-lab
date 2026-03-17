@@ -1,6 +1,7 @@
 { pkgs, config, ... }:
 let
-  p = config.lab.ports;
+  inherit (config) lab;
+  p = lab.ports;
 in
 {
   services.caddy = {
@@ -99,6 +100,11 @@ in
     virtualHosts."rack.box.headpats.uk".extraConfig = ''
       import authentik
       reverse_proxy localhost:${toString p.rackpeek}
+    '';
+
+    virtualHosts."dmarc.box.headpats.uk".extraConfig = ''
+      import authentik
+      reverse_proxy mail.soy:${toString p.dmarc-analyzer}
     '';
   };
 

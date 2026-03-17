@@ -12,6 +12,10 @@ rec {
   # public ip of your vps
   internet.relay = "198.46.149.19";
 
+  lan.prefix = "10.0.10";
+  lan.code = "${lan.prefix}.53";
+  lan.mail = "${lan.prefix}.55";
+
   # all of these point to internet.relay. see README.md for records setup
   domains.base = "headpats.uk";
   domains.mail = "mail.${domains.base}"; # PTR, spf1, mx records point to this
@@ -77,6 +81,7 @@ rec {
   ports.openvscode-server = 3010;
   ports.beszel = 8090;
   ports.cache = 8765;
+  ports.dmarc-analyzer = 8741;
 
   # docker containers
   ports.kurrier = 3000;
