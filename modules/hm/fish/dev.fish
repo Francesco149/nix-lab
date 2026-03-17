@@ -1,6 +1,6 @@
 function diff-system
-  set host $argv[1]
-  set key $argv[2]  # optional: path to ssh key
+  set -l host $argv[1]
+  set -l key $argv[2]  # optional: path to ssh key
 
   if test -z "$host"
     echo "Usage: diff-system <machine> [ssh-key]"
@@ -8,15 +8,15 @@ function diff-system
   end
 
   # fish list = multiple args, not a single string
-  set ssh_opts
+  set -l ssh_opts
   if test -n "$key"
     set ssh_opts -i $key -o IdentitiesOnly=yes
     set -x NIX_SSHOPTS "-i $key -o IdentitiesOnly=yes"
   end
 
-  set machine (nix eval --raw .#deploy.nodes.$host.hostname)
-  set new_path (nom build .#nixosConfigurations.$host.config.system.build.toplevel --no-link --print-out-paths 2>&1 | tail -1)
-  set current (ssh $ssh_opts root@$machine readlink /run/current-system)
+  set -l machine (nix eval --raw .#deploy.nodes.$host.hostname)
+  set -l new_path (nom build .#nixosConfigurations.$host.config.system.build.toplevel --no-link --print-out-paths 2>&1 | tail -1)
+  set -l current (ssh $ssh_opts root@$machine readlink /run/current-system)
   nix copy --no-check-sigs --from ssh-ng://root@$machine $current
   nvd diff $current $new_path
 
@@ -24,7 +24,7 @@ function diff-system
 end
 
 function build-system
-  set host $argv[1]
+  set -l host $argv[1]
   if test -z "$host"
     echo "Usage: build-system <machine>"
     return 1
@@ -33,15 +33,13 @@ function build-system
 end
 
 function check-inputs
-  set metadata (nix flake metadata --json)
-
   echo "=== Duplicate input check ==="
 
-  set inputs (echo $metadata | jq -r '.locks.nodes | keys[]' | grep -v root)
-
-  set found_dupes 0
+  set -l metadata (nix flake metadata --json)
+  set -l inputs (echo $metadata | jq -r '.locks.nodes | keys[]' | grep -v root)
+  set -l found_dupes 0
   for input in $inputs
-    set matches (echo $metadata | jq -r --arg i $input \
+    set -l matches (echo $metadata | jq -r --arg i $input \
       '.locks.nodes | to_entries[] | select(.key == $i or (.key | startswith($i + "_"))) | .key')
 
     if test (count $matches) -gt 1
@@ -49,7 +47,7 @@ function check-inputs
       echo ""
       echo "⚠ $input has multiple versions:"
       for match in $matches
-        set hash (echo $metadata | jq -r --arg m $match \
+        set -l hash (echo $metadata | jq -r --arg m $match \
           '.locks.nodes[$m].locked.narHash // "follows"')
         echo " - $match: $hash"
       end
@@ -84,7 +82,7 @@ function remote-deploy
   set -l remote_script '
     echo "--> initializing shallow repos"
 
-    set inputs dmarc-analyzer remote-deploy
+    set -l inputs dmarc-analyzer remote-deploy
     for dir in nut $inputs
       cd /tmp/$dir || continue
       git init
@@ -109,7 +107,7 @@ function remote-deploy
 end
 
 function deploy
-  set tsip (tailscale ip | sed 1q)
+  set -l tsip (tailscale ip | sed 1q)
   if test $tsip != $rd_host; and tailscale ping -c 1 $rd_host &>/dev/null
     remote-deploy $argv --skip-checks
   else
@@ -118,19 +116,19 @@ function deploy
 end
 
 function refresh-nix-tokens
-    set host (test -n "$argv[1]"; and echo $argv[1]; or echo "root@nixos")
-    set github_token (gh auth token)
+  set -l host (test -n "$argv[1]"; and echo $argv[1]; or echo "root@nixos")
+  set -l github_token (gh auth token)
 
-    if test -z "$github_token"
-        echo "Error: could not get GitHub token from gh auth token"
-        return 1
-    end
+  if test -z "$github_token"
+      echo "Error: could not get GitHub token from gh auth token"
+      return 1
+  end
 
-    ssh $host bash -c "'
-        mkdir -p \$HOME/.config/nix
-        echo \"extra-access-tokens = github.com=$github_token\" > \$HOME/.config/nix/nix.conf
-        echo \"Token written to \$HOME/.config/nix/nix.conf\"
-    '"
+  ssh $host bash -c "'
+    mkdir -p \$HOME/.config/nix
+    echo \"extra-access-tokens = github.com=$github_token\" > \$HOME/.config/nix/nix.conf
+    echo \"Token written to \$HOME/.config/nix/nix.conf\"
+  '"
 end
 
 # instead of:
