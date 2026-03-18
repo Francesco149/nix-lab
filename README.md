@@ -201,11 +201,10 @@ Dockge is used as a low-friction way to spin up and experiment with containers.
 Stacks here are considered temporary — once something proves useful it gets
 migrated into the NixOS config properly.
 
-| stack          | description                                                                                                                                                                                                                                                                |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kurrier`      | Modern Gmail-style webmail frontend. Still in early development. Stock caddy in the compose is disabled since the NixOS host runs caddy. Port bindings can't be restricted to localhost without breaking it — acceptable since it's designed to be internet-facing anyway. |
-| `immich-stack` | Small utility that automatically stacks the RAW and compressed versions of photos in Immich. Immich itself runs as a Proxmox LXC — see the machines table.                                                                                                                 |
-| `authentik`    | Identity provider / SSO. Protects internal services via Caddy's `forward_auth` — see the `(authentik)` snippet in `caddy.nix`.                                                                                                                                             |
+| stack          | description                                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `immich-stack` | Small utility that automatically stacks the RAW and compressed versions of photos in Immich. Immich itself runs as a Proxmox LXC — see the machines table. |
+| `authentik`    | Identity provider / SSO. Protects internal services via Caddy's `forward_auth` — see the `(authentik)` snippet in `caddy.nix`.                             |
 
 ---
 
@@ -360,9 +359,8 @@ services.nginx.virtualHosts.${host} = {
 
 ### PostgreSQL port
 
-Kurrier's Docker container occupies the default PostgreSQL port (5432), so the
-NixOS postgres runs on a custom port (`lab.ports.postgresql = 5433`). This
-breaks roundcube in two places:
+If anything occupies the default PostgreSQL port (5432), the NixOS postgres
+needs to run on a custom port. This breaks roundcube in two places:
 
 1. The module's generated DSN hardcodes `unix(/run/postgresql)` with no port, but
    the socket file is named after the port and has moved. Override `db_dsnw` in
@@ -378,6 +376,9 @@ breaks roundcube in two places:
 ```nix
    systemd.services.roundcube-setup.environment.PGPORT = toString lab.ports.postgresql;
 ```
+
+Right now, I'm not using these workarounds anymore, but I'll leave them here for
+future reference.
 
 ### maxAttachmentSize type error
 

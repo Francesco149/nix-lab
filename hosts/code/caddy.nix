@@ -75,14 +75,6 @@ in
       }
     '';
 
-    virtualHosts."kurrier.box.headpats.uk".extraConfig = ''
-      @worker {
-        path /webdav/*
-      }
-      reverse_proxy @worker localhost:${toString p.kurrier-dav}
-      reverse_proxy localhost:${toString p.kurrier}
-    '';
-
     virtualHosts."code.box.headpats.uk".extraConfig = ''
       import authentik
       reverse_proxy localhost:${toString p.openvscode-server} {

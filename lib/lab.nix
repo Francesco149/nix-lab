@@ -73,7 +73,6 @@ rec {
   ports.smtps = 465;
   ports.imap = 993;
   ports.managesieve = 4190;
-  ports.postgresql = 5433; # avoid conflict with kurrier container
 
   ports.headscale = 8080;
   ports-udp.headscale = 41641;
@@ -83,11 +82,9 @@ rec {
   ports.beszel = 8090;
   ports.cache = 8765;
   ports.dmarc-analyzer = 8741;
+  ports.roundcube = 3100;
 
   # docker containers
-  ports.kurrier = 3000;
-  ports.kurrier-dav = 3001;
-  ports.roundcube = 3100;
   ports.dockge = 5001;
   ports.rackpeek = 8080;
   ports.authentik = 9000;
