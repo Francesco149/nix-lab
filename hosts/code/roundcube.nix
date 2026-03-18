@@ -19,6 +19,11 @@ in
       ]
     );
 
+    plugins = [
+      "persistent_login"
+      "managesieve"
+    ];
+
     dicts = with pkgs.aspellDicts; [
       # https://search.nixos.org/packages?query=aspellDicts
       en
@@ -35,6 +40,10 @@ in
       $config['smtp_host'] = "ssl://${lab.domains.fqdn}";
       $config['smtp_user'] = "%u";
       $config['smtp_pass'] = "%p";
+
+      $config['managesieve_host'] = "tls://${lab.domains.fqdn}";
+      $config['managesieve_port'] = ${toString lab.ports.managesieve};
+      $config['managesieve_usetls'] = true;
     '';
   };
 
