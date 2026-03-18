@@ -1,7 +1,6 @@
 {
   config,
   pkgs,
-  lib,
   ...
 }:
 let
@@ -51,9 +50,9 @@ in
   # much as possible but change it to localhost on a custom port so we can put
   # it behind caddy like all other services.
   services.nginx.virtualHosts.${lab.domains.roundcube} = {
-    forceSSL = lib.mkForce false;
-    enableACME = lib.mkForce false;
-    listen = lib.mkForce [
+    forceSSL = false;
+    enableACME = false;
+    listen = [
       {
         addr = "127.0.0.1";
         port = lab.ports.roundcube;
