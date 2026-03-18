@@ -30,9 +30,7 @@ in
       it
     ];
 
-    # Account for ~30% size increase due to base64 encoding of attachments
-    # https://github.com/roundcube/roundcubemail/issues/7979
-    maxAttachmentSize = builtins.floor (lab.mail.messageSizeLimit / 1024 / 1024 / 1.37);
+    maxAttachmentSize = builtins.floor (lab.mail.messageSizeLimit / 1024 / 1024);
 
     extraConfig = ''
       $config['imap_host'] = "ssl://${lab.domains.fqdn}";
