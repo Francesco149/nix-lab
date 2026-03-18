@@ -65,7 +65,7 @@ function check-inputs
 end
 
 function rsync-shallow
-  rsync -a --checksum --delete $fzf_exclude_flags $argv
+  rsync -a --checksum --delete --itemize-changes $rsync_exclude_flags $argv
 end
 
 # use my workstation when it happens to be online, for faster eval and builds.

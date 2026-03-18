@@ -32,6 +32,7 @@ in
     diskus
     dust # tree view of disk usage, better du
     gh # to get github token
+    glab # gitlab token
     moreutils # ts to timestamp lines of output plus other nice utils
   ];
 
@@ -48,7 +49,7 @@ in
     enable = true;
     interactiveShellInit = ''
       # we can tap into nix variables and consts from here if needed
-      set -g fzf_exclude_flags ${excludeFlags}
+      set -g rsync_exclude_flags ${builtins.replaceStrings [ "*" ] [ "\\*" ] excludeFlags}
     ''
     + (builtins.readFile ./fish/init.fish)
     + (builtins.readFile ./fish/dev.fish);
