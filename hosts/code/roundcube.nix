@@ -30,7 +30,7 @@ in
       it
     ];
 
-    maxAttachmentSize = builtins.floor (lab.mail.messageSizeLimit / 1024 / 1024);
+    maxAttachmentSize = lab.mail.messageSizeLimit / 1024 / 1024;
 
     extraConfig = ''
       $config['imap_host'] = "ssl://${lab.domains.fqdn}";
