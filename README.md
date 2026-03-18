@@ -223,6 +223,10 @@ Two moving parts:
 - **`dmarc-server`** — minimal Python HTTP server serving the self-contained
   frontend and `reports.json`. Bound to `mail`'s LAN IP.
 
+In my case, I have sieve rules set up to automatically move the DMARC reports to
+a separate folder and point the analyzer to that, but the script is designed to
+be able to scan a mixed, even huge inbox quickly and efficiently.
+
 Firewall rules in `hosts/mail/dmarc.nix` allow only `code`'s LAN IP to reach
 port 8741 on `mail`. Caddy proxies through to `mail.soy` (local DNS alias) and
 wraps it with authentik auth.
