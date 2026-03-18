@@ -8,7 +8,7 @@ in
 
   services.dmarc-analyzer = {
     enable = true;
-    mailDir = "/var/vmail/${lab.domains.base}/${lab.mail.master}/mail";
+    mailDir = "/var/vmail/${lab.domains.base}/${lab.mail.master}/mail/.Archive.DMARC/";
     scanUser = config.mailserver.vmailUserName;
     port = lab.ports.dmarc-analyzer;
     listenHost = lab.lan.mail;
