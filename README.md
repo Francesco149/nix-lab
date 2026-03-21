@@ -665,8 +665,9 @@ Things that can't be done declaratively and must be run after the first deploy.
 4. **Add DKIM DNS record** — see [DNS records](#dns-records) above.
 
 5. **Copy Gmail OAuth tokens** — see [secrets](#secrets) above.
+6. **Copy sieve script** to `/etc/dovecot/sieve/headpats-before.sieve` .
 
-6. **Test mail flow**:
+7. **Test mail flow**:
    - inbound: send to `loli@headpats.uk` from an external address
    - outbound: send from `loli@headpats.uk` using a mail client via
      `smtp.headpats.uk:587`

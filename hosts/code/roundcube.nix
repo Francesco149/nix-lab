@@ -20,7 +20,7 @@ in
 
     plugins = [
       "persistent_login"
-      "managesieve"
+      "archive" # one click archive
     ];
 
     dicts = with pkgs.aspellDicts; [
@@ -38,9 +38,7 @@ in
       $config['smtp_user'] = "%u";
       $config['smtp_pass'] = "%p";
 
-      $config['managesieve_host'] = "tls://${lab.domains.fqdn}";
-      $config['managesieve_port'] = ${toString lab.ports.managesieve};
-      $config['managesieve_usetls'] = true;
+      $config['archive_mbox'] = 'Archive'; # one click archive folder
     '';
   };
 

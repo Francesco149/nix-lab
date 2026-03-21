@@ -72,7 +72,6 @@ rec {
   ports.smtp-relay = 25;
   ports.smtps = 465;
   ports.imap = 993;
-  ports.managesieve = 4190;
 
   ports.headscale = 8080;
   ports-udp.headscale = 41641;

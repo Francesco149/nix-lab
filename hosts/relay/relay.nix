@@ -134,7 +134,7 @@
     };
 
     # we don't need to open submission and imaps ports to the internet. we'll
-    # access those at home only or through headscale. same for managesieve
+    # access those at home only or through headscale.
 
     streamConfig = ''
       upstream mail_smtp {

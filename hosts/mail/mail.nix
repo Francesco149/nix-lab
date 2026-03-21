@@ -41,9 +41,6 @@
     fqdn = config.lab.domains.fqdn;
     domains = [ config.lab.domains.base ];
 
-    # enables filters using sieve scripts
-    enableManageSieve = true;
-
     # help improve email security across the internet by sending feedback on
     # authentication failures, spoofing attempts, and TLS encryption issues.
     dmarcReporting.enable = true;
@@ -72,12 +69,26 @@
 
   };
 
+  # managesieve based editors are too clunky. it's just easier to write the
+  # sieve script manually and copy it over, without dealing with ui limitations
+  # with nested conditions and such. I can also version control this which can
+  # be nice.
+
+  # I'm not going to commit the script to my public repo for privacy reaons, but
+  # if you do have it your flake you can use sieve.scripts.before instead of
+  # extraConfig to manage it declaratively.
+
+  services.dovecot2.extraConfig = ''
+    plugin {
+      sieve_before = /etc/dovecot/sieve/headpats-before.sieve
+    }
+  '';
+
   # only for the home lan for mail clients to use. not exposed to the internet
   networking.firewall = {
     allowedTCPPorts = [
       config.lab.ports.imap
       config.lab.ports.smtps
-      config.lab.ports.managesieve
       config.lab.ports.beszel-agent
     ];
   };
