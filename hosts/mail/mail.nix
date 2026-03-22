@@ -53,17 +53,26 @@
     loginAccounts = builtins.listToAttrs (
       map (user: {
         name = "${user}@${config.lab.domains.base}";
-        value = {
-          hashedPasswordFile = config.lab.mail.mkHashedPasswordFileName user;
-        }
-        // (
-          if user == config.lab.mail.master then
-            {
-              aliases = [ "postmaster@${config.lab.domains.base}" ];
-            }
-          else
-            { }
-        );
+        value =
+          let
+            baseAliases =
+              if user == config.lab.mail.master then
+                [
+                  "postmaster@${config.lab.domains.base}"
+                ]
+              else
+                [ ];
+
+            extraAliases =
+              map (alias: "${alias}@${config.lab.domains.base}")
+                (config.lab.mail.aliases or { }).${user} or [ ];
+
+            allAliases = baseAliases ++ extraAliases;
+          in
+          {
+            hashedPasswordFile = config.lab.mail.mkHashedPasswordFileName user;
+          }
+          // (if allAliases != [ ] then { aliases = allAliases; } else { });
       }) config.lab.mail.users
     );
 

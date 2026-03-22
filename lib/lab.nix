@@ -37,6 +37,8 @@ rec {
     mail.main.user # remember to generate hashed password files, see README
   ];
 
+  mail.aliases.loli = [ "cute" ];
+
   fzf.excluded = [
     ".git"
     ".nix-defexpr"
