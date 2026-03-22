@@ -17,6 +17,7 @@
       docker # container management extensions
       direnv
       nix-direnv
+      shellcheck # shell script linter
       fish-lsp
       prettier # formatter for js, json, ts and others
       python3
