@@ -98,6 +98,11 @@ in
       import authentik
       reverse_proxy mail.soy:${toString p.dmarc-analyzer}
     '';
+
+    virtualHosts."lurk.box.headpats.uk".extraConfig = ''
+      import authentik
+      reverse_proxy localhost:${toString p.lurk-monitor}
+    '';
   };
 
   systemd.services.caddy.serviceConfig.EnvironmentFile = [ "${config.lab.secrets.dir}/caddy" ];

@@ -84,6 +84,7 @@ rec {
   ports.cache = 8765;
   ports.dmarc-analyzer = 8741;
   ports.roundcube = 3100;
+  ports.lurk-monitor = 5050;
 
   # docker containers
   ports.dockge = 5001;

@@ -1,0 +1,75 @@
+[bot]
+nick = "shigebot"
+bot_id = "1464760155"
+prefix = "!"
+working_dir = "/var/lib/shigebot"
+gist_refresh_interval = 300
+script_timeout = 30
+
+refresh_user_limit  = 10
+refresh_user_window = 60.0
+
+rate_limit_window           = 30.0
+rate_limit_non_elevated_max = 18
+rate_limit_elevated_max     = 95
+
+# script_preamble = """
+# import numpy as np
+# import pandas as pd
+# """
+
+[channels]
+sakurafrost225 = [
+  "@all",
+
+  "#twitter",
+  "#translate",
+  "#lurk",
+  "#logs",
+  "#log_pull",
+  "#simple",
+  "#markov",
+
+  "-ratelimit",
+  "-openrouter",
+  "-log_utils",
+  "-lurk_db"
+]
+
+lolisamurai = [
+  "hi",
+
+  "#translate",
+  "#lurk",
+  "#twitter"
+]
+
+[scripts]
+simple     = "https://gist.github.com/Francesco149/91b1837fccd26b49394e9b03b0337faa"
+hi         = "https://gist.github.com/Francesco149/43beeeda657c2fc99cb68fa64a72cd82"
+weather    = "https://gist.github.com/Francesco149/97deeabf4b8af0991df890da927a972e"
+translate  = "https://gist.github.com/Francesco149/d77859397ca795b60bc08ac620e378da"
+pepe       = "https://gist.github.com/Francesco149/cd81efba346932dc58efe6a50c7b752f"
+"4/4"      = "https://gist.github.com/Francesco149/c12a9d0cc5b5c02b8b4b8eb47ce556f5"
+8ball      = "https://gist.github.com/Francesco149/087c9dffeaa90a03b0dff68e883de79a"
+flip       = "https://gist.github.com/Francesco149/cebae605c965260db8d9a0e3dcea60f6"
+slap       = "https://gist.github.com/Francesco149/47e663b1a71ba97885be5b9de7268e04"
+urban      = "https://gist.github.com/Francesco149/722223e7af346eb1e2dbc3e9f6fe1a53"
+bank       = "https://gist.github.com/Francesco149/91869583ea4c0bd89377082a9e5d9d91"
+rr         = "https://gist.github.com/Francesco149/1fc928a677ecd355a60f4cc25d9c9740"
+slots      = "https://gist.github.com/Francesco149/d86242fcf4581e10f88f583f81e70ecd"
+dailies    = "https://gist.github.com/HK-BLAU/6c6ccc6d0bc091c92b5dc2a8ab8f5663"
+fish       = "https://gist.github.com/Francesco149/f07dd2c43a0f93025ac19333c6a6f8be"
+mirage     = "https://gist.github.com/HK-BLAU/0a8f83803f2889f30020b86730783c0f"
+trivia     = "https://gist.github.com/Francesco149/101a73359e61582491eca6329b104a78"
+twitter    = "https://gist.github.com/Francesco149/e21bd2f769cc3484d3224343e933f319"
+lurk       = "https://gist.github.com/Francesco149/ca1301804f7221af37e232ed80ab8119"
+logs       = "https://gist.github.com/Francesco149/95c1fd7a6b45a8b7c9cd948975dbc2cb"
+log_pull   = "https://gist.github.com/Francesco149/bb00d65e05e6693f9b941f6b79dc94cb"
+markov     = "https://gist.github.com/Francesco149/b54b2c29d9bf85d36509cce36e3535d8"
+
+# import only modules
+ratelimit  = "https://gist.github.com/Francesco149/b788b0706b7a09cf6b8c20aa6b9be2e4"
+openrouter = "https://gist.github.com/Francesco149/ca21f8a928ff22f695369056f1a3691e"
+log_utils  = "https://gist.github.com/Francesco149/4a9149fe286f39d00984a60a239cba98"
+lurk_db    = "https://gist.github.com/Francesco149/9ceb2ec1b1856cb8e44aa60bb56ff2f2"

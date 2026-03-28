@@ -19,4 +19,17 @@
     port = config.lab.ports.beszel;
     host = "127.0.0.1";
   };
+
+  # monitor ui for my funny ai chatbot's state
+  services.lurk-monitor = {
+    enable = true;
+    port = config.lab.ports.lurk-monitor;
+    host = "127.0.0.1";
+    baseDir = "/var/lib/shigebot"; # UPDATE THIS
+
+    # CRITICAL: SQLite WAL mode creates .wal and .shm files dynamically.
+    # To ensure the monitor can read them, run the monitor as the same
+    # NixOS user that executes your chat bot.
+    user = "shigebot";
+  };
 }

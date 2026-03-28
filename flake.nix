@@ -6,12 +6,16 @@
     home-manager.url = "github:nix-community/home-manager";
     nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/master";
     dmarc-analyzer.url = "git+file:///opt/src/dmarc-analyzer";
+    shigebot.url = "git+file:///opt/src/shigebot";
+    lurk-monitor.url = "git+file:///opt/src/lurk-monitor";
 
     nut.inputs.nixpkgs.follows = "nixpkgs";
     deploy-rs.inputs.nixpkgs.follows = "nixpkgs";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-mailserver.inputs.nixpkgs.follows = "nixpkgs";
     dmarc-analyzer.inputs.nixpkgs.follows = "nixpkgs";
+    shigebot.inputs.nixpkgs.follows = "nixpkgs";
+    lurk-monitor.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-mailserver.inputs.flake-compat.follows = "deploy-rs/flake-compat";
   };
@@ -35,6 +39,23 @@
           ./modules/interactive.nix
           ./modules/tailscale-home-lan.nix
           ./modules/local.nix
+
+          inputs.lurk-monitor.nixosModules.default
+
+          # TODO: move to code.nix, somehow thread package through
+          # TODO: allow hot reloading of config file
+          inputs.shigebot.nixosModules.shigebot
+          (
+            { pkgs, ... }:
+            {
+              services.shigebot = {
+                enable = true;
+                package = inputs.shigebot.packages.${pkgs.system}.default;
+                configFile = ./hosts/code/shigebot.toml;
+                environmentFile = "/var/lib/secrets/shigebot-env";
+              };
+            }
+          )
         ];
 
         hmModules.root = [

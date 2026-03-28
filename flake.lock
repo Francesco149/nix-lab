@@ -95,6 +95,27 @@
         "type": "github"
       }
     },
+    "flake-parts_2": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "shigebot",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1772408722,
+        "narHash": "sha256-rHuJtdcOjK7rAHpHphUb1iCvgkU3GpfvicLMwwnfMT0=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "f20dc5d9b8027381c474144ecabc9034d6a839a3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
     "git-hooks": {
       "inputs": {
         "flake-compat": [
@@ -161,6 +182,26 @@
         "owner": "nix-community",
         "repo": "home-manager",
         "type": "github"
+      }
+    },
+    "lurk-monitor": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1774633001,
+        "narHash": "sha256-YoAWv0k5JKKCkGHufRvNyIxniYpwqjoOyl6RWVCSkS0=",
+        "ref": "refs/heads/master",
+        "rev": "9f5247a4925865be0e462a70b7789510664f7002",
+        "revCount": 15,
+        "type": "git",
+        "url": "file:///opt/src/lurk-monitor"
+      },
+      "original": {
+        "type": "git",
+        "url": "file:///opt/src/lurk-monitor"
       }
     },
     "nixos-mailserver": {
@@ -232,9 +273,32 @@
         "deploy-rs": "deploy-rs",
         "dmarc-analyzer": "dmarc-analyzer",
         "home-manager": "home-manager",
+        "lurk-monitor": "lurk-monitor",
         "nixos-mailserver": "nixos-mailserver",
         "nixpkgs": "nixpkgs",
-        "nut": "nut"
+        "nut": "nut",
+        "shigebot": "shigebot"
+      }
+    },
+    "shigebot": {
+      "inputs": {
+        "flake-parts": "flake-parts_2",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1774571563,
+        "narHash": "sha256-k70IvQeR9kDSeUK3TcGLlaieMO+YT4TbN5s2j9ejRlU=",
+        "ref": "refs/heads/master",
+        "rev": "9ded6121b2ac064b5ab24d41d8f5fda43999163b",
+        "revCount": 33,
+        "type": "git",
+        "url": "file:///opt/src/shigebot"
+      },
+      "original": {
+        "type": "git",
+        "url": "file:///opt/src/shigebot"
       }
     },
     "systems": {
