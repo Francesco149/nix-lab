@@ -519,67 +519,109 @@ Or better yet, just have it set up before you deploy the agent.
 
 ### Gmail OAuth2 tokens
 
-Tokens live at `config.lab.fetchmail.secrets-dir` = `/var/lib/secrets/fetchmail/`.
-Each Gmail account has one file named `gmail-<email>.json`:
+The mail fetcher pulls Gmail accounts via IMAP XOAUTH2 and delivers to the local
+Maildir through `dovecot-lda`, ensuring all Sieve filters are applied on arrival.
 
-```json
-{
-  "client_id": "...",
-  "client_secret": "...",
-  "refresh_token": "..."
-}
-```
+#### 1. Google Cloud Console setup
 
-**Generating a token for a new Gmail account:**
+To prevent tokens expiring every 7 days, the Google project **must** be
+published (not left in testing mode).
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → create a
-   project → enable the Gmail API → create OAuth credentials (Desktop app) →
-   download `credentials.json`.
+   new project.
+2. Search for **Gmail API** and click **Enable**.
+3. Go to **OAuth consent screen**:
+   - User Type: **External**
+   - App status: click **PUBLISH APP** — this is critical. Testing-mode apps
+     have tokens that expire after 7 days regardless of refresh.
+   - Scopes: add `https://mail.google.com/`
+   - Test Users: add the Gmail address you intend to fetch.
+4. Go to **Credentials → Create Credentials → OAuth client ID**:
+   - Application type: **Web application**
+   - Authorized redirect URIs: `http://localhost:8080`
+   - Download the resulting `credentials.json`.
 
-2. Run the helper script (on any machine with Python 3, not necessarily the server):
+#### 2. Generate OAuth2 tokens
 
-   ```sh
-   python3 utils/gmail-oauth.py credentials.json user@gmail.com
-   ```
+Run the helper on your **local machine** (requires a browser). Google has
+removed the manual copy-paste code flow, so the script spins up a local
+webserver to capture the redirect automatically.
 
-   It will open a browser, ask you to authorize, then save `gmail-user@gmail.com.json`.
+```sh
+python3 utils/gmail-oauth.py credentials.json user@gmail.com
+```
 
-3. Copy the resulting file to the mail server:
+If you see a "This app isn't verified" warning, click **Advanced → Go to [App
+Name] (unsafe)**. This is expected for self-hosted apps.
 
-   ```sh
-   # on mail
-   mkdir -p /var/lib/secrets/fetchmail
+The script saves `gmail-user@gmail.com.json`.
 
-   # on the machine you ran the script on
-   scp gmail-user@gmail.com.json mail:/var/lib/secrets/fetchmail/
-   ```
+#### 3. Deploy secrets to the server
 
-   The `mail-fetch` service runs as `mailserver.vmailUserName` so make sure the
-   directory and file are readable by that user:
+The token file must be **readable and writable** by `virtualMail` — the fetch
+script updates the `refresh_token` in-place if Google rotates it.
 
-   ```sh
-   # dir is readable by virtualMail but dont allow messing with dir structure
-   chown root:virtualMail /var/lib/secrets/fetchmail
+```sh
+# Copy to the server
+scp gmail-user@gmail.com.json mail:/var/lib/secrets/fetchmail/
+```
 
-   # files only readable by virtualMail
-   chown virtualMail:virtualMail /var/lib/secrets/fetchmail/*.json
-   chmod 600 /var/lib/secrets/fetchmail/*.json
+Then on the mail server:
 
-   # make sure dir is readable
-   chmod 750 /var/lib/secrets/fetchmail
+```sh
+# Parent secrets dir — traversable by virtualMail
+chown root:root /var/lib/secrets
+chmod 711 /var/lib/secrets
 
-   # make sure parent dir is traversable
-   chmod 711 /var/lib/secrets
-   ```
+# fetchmail dir — owned by root, group-accessible by virtualMail
+chown root:virtualMail /var/lib/secrets/fetchmail
+chmod 750 /var/lib/secrets/fetchmail
 
-4. Trigger a manual fetch to verify it works:
+# Token files — owned and writable by virtualMail only
+chown virtualMail:virtualMail /var/lib/secrets/fetchmail/*.json
+chmod 600 /var/lib/secrets/fetchmail/*.json
+```
 
-   ```sh
-   systemctl start mail-fetch.service
-   journalctl -u mail-fetch -f
-   ```
+#### 4. Sieve filter
 
-The timer runs on boot (after 2 min) and then every 5 minutes thereafter.
+The Sieve script is not managed via Nix and must be uploaded and pre-compiled
+manually. `dovecot-lda` will fail silently if it tries to compile the script
+at runtime in a read-only directory.
+
+```sh
+# From your local machine
+scp ./filter.sieve root@mail:/etc/dovecot/sieve/headpats-before.sieve
+ssh root@mail sievec /etc/dovecot/sieve/headpats-before.sieve
+```
+
+#### 5. Manual fetch and initial sync
+
+The timer runs on boot (after 2 min) then every 5 minutes. To trigger
+immediately or do a one-off historical sync:
+
+```sh
+# Trigger the normal (UNSEEN only) fetch
+systemctl start mail-fetch.service
+
+# Historical sync — fetch everything since a given date
+sudo -u virtualMail \
+  DOVECOT_LDA="$(nix eval --raw nixpkgs#dovecot)/libexec/dovecot/dovecot-lda" \
+  DOVECOT_CONF="/etc/dovecot/dovecot.conf" \
+  TARGET_EMAIL="loli@headpats.uk" \
+  python3 /path/to/fetch.py /var/lib/secrets/fetchmail/ 'SINCE 01-Jan-2024'
+
+# Watch logs
+journalctl -u mail-fetch -f
+```
+
+#### Troubleshooting
+
+- **`failed to create temporary file` in Sieve logs** — you forgot to run
+  `sievec`. Dovecot cannot compile scripts on-the-fly inside `/etc/`.
+- **Authentication errors** — if the Gmail account password changed, the token
+  is invalidated. Delete the `.json` file and repeat step 2.
+- **Tokens expiring after 7 days** — the app is still in testing mode. Go back
+  to step 1 and publish it.
 
 ---
 
