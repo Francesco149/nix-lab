@@ -91,6 +91,10 @@
     plugin {
       sieve_before = /etc/dovecot/sieve/headpats-before.sieve
     }
+
+    protocol lda {
+      mail_plugins = $mail_plugins sieve
+    }
   '';
 
   # only for the home lan for mail clients to use. not exposed to the internet
