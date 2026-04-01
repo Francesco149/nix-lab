@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 {
   nut.deploy.host = config.lab.internet.relay;
   nut.dbus.implementation = "dbus";
@@ -69,6 +69,10 @@
   # interfere with the public facing port for the actual mail server. we also
   # need to make sure it binds to the public ip for the outbound side
 
+  boot.kernel.sysctl = {
+    "net.ipv4.ip_nonlocal_bind" = 1;
+  };
+
   services.postfix = {
     enable = true;
     settings.main = {
@@ -79,23 +83,6 @@
       relay_domains = null;
       smtp_bind_address = config.lab.internet.relay;
     };
-  };
-
-  # if tailscale gos down, stop postfix. only start after tailscale goes up
-
-  systemd.services.postfix = {
-    after = [
-      "tailscaled.service"
-      "sys-subsystem-net-devices-tailscale0.device"
-    ];
-    wants = [ "tailscaled.service" ];
-    requires = [ "sys-subsystem-net-devices-tailscale0.device" ];
-  };
-
-  # postfix-setup runs postalias which validates inet_interfaces — needs tailscale0 too
-  systemd.services.postfix-setup = {
-    after = [ "sys-subsystem-net-devices-tailscale0.device" ];
-    requires = [ "sys-subsystem-net-devices-tailscale0.device" ];
   };
 
   # nginx is acting as a reverse proxy which routes all connections to their

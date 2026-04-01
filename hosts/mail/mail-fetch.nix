@@ -4,9 +4,7 @@ let
   fetchScript = ./mail-fetch/fetch.py;
   secretsDir = config.lab.fetchmail.secrets-dir;
   vmailUser = config.mailserver.vmailUserName;
-  domain = config.lab.domains.base;
-  mainUser = config.lab.mail.main.user;
-  maildir = "/var/vmail/${domain}/${mainUser}/mail/";
+  targetEmail = config.lab.mail.main.addr;
 in
 {
   systemd.services.mail-fetch = {
@@ -16,10 +14,18 @@ in
       "dovecot2.service"
     ];
     wants = [ "network-online.target" ];
+
+    # Pass the Nix-controlled paths as environment variables
+    environment = {
+      DOVECOT_LDA = "${pkgs.dovecot}/libexec/dovecot/dovecot-lda";
+      DOVECOT_CONF = "${config.services.dovecot2.configFile}";
+      TARGET_EMAIL = "${targetEmail}";
+    };
+
     serviceConfig = {
       Type = "oneshot";
       User = vmailUser;
-      ExecStart = "${pkgs.python3}/bin/python3 ${fetchScript} ${secretsDir} ${maildir}";
+      ExecStart = "${pkgs.python3}/bin/python3 ${fetchScript} ${secretsDir}";
     };
   };
 
