@@ -82,7 +82,7 @@ function remote-deploy
   set -l remote_script '
     echo "--> initializing shallow repos"
 
-    set -l inputs dmarc-analyzer remote-deploy shigebot lurk-monitor
+    set -l inputs dmarc-analyzer remote-deploy shigebot lurk-monitor grammar-helper
     for dir in nut $inputs
       cd /tmp/$dir || continue
       git init
@@ -99,10 +99,10 @@ function remote-deploy
   '
   echo "--> making a shallow copy of the repos"
   rsync-shallow . $dest:/tmp/remote-deploy/
-  rsync-shallow /opt/src/nut/ $dest:/tmp/nut/
-  rsync-shallow /opt/src/shigebot/ $dest:/tmp/shigebot/
-  rsync-shallow /opt/src/lurk-monitor/ $dest:/tmp/lurk-monitor/
-  rsync-shallow /opt/src/dmarc-analyzer/ $dest:/tmp/dmarc-analyzer/
+  set -l sync_inputs nut shigebot lurk-monitor dmarc-analyzer grammar-helper
+  for dir in $sync_inputs
+    rsync-shallow /opt/src/$dir/ $dest:/tmp/$dir/
+  end
 
   echo "--> ssh-ing into workstation"
   ssh $dest "$remote_script; deploy $argv"

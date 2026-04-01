@@ -103,6 +103,11 @@ in
       import authentik
       reverse_proxy localhost:${toString p.lurk-monitor}
     '';
+
+    virtualHosts."grammar.box.headpats.uk".extraConfig = ''
+      import authentik
+      reverse_proxy localhost:${toString p.grammar-helper}
+    '';
   };
 
   systemd.services.caddy.serviceConfig.EnvironmentFile = [ "${config.lab.secrets.dir}/caddy" ];

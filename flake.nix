@@ -8,6 +8,7 @@
     dmarc-analyzer.url = "git+file:///opt/src/dmarc-analyzer";
     shigebot.url = "git+file:///opt/src/shigebot";
     lurk-monitor.url = "git+file:///opt/src/lurk-monitor";
+    grammar-helper.url = "git+file:///opt/src/grammar-helper";
 
     nut.inputs.nixpkgs.follows = "nixpkgs";
     deploy-rs.inputs.nixpkgs.follows = "nixpkgs";
@@ -16,6 +17,7 @@
     dmarc-analyzer.inputs.nixpkgs.follows = "nixpkgs";
     shigebot.inputs.nixpkgs.follows = "nixpkgs";
     lurk-monitor.inputs.nixpkgs.follows = "nixpkgs";
+    grammar-helper.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-mailserver.inputs.flake-compat.follows = "deploy-rs/flake-compat";
   };
@@ -40,6 +42,7 @@
           ./modules/tailscale-home-lan.nix
           ./modules/local.nix
 
+          inputs.grammar-helper.nixosModules.default
           inputs.lurk-monitor.nixosModules.default
 
           # TODO: move to code.nix, somehow thread package through

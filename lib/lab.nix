@@ -85,6 +85,7 @@ rec {
   ports.dmarc-analyzer = 8741;
   ports.roundcube = 3100;
   ports.lurk-monitor = 5050;
+  ports.grammar-helper = 5060;
 
   # docker containers
   ports.dockge = 5001;
