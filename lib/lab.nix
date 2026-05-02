@@ -56,6 +56,7 @@ rec {
   ssh.unlock-authorized-keys = [
     # the dedicated unlock SSH key from the code VM
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwEiN9bssyDBj+Ldj8nbZs/sFoNRNJYrPX9rb+iHnCH unlock@code"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMHX+5P4ySNy9ciKw8/vkEm5Gt3IMN3hV6mPnIBQnPvg syncoid@proxmox"
   ];
 
   ssh.authorized-keys = [

@@ -6,6 +6,7 @@
     ./cache.nix
     ./caddy.nix
     ./roundcube.nix
+    ./backup.nix
   ];
 
   # enable other machines in the tailnet to see my home lan

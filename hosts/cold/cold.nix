@@ -9,6 +9,10 @@ let
   iface = "enp4s0";
 in
 {
+  imports = [
+    ./backup.nix
+  ];
+
   # ── ZFS ─────────────────────────────────────────────────────────────────
   boot.supportedFilesystems = [ "zfs" ];
   boot.zfs.forceImportRoot = false;
@@ -56,7 +60,7 @@ in
       "-o on"                       # enable automatic offline data collection
       "-S on"                       # enable attribute autosave
       "-n standby,24"               # skip check if in standby (max 24 non-standby wakeups/day for checks)
-      "-W 4,40,45"                  # temp diff>=4 logs, >=40 warns, >=45 critical
+      "-W 4,50,55"                  # temp diff>=4 logs, >=50 warns, >=55 critical
       "-s (S/../../6/02|L/../../1/03)"  # short test Sat 2am, long Mon 3am
     ];
   };
@@ -89,23 +93,31 @@ in
   # zfs allow -u backup send,receive,mount,create,destroy gaijin
 
   # ── unlock service (post-boot, run by orchestrator) ──────────────────────
-  # The orchestrator calls:
-  #   ssh backup@cold 'sudo /run/current-system/sw/bin/zfs-unlock'
-  security.sudo.extraRules = [
-    {
-      users = [ "backup" ];
-      commands = [
-        {
-          command = "/run/wrappers/bin/zfs-unlock";
-          options = [ "NOPASSWD" ];
-        }
-      ];
-    }
-  ];
+  security.sudo.extraRules = [{
+    users = [ "backup" ];
+    commands = [
+      { command = "/run/current-system/sw/bin/systemctl start cold-backup.service";
+        options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/shutdown -h now";
+        options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/zfs load-key gigavault";
+        options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/zfs load-key gaijin";
+        options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/zfs mount -a";
+        options = [ "NOPASSWD" ]; }
+    ];
+  }];
 
-  environment.systemPackages = [
-    pkgs.zfs
-    pkgs.smartmontools
-    pkgs.hdparm
+  environment.systemPackages = with pkgs; [
+    zfs
+    hdparm
+    smartmontools
+
+    # syncoid + compression dependencies
+    sanoid
+    lzop
+    mbuffer
+    pv
   ];
 }

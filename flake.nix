@@ -41,7 +41,6 @@
           ./modules/interactive.nix
           ./modules/tailscale-home-lan.nix
           ./modules/local.nix
-          ./modules/cold-unlock.nix
 
           inputs.grammar-helper.nixosModules.default
           inputs.lurk-monitor.nixosModules.default
