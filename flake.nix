@@ -41,6 +41,7 @@
           ./modules/interactive.nix
           ./modules/tailscale-home-lan.nix
           ./modules/local.nix
+          ./modules/cold-unlock.nix
 
           inputs.grammar-helper.nixosModules.default
           inputs.lurk-monitor.nixosModules.default
@@ -74,6 +75,8 @@
         ./modules/local.nix
         ./modules/tailscale-home-lan.nix
       ];
+
+      hosts.cold = [ ];
 
       modules = [
         (nut.lib.dumb "lab" (import ./lib/lab.nix))

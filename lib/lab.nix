@@ -12,10 +12,17 @@ rec {
   # public ip of your vps
   internet.relay = "198.46.149.19";
 
+  # MACs for WoL
+  mac.cold = "74:56:3c:fc:9b:30";
+
   lan.prefix = "10.0.10";
   lan.mask = "${lan.prefix}.0/24";
   lan.code = "${lan.prefix}.53";
+  lan.cold = "${lan.prefix}.54";
   lan.mail = "${lan.prefix}.55";
+
+  # .6X is reserved for early boot ssh
+  lan.cold-unlock = "${lan.prefix}.60";
 
   # all of these point to internet.relay. see README.md for records setup
   domains.base = "headpats.uk";
@@ -46,6 +53,11 @@ rec {
     "result*"
   ];
 
+  ssh.unlock-authorized-keys = [
+    # the dedicated unlock SSH key from the code VM
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwEiN9bssyDBj+Ldj8nbZs/sFoNRNJYrPX9rb+iHnCH unlock@code"
+  ];
+
   ssh.authorized-keys = [
     # workstation
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF0Hj5jOmw03+LxHO7xOkcPSMknxRXflt+qznZ0SRCQG headpats@cutestation"
@@ -59,7 +71,8 @@ rec {
     "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC3GITt7Z4V/IwnPKmFEpz7KVXXkcyiDaZvg59lbmcTlamMuHopMGXEdh7u1qKWqkr+agNxaqWpAConEsCwX5GFRaOe/LQFHVneOArXWS/p1xw+ywxlgA8NabsQUlg7GsKW5LbJyALZiS5CCTdEz2yCk/NauR9MMXUNW/ZJEN2QrYNZloYiRLY8XCNMNZPwhaPH4rd/K1Am1ZuTPlyjTfkTEyLRCF025KIMNe16ll2DT9HxHE8dFsenxpj2Jgt9e7wch5Pg5h6L4S83++fEYBxsdXrEPC2Yz7WYc6io7dLk31kUGH0QpCelLyELiWpltnQ8OBJKpHBVQpA5HlQtK5I4uujRG0gtVAMflwkqwh69ahK4fy0+8ESUhC4ACH4AqURFrEOqamXwPIqHgU+8zoS2+kmKD0LmU8O2RSE0CUw55b2f358QACA94QfQX3gPonvdP1gQjK9ODcFrApnDaqyK1kZ4Wno7W1NrOkJE7rbukRaivp0conSKgaOGNFs3tkkSF6HPjddKqHNGMRttZp3d5HoK78h+0EBbryAiQ5EFIEj27eO/qG2iEykXN7rig1ezVkW9kA9vcP3HJyePpTPQQteEdL7ztLZfuUDmr8KNzoPK/L+X1kS+oRS8EjHVOvSVaWkRWGeJn1/8yKKUWBQG96mlPLkeKX7PYlKaCZxeSQ== root@proxmox"
     # dockge + openvscode-server dev vm
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO51fsBkesFI7L3+AH2gcn+lEx9S0XzVRcYf6tFujvIr root@code"
-  ];
+  ] ++ ssh.unlock-authorized-keys;
+  # TODO: only give the unlock auth key to root on cold?
 
   ssh.no-strict = [ "nixos" ]; # default fresh vm hostname, don't check ssh keys
 
@@ -68,6 +81,7 @@ rec {
   # these are purely for labeling at the moment
 
   ports.ssh = 22;
+  ports.ssh-initrd = 2222;
   ports.http = 80;
   ports.https = 443;
 
