@@ -98,7 +98,7 @@ rec {
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 
   # router ip (default gateway)
-  lan.gateway = "10.0.10.1";
+  lan.gateway = "${lan.prefix}.1";
 
   # reverse dns zone designation. it works by reversing the ip address and
   # appending .in-addr.arpa .
