@@ -26,6 +26,7 @@ def run_syncoid():
                 SYNCOID,
                 "--recursive",
                 "--no-privilege-elevation",
+                "--no-sync-snap",
                 "--sshkey", "/root/.ssh/syncoid_id",
                 "--exclude-datasets", "tank/tmp",
                 "backup@proxmox:tank", "gigavault/proxmox-backup",
