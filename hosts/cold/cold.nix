@@ -40,6 +40,30 @@ in
   #   serviceConfig.ExecStart = "${pkgs.ethtool}/bin/ethtool -s ${iface} wol g";
   # };
 
+  # ── initrd network + SSH for remote LUKS unlock ──────────────────────────────
+  boot.initrd.network = {
+    enable = true;
+    ssh = {
+      enable = true;
+      port = lab.ports.ssh-initrd;
+      hostKeys = [ "${lab.secrets.dir}/initrd/ssh_host_ed25519_key" ];
+      authorizedKeys = [
+        # same unlock key the orchestrator already uses
+	lab.ssh.unlock-key
+      ];
+    };
+  };
+
+  # force my NIC's driver to load early for pre-boot ssh
+  boot.initrd.kernelModules = [ "r8169" ];
+
+  # static IP in initrd — don't rely on DHCP being available before rootfs mounts
+  # format: ip=<client-ip>::<gateway>:<netmask>:<hostname>:<interface>:off
+
+  boot.kernelParams = [
+    "ip=${lab.lan.cold-unlock}::${lab.lan.gateway}:255.255.255.0:cold-unlock:${iface}:off"
+  ];
+
   # ── SMART monitoring ─────────────────────────────────────────────────────
   services.smartd = {
     enable = true;
