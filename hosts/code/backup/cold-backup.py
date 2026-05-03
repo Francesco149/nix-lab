@@ -6,6 +6,11 @@ import subprocess
 import sys
 import time
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
 log = logging.getLogger("cold-backup")
 
 
