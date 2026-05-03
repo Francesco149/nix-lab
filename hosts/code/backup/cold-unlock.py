@@ -139,6 +139,9 @@ def main():
 
         # pipe passphrase directly into cryptsetup-askpass
         # connection will die abruptly when initrd pivots — that's expected
+
+        # important: there needs to be a newline after the password
+
         subprocess.run(
             [
                 "ssh",
@@ -152,7 +155,7 @@ def main():
                 f"root@{args.initrd_ip}",
                 "cryptsetup-askpass",
             ],
-            input=luks_pw,
+            input=luks_pw + "\n",
             text=True,
             check=False,  # connection dies abruptly, non-zero exit is expected
         )
