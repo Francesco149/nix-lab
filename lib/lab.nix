@@ -160,6 +160,8 @@ rec {
   ports.immich = 2283;
 
   # inference server
+  ports.open-webui = 3000;
+  ports.ollama-proxy = 11434;
   ports.llama-vulkan = 8080;
 
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];

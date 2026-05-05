@@ -2,6 +2,8 @@
 {
   imports = [
     ../../modules/llama.nix
+    ./open-webui.nix
+    ./ollama-proxy.nix
   ];
 
   # ── ZFS, WoL, remote unlock ──────────────────────────────────────────────
