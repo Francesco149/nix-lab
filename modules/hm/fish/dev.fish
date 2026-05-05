@@ -82,7 +82,7 @@ function remote-deploy
   set -l remote_script '
     echo "--> initializing shallow repos"
 
-    set -l inputs dmarc-analyzer remote-deploy shigebot lurk-monitor grammar-helper
+    set -l inputs nut dmarc-analyzer remote-deploy shigebot lurk-monitor grammar-helper
     for dir in nut $inputs
       cd /tmp/$dir || continue
       git init

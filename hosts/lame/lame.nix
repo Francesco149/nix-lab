@@ -1,5 +1,9 @@
 { config, pkgs, ... }:
 {
+  imports = [
+    ../../modules/llama.nix
+  ];
+
   # ── ZFS, WoL, remote unlock ──────────────────────────────────────────────
   nut.zfs.pools = [ "lamedata" ];
   nut.initrd-unlock.iface = "enp42s0";

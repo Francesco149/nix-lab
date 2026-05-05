@@ -83,19 +83,10 @@
   # with nested conditions and such. I can also version control this which can
   # be nice.
 
-  # I'm not going to commit the script to my public repo for privacy reaons, but
-  # if you do have it your flake you can use sieve.scripts.before instead of
-  # extraConfig to manage it declaratively.
-
-  services.dovecot2.extraConfig = ''
-    plugin {
-      sieve_before = /etc/dovecot/sieve/headpats-before.sieve
-    }
-
-    protocol lda {
-      mail_plugins = $mail_plugins sieve
-    }
-  '';
+  services.dovecot2.settings = {
+    "protocol lda".mail_plugins.sieve = true;
+    plugin.sieve_before = "/etc/dovecot/sieve/headpats-before.sieve";
+  };
 
   # only for the home lan for mail clients to use. not exposed to the internet
   networking.firewall = {

@@ -159,6 +159,9 @@ rec {
   # lxc on proxmox
   ports.immich = 2283;
 
+  # inference server
+  ports.llama-vulkan = 8080;
+
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 
   # router ip (default gateway)

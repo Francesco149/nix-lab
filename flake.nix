@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/master";
+    nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/main";
     disko.url = "github:nix-community/disko";
 
     nut.url = "git+file:///opt/src/nut";
@@ -100,6 +100,7 @@
         (nut.lib.dumb "lab" (import ./lib/lab.nix))
         ./modules/common.nix
         ./modules/beszel.nix
+        ./modules/nix.nix
       ];
 
       perSystem =
