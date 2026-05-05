@@ -1,5 +1,15 @@
-{ pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
+  inherit (config) lab;
+
+  # serialise backup targets list to JSON
+  targetsJson = pkgs.writeText "targets.json" (builtins.toJSON lab.backup.targets);
+
   backup-py = pkgs.writeText "cold-backup.py" (builtins.readFile ./backup/cold-backup.py);
 
   cold-backup = pkgs.writeShellScriptBin "cold-backup" ''
@@ -14,7 +24,7 @@ let
         ]
       )
     }:$PATH"
-    exec ${pkgs.python3}/bin/python3 ${backup-py}
+    exec ${pkgs.python3}/bin/python3 ${backup-py} --targets ${targetsJson}
   '';
 in
 {
@@ -42,8 +52,5 @@ in
       TimeoutStartSec = "20h";
     };
   };
-  programs.ssh.knownHosts = {
-    "proxmox".publicKey =
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIrny+0hMgPXGTcMNcZczDVYl+LaQONSrVPGRiogSR9q root@proxmox";
-  };
+  programs.ssh.knownHosts = lab.ssh.cold-backup-known-hosts;
 }

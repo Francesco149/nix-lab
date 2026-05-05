@@ -1,6 +1,7 @@
 { pkgs, osConfig, ... }:
 let
-  excludeFlagsList = map (d: "--exclude ${d}") osConfig.lab.fzf.excluded;
+  inherit (osConfig) lab;
+  excludeFlagsList = map (d: "--exclude ${d}") lab.fzf.excluded;
   excludeFlags = builtins.concatStringsSep " " excludeFlagsList;
 in
 {
@@ -8,11 +9,11 @@ in
     enable = true;
     settings = {
       user.name = "headpats";
-      user.email = osConfig.lab.mail.main.addr;
+      user.email = lab.mail.main.addr;
       init.defaultBranch = "master"; # more aura and makes you horny
       pull.rebase = true;
     };
-    ignores = osConfig.lab.fzf.excluded;
+    ignores = lab.fzf.excluded;
   };
 
   # software I would want to always have available.
@@ -20,6 +21,7 @@ in
   # - critical tools in case I have no internet to do nix-shell
 
   home.packages = with pkgs; [
+    age
     wget
     curl
     pv # pipe things with a progress and speed monitor
@@ -50,6 +52,7 @@ in
     interactiveShellInit = ''
       # we can tap into nix variables and consts from here if needed
       set -g rsync_exclude_flags ${builtins.replaceStrings [ "*" ] [ "\\*" ] excludeFlags}
+      set -g age_keyfile ${lab.secrets.age.unlock}
     ''
     + (builtins.readFile ./fish/init.fish)
     + (builtins.readFile ./fish/dev.fish);

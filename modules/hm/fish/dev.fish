@@ -148,3 +148,22 @@ function ns
   end
   nix shell $pkgs
 end
+
+function _vipe-age
+  set -l file $argv[1]
+  set -l recipient (cat $age_keyfile | grep public | awk -F'[ :]' '{ print $5 }')
+  vipe | age -r $recipient -o $file
+end
+
+function secret-edit
+  set -l file $argv[1]
+  if test -z $file
+    echo "usage: secret-edit /path/to/secret.age"
+    return 1
+  end
+  if test -e $file
+    age -d -i $age_keyfile $file | _vipe-age $file
+  else
+    printf | _vipe-age $file
+  end
+end

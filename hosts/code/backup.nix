@@ -7,14 +7,30 @@
 }:
 let
   inherit (config) lab;
+  sshKey = lab.secrets.ssh.unlock;
+  ageKey = lab.secrets.age.unlock;
   secrets = lab.secrets.dir;
-  sshKey = "${secrets}/cold-unlock-key";
-  ageKey = "${secrets}/cold-age-key";
 
   unlock-py = pkgs.writeText "cold-unlock.py" (builtins.readFile ./backup/cold-unlock.py);
   backup-py = pkgs.writeText "cold-backup.py" (builtins.readFile ./backup/cold-backup.py);
 
-  # substitute nix store paths and lab values into the python scripts
+  # serialise the unlockables attrset to JSON for the Python script
+  unlockablesJson = pkgs.writeText "unlockables.json" (builtins.toJSON lab.unlockables);
+
+  # serialise backup targets list to JSON
+  targetsJson = pkgs.writeText "targets.json" (builtins.toJSON lab.backup.targets);
+
+  # per-host IPs and MACs from lab.nix
+  hostMetaJson = pkgs.writeText "host-meta.json" (
+    builtins.toJSON (
+      lib.mapAttrs (host: _: {
+        ip = lab.lan.${host};
+        initrd-ip = lab.lan."${host}-unlock";
+        mac = lab.mac.${host};
+      }) lab.unlockables
+    )
+  );
+
   cold-unlock = pkgs.writeShellScriptBin "cold-unlock" ''
     export PATH="${
       lib.makeBinPath (
@@ -29,14 +45,14 @@ let
       )
     }:$PATH"
     exec ${pkgs.python3}/bin/python3 ${unlock-py} \
-      --ssh-key   ${sshKey} \
-      --age-key   ${ageKey} \
-      --secrets   ${secrets} \
-      --cold-ip   ${lab.lan.cold} \
-      --cold-mac  ${lab.mac.cold} \
-      --initrd-ip ${lab.lan.cold-unlock} \
-      --ssh-port  ${toString lab.ports.ssh} \
-      --initrd-port ${toString lab.ports.ssh-initrd}
+      --ssh-key      ${sshKey} \
+      --age-key      ${ageKey} \
+      --secrets      ${secrets} \
+      --unlockables  ${unlockablesJson} \
+      --host-meta    ${hostMetaJson} \
+      --ssh-port     ${toString lab.ports.ssh} \
+      --initrd-port  ${toString lab.ports.ssh-initrd} \
+      "$@"
   '';
 
   cold-backup = pkgs.writeShellScriptBin "cold-backup" ''
@@ -53,9 +69,12 @@ let
       )
     }:$PATH"
     exec ${pkgs.python3}/bin/python3 ${backup-py} \
-      --ssh-key    ${sshKey} \
-      --cold-ip    ${lab.lan.cold} \
-      --unlock-bin ${cold-unlock}/bin/cold-unlock
+      --ssh-key     ${sshKey} \
+      --cold-ip     ${lab.lan.cold} \
+      --unlock-bin  ${cold-unlock}/bin/cold-unlock \
+      --unlockables ${unlockablesJson} \
+      --host-meta   ${hostMetaJson} \
+      --targets     ${targetsJson}
   '';
 
 in
@@ -65,12 +84,28 @@ in
     cold-backup
   ];
 
-  programs.ssh.knownHosts = {
-    "cold".publicKey =
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAqjHsgUF2s+MRJqSvyB14w05NXVRoaimZjPyu/S3NYX root@nixos";
-    "cold-unlock".publicKey =
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOSXuJ592PTKU3Kxo8vcBT8VOnkEXBJVcEjk9vMx1VKx cold-initrd";
-  };
+  # cold pub key (backup) + all initrd pub keys (unlocks)
+  programs.ssh.knownHosts =
+    lib.mapAttrs' (
+      host: _:
+      lib.nameValuePair host {
+        hostNames = [
+          lab.lan.${host}
+          host
+        ];
+        publicKey = lab.ssh.host.${host};
+      }
+    ) lab.unlockables
+    // lib.mapAttrs' (
+      host: _:
+      lib.nameValuePair "${host}-unlock" {
+        hostNames = [
+          "[${lab.lan."${host}-unlock"}]:${toString lab.ports.ssh-initrd}"
+          "${host}-unlock"
+        ];
+        publicKey = lab.ssh.host."${host}-unlock";
+      }
+    ) lab.unlockables;
 
   systemd.services.cold-backup = {
     description = "Cold storage backup cycle";

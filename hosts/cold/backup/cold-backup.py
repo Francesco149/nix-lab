@@ -1,8 +1,5 @@
-import glob
-import logging
-import subprocess
-import sys
-import time
+#!/usr/bin/env python3
+import argparse, glob, json, logging, subprocess, sys, time
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,10 +14,16 @@ ZPOOL    = "zpool"
 MAX_RESTARTS = 200
 
 
-def run_syncoid():
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument("--targets", required=True, help="path to targets JSON")
+    return p.parse_args()
+
+
+def run_syncoid(source, dest):
     restarts = 0
     while restarts < MAX_RESTARTS:
-        log.info("starting syncoid (attempt %d)", restarts + 1)
+        log.info("syncoid %s -> %s (attempt %d)", source, dest, restarts + 1)
         proc = subprocess.Popen(
             [
                 SYNCOID,
@@ -28,8 +31,7 @@ def run_syncoid():
                 "--no-privilege-elevation",
                 "--no-sync-snap",
                 "--sshkey", "/root/.ssh/syncoid_id",
-                "--exclude-datasets", "tank/tmp",
-                "backup@proxmox:tank", "gigavault/proxmox-backup",
+                source, dest,
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -40,7 +42,7 @@ def run_syncoid():
             line = line.rstrip()
             print(line, flush=True)
             if "dataset is busy" in line:
-                log.warning("dataset busy — killing syncoid and restarting in 5s")
+                log.warning("dataset busy — killing syncoid, restarting in 5s")
                 proc.kill()
                 proc.wait()
                 busy = True
@@ -49,9 +51,9 @@ def run_syncoid():
         if not busy:
             rc = proc.wait()
             if rc == 0:
-                log.info("syncoid done")
+                log.info("syncoid done: %s -> %s", source, dest)
                 return
-            log.warning("syncoid exited with code %d, restarting in 5s", rc)
+            log.warning("syncoid exited %d, restarting in 5s", rc)
 
         restarts += 1
         time.sleep(5)
@@ -64,10 +66,8 @@ def wait_smart():
     log.info("checking for in-progress SMART tests")
     for disk in sorted(glob.glob("/dev/sd?")):
         while True:
-            r = subprocess.run(
-                [SMARTCTL, "-a", disk],
-                capture_output=True, text=True,
-            )
+            r = subprocess.run([SMARTCTL, "-a", disk],
+                               capture_output=True, text=True)
             if "Self-test routine in progress" not in r.stdout:
                 break
             log.info("%s: SMART test in progress, waiting 60s...", disk)
@@ -77,17 +77,34 @@ def wait_smart():
 
 def wait_scrub():
     while True:
-        r = subprocess.run(
-            [ZPOOL, "status", "gigavault"],
-            capture_output=True, text=True,
-        )
+        r = subprocess.run([ZPOOL, "status", "gigavault"],
+                           capture_output=True, text=True)
         if "scan:  scrub in progress" not in r.stdout:
             break
         log.info("scrub in progress, waiting 5min...")
         time.sleep(300)
 
 
-run_syncoid()
-wait_smart()
-wait_scrub()
-log.info("backup cycle complete")
+def main():
+    args = parse_args()
+
+    with open(args.targets) as f:
+        targets = json.load(f)
+
+    # targets is a list of source strings like "backup@proxmox:tank"
+    # destination is always gigavault/<hostname>-backup/<pool-name>
+    for source in targets:
+        # derive dest from source: "backup@proxmox:tank" -> "gigavault/proxmox-backup"
+        host_pool = source.split(":")[-1]          # "tank"
+        host_name = source.split("@")[-1].split(":")[0]  # "proxmox"
+        destpath = "/".join(host_pool.split("/")[1:])
+        dest = f"gigavault/{host_name}-backup/{destpath}"
+        run_syncoid(source, dest)
+
+    wait_smart()
+    wait_scrub()
+    log.info("backup cycle complete")
+
+
+if __name__ == "__main__":
+    main()

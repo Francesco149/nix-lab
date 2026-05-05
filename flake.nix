@@ -1,19 +1,22 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/master";
+    disko.url = "github:nix-community/disko";
+
     nut.url = "git+file:///opt/src/nut";
     deploy-rs.url = "github:serokell/deploy-rs";
     home-manager.url = "github:nix-community/home-manager";
-    nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/master";
     dmarc-analyzer.url = "git+file:///opt/src/dmarc-analyzer";
     shigebot.url = "git+file:///opt/src/shigebot";
     lurk-monitor.url = "git+file:///opt/src/lurk-monitor";
     grammar-helper.url = "git+file:///opt/src/grammar-helper";
 
+    nixos-mailserver.inputs.nixpkgs.follows = "nixpkgs";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
     nut.inputs.nixpkgs.follows = "nixpkgs";
     deploy-rs.inputs.nixpkgs.follows = "nixpkgs";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
-    nixos-mailserver.inputs.nixpkgs.follows = "nixpkgs";
     dmarc-analyzer.inputs.nixpkgs.follows = "nixpkgs";
     shigebot.inputs.nixpkgs.follows = "nixpkgs";
     lurk-monitor.inputs.nixpkgs.follows = "nixpkgs";
@@ -28,6 +31,7 @@
       nut,
       nixos-mailserver,
       dmarc-analyzer,
+      disko,
       ...
     }@inputs:
 
@@ -75,7 +79,22 @@
         ./modules/tailscale-home-lan.nix
       ];
 
-      hosts.cold = [ ];
+      hosts.cold = [
+        ./modules/local.nix
+        ./modules/tailscale-home-lan.nix
+        ./modules/initrd-unlock.nix
+        ./modules/zfs.nix
+        ./modules/backup-target.nix
+      ];
+
+      hosts.lame = [
+        disko.nixosModules.disko
+        ./modules/local.nix
+        ./modules/tailscale-home-lan.nix
+        ./modules/initrd-unlock.nix
+        ./modules/zfs.nix
+        ./modules/backup-target.nix
+      ];
 
       modules = [
         (nut.lib.dumb "lab" (import ./lib/lab.nix))
