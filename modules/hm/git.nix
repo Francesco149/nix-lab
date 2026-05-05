@@ -4,7 +4,7 @@
     enable = true;
     settings = {
       user.name = "headpats";
-      user.email = "loli@headpats.uk";
+      user.email = "cute@headpats.uk";
       init.defaultBranch = "master"; # more aura and makes you horny
       pull.rebase = true;
     };
