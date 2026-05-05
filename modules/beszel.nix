@@ -19,6 +19,8 @@
         "/dev/nvidia-uvm rw"
         "/dev/nvidia-uvm-tools rw"
       ];
+      PrivateDevices = lib.mkForce false;
+      DevicePolicy = "auto"; # or "closed" with proper allows
     };
   };
 
