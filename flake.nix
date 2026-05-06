@@ -87,14 +87,21 @@
         ./modules/backup-target.nix
       ];
 
-      hosts.lame = [
-        disko.nixosModules.disko
-        ./modules/local.nix
-        ./modules/tailscale-home-lan.nix
-        ./modules/initrd-unlock.nix
-        ./modules/zfs.nix
-        ./modules/backup-target.nix
-      ];
+      hosts.lame = {
+        modules = [
+          disko.nixosModules.disko
+          ./modules/interactive.nix
+          ./modules/local.nix
+          ./modules/tailscale-home-lan.nix
+          ./modules/initrd-unlock.nix
+          ./modules/zfs.nix
+          ./modules/backup-target.nix
+        ];
+
+        hmModules.root = [
+          ./modules/hm/common.nix
+        ];
+      };
 
       modules = [
         (nut.lib.dumb "lab" (import ./lib/lab.nix))

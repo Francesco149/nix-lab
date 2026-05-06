@@ -57,6 +57,29 @@ rec {
   ];
 
   ##################################################################################
+  # colors and other visual settings
+
+  colors = {
+    base00 = "000000";
+    base01 = "545454";
+    base02 = "A8A8A8";
+    base03 = "A8A8A8";
+    base04 = "C0C7C8";
+    base05 = "FFFFFF";
+    base06 = "FFFFFF";
+    base07 = "FFFFFF";
+
+    base08 = "A80000"; # red
+    base09 = "A85400"; # orange
+    base0A = "A85400"; # yellow
+    base0B = "00A800"; # green
+    base0C = "00A8A8"; # cyan
+    base0D = "0000A8"; # blue
+    base0E = "A800A8"; # magenta
+    base0F = "A80000";
+  };
+
+  ##################################################################################
   # automatic unlock/backup infrastructure
 
   # backup targets: cold -> syncoid ssh into target -> push to cold

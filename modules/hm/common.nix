@@ -5,6 +5,10 @@ let
   excludeFlags = builtins.concatStringsSep " " excludeFlagsList;
 in
 {
+  imports = [
+    ./starship.nix
+  ];
+
   programs.git = {
     enable = true;
     settings = {
