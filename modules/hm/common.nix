@@ -54,6 +54,8 @@ in
   programs.fish = {
     enable = true;
     interactiveShellInit = ''
+      set -g fish_greeting
+
       # we can tap into nix variables and consts from here if needed
       set -g rsync_exclude_flags ${builtins.replaceStrings [ "*" ] [ "\\*" ] excludeFlags}
       set -g age_keyfile ${lab.secrets.age.unlock}
