@@ -73,7 +73,10 @@ def main():
         # derive dest from source: "backup@proxmox:tank" -> "gigavault/proxmox-backup"
         host_name = source.split("@")[-1].split(":")[0]  # "proxmox"
         if host_name in unlockables:
+            log.info(f"source {host_name} found in unlockables")
             wakeup_targets.add(host_name)
+        else:
+            log.info(f"source {host_name} is not an unlockable")
     
     failed_targets = set()
     for host_name in wakeup_targets:
