@@ -1,6 +1,19 @@
 # hosts/lame/ingest.nix
 { config, pkgs, ... }:
 let
+  # there's a bug where llama-video's python interface replaces ffmpeg->ffprobe
+  # in the path to find ffprobe, which breaks with nix store path since they
+  # contain ffmpeg multiple times. workaround is to symlink to a path that
+  # doesn't include multiple occurrences
+
+  ffbins = "/tmp/ffbins";
+
+  setup-ffbins = pkgs.writeShellScript "setup-ffbins" ''
+    mkdir -pv ${ffbins}
+    ln -svf ${pkgs.ffmpeg}/bin/ffmpeg  ${ffbins}/ffmpeg
+    ln -svf ${pkgs.ffmpeg}/bin/ffprobe ${ffbins}/ffprobe
+  '';
+
   # llama-video PyPI package isn't in nixpkgs, build it ourselves
   llama-video-py = pkgs.python3Packages.buildPythonPackage rec {
     pname = "llama_video";
@@ -58,11 +71,16 @@ in
       INGEST_CONFIG = "/opt/ai-lab/data/ingest-config.toml";
       WHISPER_BIN = "${pkgs.whisper-cpp}/bin/whisper-cpp";
       WHISPER_MODEL = "/opt/ai-lab/models/whisper/ggml-medium.bin";
+      LLAMA_VIDEO_FFMPEG_PATH = "${ffbins}/ffmpeg";
+      YT_DLP_BIN = "${pkgs.yt-dlp}/bin/yt-dlp";
+      FFMPEG_BIN = "${pkgs.ffmpeg}/bin/ffmpeg";
+      FFPROBE_BIN = "${pkgs.ffmpeg}/bin/ffprobe";
     };
 
     serviceConfig = {
       Type = "simple";
       WorkingDirectory = src;
+      ExecStartPre = setup-ffbins;
       ExecStart = "${python-full}/bin/python ${src}/run_api.py";
       Restart = "on-failure";
       RestartSec = "5s";
