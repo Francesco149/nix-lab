@@ -4,6 +4,7 @@
     ./llama.nix
     ./open-webui.nix
     ./ollama-proxy.nix
+    ./ingest.nix
   ];
 
   # ── ZFS, WoL, remote unlock ──────────────────────────────────────────────

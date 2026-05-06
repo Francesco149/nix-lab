@@ -188,6 +188,7 @@ rec {
   ports.llama-vulkan = 8080;
   ports.llama-video = 7080;
   ports.llama-embed = 6080;
+  ports.ingest = 8083;
 
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 
