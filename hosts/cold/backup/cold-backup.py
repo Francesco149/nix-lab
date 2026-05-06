@@ -98,7 +98,7 @@ def main():
         host_pool = source.split(":")[-1]          # "tank"
         host_name = source.split("@")[-1].split(":")[0]  # "proxmox"
         destpath = "/".join(host_pool.split("/")[1:])
-        dest = f"gigavault/{host_name}-backup/{destpath}"
+        dest = f"gigavault/{host_name}-backup/{destpath}".rstrip("/")
         run_syncoid(source, dest)
 
     wait_smart()
