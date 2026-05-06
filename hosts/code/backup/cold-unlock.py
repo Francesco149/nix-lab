@@ -156,7 +156,7 @@ def unlock_host(args, host, pools, meta):
                 "-o", "ServerAliveInterval=5",
                 "-o", "ServerAliveCountMax=2",
                 f"root@{initrd_ip}",
-                "cryptsetup-askpass",
+                "/etc/unlock-stdin",
             ],
             input=luks_pw + "\n", text=True, check=False,
         )
