@@ -10,6 +10,10 @@
   # ── ZFS, WoL, remote unlock ──────────────────────────────────────────────
   nut.zfs.pools = [ "lamedata" ];
   nut.initrd-unlock.iface = "enp42s0";
+  services.zfs.autoSnapshot.enable = true;
+  # remember to do:
+  # zfs set com.sun:auto-snapshot=true lamedata
+  # zfs allow -u backup hold,send,snapshot,mount
 
   # ── GPU ──────────────────────────────────────────────────────────────────
   nixpkgs.config.allowUnfree = true;

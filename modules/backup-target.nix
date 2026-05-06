@@ -10,10 +10,19 @@ in
     home = "/var/lib/backup";
     createHome = true;
     openssh.authorizedKeys.keys = [
-      lab.ssh.pub.unlock
+      lab.ssh.pub.unlock # allow unlock service to ssh in after full boot
+      lab.ssh.pub.cold-backup # allow backup service to copy stuff over ssh
     ];
   };
   users.groups.backup = { };
+
+  # deps for optimal syncoid performance
+  environment.systemPackages = with pkgs; [
+    sanoid # optional but nice to have if I ever need to push the other way
+    lzop
+    mbuffer
+    pv
+  ];
 
   # allow orchestrator to unlock pools and shutdown
   security.sudo.extraRules = [

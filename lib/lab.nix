@@ -82,16 +82,21 @@ rec {
   ##################################################################################
   # automatic unlock/backup infrastructure
 
+  # the key cold storage uses to ssh into backup targets
+  ssh.pub.cold-backup = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOaxTk8yT7OFLBErrylHrdfnTAxGFMcALMXpjMq7aDiU syncoid@cold";
+
   # backup targets: cold -> syncoid ssh into target -> push to cold
   backup.targets = [
     "backup@proxmox:tank/data"
     "backup@proxmox:tank/proxmox"
+    "backup@lame:lamedata"
   ];
 
   # known hosts for backup service so we can do strict key checking on each target
   ssh.cold-backup-known-hosts = {
     "proxmox".publicKey =
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIrny+0hMgPXGTcMNcZczDVYl+LaQONSrVPGRiogSR9q root@proxmox";
+    "lame".publicKey = ssh.host.lame;
   };
 
   # age key pair used to decrypt the passphrases for ssh unlock
