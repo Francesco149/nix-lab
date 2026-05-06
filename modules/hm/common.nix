@@ -14,7 +14,7 @@ in
     settings = {
       user.name = "headpats";
       user.email = lab.mail.main.addr;
-      init.defaultBranch = "master"; # more aura and makes you horny
+      init.defaultBranch = "master";
       pull.rebase = true;
     };
     ignores = lab.fzf.excluded;
@@ -112,6 +112,6 @@ in
   };
 
   # system monitor
-  programs.bottom.enable = true; # 👉 👈
+  programs.bottom.enable = true;
 
 }
