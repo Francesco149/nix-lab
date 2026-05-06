@@ -186,6 +186,8 @@ rec {
   ports.open-webui = 3000;
   ports.ollama-proxy = 11434;
   ports.llama-vulkan = 8080;
+  ports.llama-video = 7080;
+  ports.llama-embed = 6080;
 
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 

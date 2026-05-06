@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 {
   imports = [
-    ../../modules/llama.nix
+    ./llama.nix
     ./open-webui.nix
     ./ollama-proxy.nix
   ];
