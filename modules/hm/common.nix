@@ -129,7 +129,11 @@ in
 
     inference = {
       baseUrl = "http://lame:${toString lab.ports.llama-vulkan}"; # no /v1 suffix
-      contextWindow = 120000; # tokens — match your server config
+
+      # I keep this lower than my actual context limit for more aggressive
+      # eviction. For small models the actually useful context is much less.
+      contextWindow = 32767;
+
       maxTokens = 4096; # per-generation cap
       timeoutMs = 120000; # 2 min — increase for slow hardware
     };

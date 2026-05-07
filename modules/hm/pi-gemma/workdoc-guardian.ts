@@ -6,14 +6,16 @@
  * Provides:
  *   1. Session start → inject WORKDOC.md restore prompt
  *   2. Periodic working-doc update reminders (every REMINDER_INTERVAL turns)
- *   3. Stuck detection → steer the model when repeated tool calls detected
- *   4. Context budget warning → remind before Pi's compaction fires
- *   5. `spawn_subagent` tool → focused file analysis without bloating context
- *   6. `/workdoc` command → init / show working document
+ *   3. Tool-call stuck detection → steer when same tool call repeats
+ *   4. Thinking loop detection → steer after N consecutive no-tool turns
+ *   5. Context budget warning → remind before Pi's compaction fires
+ *   6. `spawn_subagent` tool → focused file analysis without bloating context
+ *   7. `syntax_check` tool → run real language parser; avoids reasoning loops on bad syntax
+ *   8. `/workdoc` command → init / show working document
  *
  * Configuration via environment variables (set by Nix module):
- *   GEMMA_OLLAMA_URL   e.g. http://localhost:11434/v1   (default)
- *   GEMMA_MODEL_ID     e.g. gemma4                      (default)
+ *   GEMMA_OLLAMA_URL            e.g. http://localhost:11434  (default)
+ *   GEMMA_MODEL_ID              e.g. gemma4                  (default)
  *   GEMMA_SUBAGENT_MAX_TOKENS   default 1024
  *
  * Event names verified against Pi v0.70.x — if Pi upgrades event names,
@@ -43,6 +45,14 @@ const STUCK_WINDOW = 4;
 /** If the same fingerprint appears ≥ this many times in STUCK_WINDOW, we're stuck. */
 const STUCK_THRESHOLD = 2;
 
+/**
+ * After this many consecutive agent turns with zero tool calls, assume the model
+ * is in a thinking loop and inject a reformulation nudge.
+ * 1 is too aggressive (a single explanatory turn is fine).
+ * 2 catches genuine loops without too many false positives.
+ */
+const THINKING_LOOP_THRESHOLD = 2;
+
 // ── Per-session state (reset on sessionReady) ─────────────────────────────────
 
 interface State {
@@ -51,6 +61,10 @@ interface State {
   recentFingerprints: string[];
   stuckWarningFired: boolean;
   contextWarningFired: boolean;
+  // Thinking loop detection
+  toolCalledThisTurn: boolean;
+  consecutiveNoToolTurns: number;
+  thinkingLoopWarningFired: boolean;
 }
 
 function freshState(): State {
@@ -60,6 +74,9 @@ function freshState(): State {
     recentFingerprints: [],
     stuckWarningFired: false,
     contextWarningFired: false,
+    toolCalledThisTurn: false,
+    consecutiveNoToolTurns: 0,
+    thinkingLoopWarningFired: false,
   };
 }
 
@@ -168,6 +185,38 @@ export default function(pi: ExtensionAPI) {
   pi.on("agentEnd", async (ctx: ExtensionContext) => {
     state.turnCount++;
 
+    // ── Thinking loop detection ───────────────────────────────────────────────
+    // Track consecutive turns where the model produced text but called no tools.
+    // This catches reasoning loops that don't show up as repeated tool calls.
+    if (state.toolCalledThisTurn) {
+      state.consecutiveNoToolTurns = 0;
+      state.thinkingLoopWarningFired = false;
+    } else {
+      state.consecutiveNoToolTurns++;
+    }
+    // Reset for next turn
+    state.toolCalledThisTurn = false;
+
+    if (
+      state.consecutiveNoToolTurns >= THINKING_LOOP_THRESHOLD &&
+      !state.thinkingLoopWarningFired
+    ) {
+      state.thinkingLoopWarningFired = true;
+      state.consecutiveNoToolTurns = 0;
+      await pi.sendUserMessage(
+        "[GUARDIAN] You have produced text without calling any tools for " +
+        THINKING_LOOP_THRESHOLD + " turns in a row. You may be stuck in a " +
+        "reasoning loop. Pick one of these exits:\n" +
+        "  A) Use syntax_check with the problematic code snippet\n" +
+        "  B) Use spawn_subagent to get a fresh analysis of the relevant file\n" +
+        "  C) Write out what you know so far, then ask the user one specific question\n" +
+        "  D) Simplify: write the intended change in plain English first, then translate\n" +
+        "Do not continue reasoning — pick an exit and act.",
+        { steer: true }
+      );
+      return;
+    }
+
     // Context budget warning — fire once when we cross 65%
     const usage = ctx.getContextUsage?.();
     if (
@@ -218,6 +267,9 @@ export default function(pi: ExtensionAPI) {
   // We use this to track fingerprints and detect loops.
 
   pi.on("beforeToolCall", async (ctx: ExtensionContext, call: { name: string; args: unknown }) => {
+    // Mark that a tool was called this turn (for thinking loop detection)
+    state.toolCalledThisTurn = true;
+
     const fp = fingerprint(call.name, call.args);
 
     state.recentFingerprints.push(fp);
@@ -317,7 +369,91 @@ export default function(pi: ExtensionAPI) {
     },
   });
 
-  // ── 5. /workdoc command ──────────────────────────────────────────────────────
+  // ── 5. syntax_check tool ────────────────────────────────────────────────────
+  //
+  // Runs the real language parser on a code snippet and returns the error.
+  // Avoids the reasoning loop that happens when the model tries to mentally
+  // parse malformed syntax — particularly f-strings, bracket mismatches,
+  // and similar subtle errors that are hard to spot by inspection.
+  //
+  // Supports: python, javascript, typescript (tsc), and a generic bash fallback.
+  // For unsupported languages, returns a helpful message rather than failing.
+
+  pi.registerTool({
+    name: "syntax_check",
+    description:
+      "Run a real language parser on a code snippet and return the exact error. " +
+      "Use this instead of reasoning about syntax — especially for f-strings, " +
+      "bracket mismatches, quote escaping, and similar subtle errors. " +
+      "Pass the exact snippet you are unsure about, not the whole file. " +
+      "Supported languages: python, javascript, typescript.",
+    schema: Type.Object({
+      code: Type.String({
+        description: "The code snippet to check. Paste it exactly as-is — do not modify it.",
+      }),
+      language: Type.Union(
+        [
+          Type.Literal("python"),
+          Type.Literal("javascript"),
+          Type.Literal("typescript"),
+        ],
+        {
+          description: "Language of the snippet.",
+        }
+      ),
+    }),
+    execute: async (args: { code: string; language: string }): Promise<string> => {
+      const { execSync } = await import("child_process");
+      const os = await import("os");
+      const { code, language } = args;
+
+      // Write snippet to a temp file so parsers can report accurate line numbers
+      const ext = language === "python" ? "py"
+                : language === "typescript" ? "ts"
+                : "js";
+      const tmp = path.join(os.tmpdir(), `pi_syntax_check_${Date.now()}.${ext}`);
+
+      try {
+        fs.writeFileSync(tmp, code, "utf-8");
+
+        let cmd: string;
+        let result: string;
+
+        if (language === "python") {
+          // py_compile gives the clearest error messages
+          cmd = `python3 -c "import py_compile, sys; py_compile.compile('${tmp}', doraise=True)" 2>&1`;
+        } else if (language === "typescript") {
+          // tsc --noEmit --allowJs works on a single file without a tsconfig
+          cmd = `npx --yes tsc --noEmit --strict --target ES2020 --moduleResolution node '${tmp}' 2>&1 || true`;
+        } else {
+          // node --check: parse-only, no execution
+          cmd = `node --check '${tmp}' 2>&1`;
+        }
+
+        try {
+          result = execSync(cmd, { encoding: "utf-8", timeout: 15000 });
+        } catch (e: unknown) {
+          // Non-zero exit = syntax error; stderr is the useful output
+          result = (e as { stdout?: string; stderr?: string }).stdout ??
+                   (e as { stdout?: string; stderr?: string }).stderr ??
+                   String(e);
+        }
+
+        // Strip the temp path from output so line numbers are the only signal
+        result = result.replaceAll(tmp, "<snippet>");
+
+        if (!result.trim()) {
+          return "No syntax errors found.";
+        }
+
+        return result.trim();
+      } finally {
+        try { fs.unlinkSync(tmp); } catch { /* ignore cleanup errors */ }
+      }
+    },
+  });
+
+  // ── 6. /workdoc command ──────────────────────────────────────────────────────
   //
   // Lets the user manage the working document from within Pi.
   // /workdoc        → show summary (first 600 chars)
