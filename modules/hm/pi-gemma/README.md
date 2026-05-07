@@ -259,6 +259,54 @@ to 6 and `wrapUpTurn` to 14 to compensate.
 
 ---
 
+## Troubleshooting
+
+### llama-server OOM killed during compaction
+
+**Symptom:** llama-server is killed by the OOM killer immediately after Pi
+triggers compaction, even though you have plenty of RAM headroom during normal
+use. The llama log shows it trying to save an idle slot to the prompt cache
+just before the kill.
+
+**Root cause:** llama.cpp defaults to multiple parallel slots (usually 4).
+Pi only ever has one conversation at a time, so the extra slots are wasted —
+but when compaction fires, llama tries to:
+1. Save the old slot's full KV state to the LRU prompt cache (~750 MiB spike)
+2. Simultaneously allocate a new slot for the post-compaction request
+
+With a large context and `--kv-unified`, both operations happen at once and
+the combined spike exceeds available RAM.
+
+**Fix:** add `--parallel 1` (or `-np 1`) to your llama-server command:
+
+```
+ExecStart=... llama-server -c 120000 --parallel 1 ...
+```
+
+This eliminates the multi-slot LRU save entirely. Pi has no use for parallel
+slots and pays a large memory cost for them.
+
+### Context blows past Pi's window before compaction fires
+
+**Symptom:** the guardian's context warning fires but the model is mid-chain
+doing tool calls and doesn't stop; context reaches 150–200% before Pi compacts.
+
+**Root cause:** `agentEnd` only fires between turns. A long agentic tool chain
+runs continuously without giving the guardian a chance to interrupt.
+
+**Fix (already in this release):** the guardian now also checks context usage
+in `beforeToolCall`, which fires *during* tool chains. The thresholds are:
+- 50% → warning fires at `agentEnd` (between turns)
+- 55% → warning fires at `beforeToolCall` (mid-chain, if agentEnd hasn't fired yet)
+
+Both use `steer: true` so they interrupt the current generation immediately.
+
+If you still see overflow, lower `inference.contextWindow` in the module
+so compaction fires at a smaller absolute token count, giving more headroom
+before llama's actual `-c` limit.
+
+---
+
 ## Design decisions
 
 **Why Home Manager (not NixOS module)?**

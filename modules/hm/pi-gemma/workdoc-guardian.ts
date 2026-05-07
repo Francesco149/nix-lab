@@ -217,21 +217,25 @@ export default function(pi: ExtensionAPI) {
       return;
     }
 
-    // Context budget warning — fire once when we cross 65%
+    // Context budget warning — fire once when we cross 50%.
+    // 50% (not 65%) gives the model enough runway to finish the current step
+    // and flush WORKDOC.md before Pi's compaction fires. At 65% a long
+    // agentic tool chain can blow past 100% before agentEnd fires again.
     const usage = ctx.getContextUsage?.();
     if (
       usage &&
       !state.contextWarningFired &&
-      usage.used / usage.total > 0.65
+      usage.used / usage.total > 0.50
     ) {
       state.contextWarningFired = true;
       await pi.sendUserMessage(
         `[GUARDIAN] Context at ${Math.round((usage.used / usage.total) * 100)}% — ` +
-        "Pi will compact soon. Update WORKDOC.md thoroughly NOW: mark steps [done], " +
-        "capture all Findings and Decisions. Anything not in WORKDOC.md will be lost.",
-        { followUp: true }
+        "compaction is approaching. STOP the current task after this step. " +
+        "Update WORKDOC.md: mark steps [done], capture Findings and Decisions. " +
+        "Do not start any new exploration. Acknowledge with 'WORKDOC updated.'",
+        { steer: true }
       );
-      return; // skip other reminders this turn — context warning takes priority
+      return; // context warning takes priority over all other reminders
     }
 
     // Periodic working-doc update reminder
@@ -269,6 +273,25 @@ export default function(pi: ExtensionAPI) {
   pi.on("beforeToolCall", async (ctx: ExtensionContext, call: { name: string; args: unknown }) => {
     // Mark that a tool was called this turn (for thinking loop detection)
     state.toolCalledThisTurn = true;
+
+    // Context check mid-chain — beforeToolCall fires during agentic loops,
+    // unlike agentEnd which only fires when the chain naturally stops.
+    // This catches context overflow before the model digs deeper.
+    // We use a slightly higher threshold here (55%) so the agentEnd warning
+    // at 50% fires first in normal single-turn cases; this catches the
+    // multi-tool-call case where agentEnd hasn't had a chance to fire yet.
+    if (!state.contextWarningFired) {
+      const usage = ctx.getContextUsage?.();
+      if (usage && usage.used / usage.total > 0.55) {
+        state.contextWarningFired = true;
+        await pi.sendUserMessage(
+          `[GUARDIAN] Context at ${Math.round((usage.used / usage.total) * 100)}% mid-chain — ` +
+          "finish the current tool call, then STOP. Update WORKDOC.md before continuing. " +
+          "Do not start new exploration or file reads.",
+          { steer: true }
+        );
+      }
+    }
 
     const fp = fingerprint(call.name, call.args);
 

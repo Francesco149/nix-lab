@@ -147,9 +147,16 @@ in
         type = types.int;
         default = 32768;
         description = ''
-          Model context window in tokens. Reported to Pi for compaction
-          threshold calculation. Set to whatever your llama.cpp / Ollama
-          server is configured with.
+          Token window Pi uses for compaction threshold calculation. Set this
+          well below your llama.cpp -c value to trigger compaction with headroom.
+          Example: if llama-server runs with -c 120000, setting 32768 here means
+          Pi compacts at ~16k tokens, long before llama runs out of KV cache.
+
+          IMPORTANT — also add --parallel 1 (or -np 1) to your llama-server
+          command. Pi has one conversation at a time and gets no benefit from
+          parallel slots. Without it, compaction causes llama to simultaneously
+          save the old slot's KV state and allocate a new one, which can spike
+          memory by 700–800 MiB and trigger the OOM killer on large contexts.
         '';
       };
 

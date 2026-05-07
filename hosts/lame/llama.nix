@@ -107,20 +107,15 @@ let
         "--cache-type-v"
         "q8_0"
 
+        "--parallel"
+        "1"
+
         "-m"
         "${model-dir}/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Mini.gguf"
         "--mmproj"
         "${model-dir}/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-F32.gguf"
         "--chat-template-file"
         "/opt/ai-lab/templates/new-chat-template-gemma.jinja"
-
-        "--batch-size"
-        "512"
-        "-np"
-        "4"
-        "--cont-batching"
-        "--ubatch-size"
-        "1024"
       ];
     };
 

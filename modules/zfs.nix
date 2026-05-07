@@ -22,6 +22,7 @@ in
     boot.supportedFilesystems = [ "zfs" ];
     boot.zfs.forceImportRoot = false;
     boot.zfs.extraPools = cfg.pools;
+    boot.kernelParams = [ "zfs.zfs_arc_max=1288490188" ];
 
     services.zfs.autoScrub = {
       enable = true;
