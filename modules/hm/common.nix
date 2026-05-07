@@ -1,4 +1,9 @@
-{ pkgs, osConfig, ... }:
+{
+  pkgs,
+  osConfig,
+  inputs,
+  ...
+}:
 let
   inherit (osConfig) lab;
   excludeFlagsList = map (d: "--exclude ${d}") lab.fzf.excluded;
@@ -7,6 +12,7 @@ in
 {
   imports = [
     ./starship.nix
+    ./pi-gemma/pi-gemma.nix
   ];
 
   programs.git = {
@@ -113,5 +119,33 @@ in
 
   # system monitor
   programs.bottom.enable = true;
+
+  programs.pi-gemma = {
+    enable = true;
+    package = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.pi;
+
+    modelId = "gemma4"; # ollama model ID
+    modelName = "Gemma4 26B A4B"; # display name in Pi
+
+    inference = {
+      baseUrl = "http://lame:${toString lab.ports.llama-vulkan}"; # no /v1 suffix
+      contextWindow = 120000; # tokens — match your server config
+      maxTokens = 4096; # per-generation cap
+      timeoutMs = 120000; # 2 min — increase for slow hardware
+    };
+
+    compaction = {
+      keepRecentTokens = 8000; # recent turns preserved verbatim
+      reserveTokens = 4096; # reserved for model response
+    };
+
+    guardian = {
+      reminderInterval = 8; # workdoc reminder every N turns
+      wrapUpTurn = 17; # warn to wrap up at this turn
+      stuckWindow = 4; # fingerprint window size
+      stuckThreshold = 2; # repeat count to trigger intervention
+      subagentMaxTokens = 1024; # spawn_subagent response budget
+    };
+  };
 
 }

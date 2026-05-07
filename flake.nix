@@ -3,6 +3,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/main";
     disko.url = "github:nix-community/disko";
+    llm-agents.url = "github:numtide/llm-agents.nix";
 
     nut.url = "git+file:///opt/src/nut";
     deploy-rs.url = "github:serokell/deploy-rs";
@@ -32,6 +33,7 @@
       nixos-mailserver,
       dmarc-analyzer,
       disko,
+      llm-agents,
       ...
     }@inputs:
 
