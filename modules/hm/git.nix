@@ -5,7 +5,7 @@
     settings = {
       user.name = "headpats";
       user.email = "cute@headpats.uk";
-      init.defaultBranch = "master"; # more aura and makes you horny
+      init.defaultBranch = "master";
       pull.rebase = true;
     };
     ignores = [
