@@ -15,6 +15,6 @@
 
   security.acme = {
     acceptTerms = true;
-    defaults.email = config.lab.mail.main.addr;
+    defaults.email = config.lab.acme.email;
   };
 }

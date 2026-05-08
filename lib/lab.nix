@@ -49,6 +49,10 @@ rec {
 
   mail.aliases.loli = [ "cute" ];
 
+  # ACME account identity is intentionally stable and separate from the primary
+  # mailbox so changing mail users does not rotate Let's Encrypt accounts.
+  acme.email = "francesco149@gmail.com";
+
   fzf.excluded = [
     ".git"
     ".nix-defexpr"
