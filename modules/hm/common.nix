@@ -51,6 +51,7 @@ in
     ]
     ++ (with inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}; [
       codex
+      claude-code
     ]);
 
   services.gpg-agent = {
