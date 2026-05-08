@@ -14,24 +14,6 @@ $line_break\
 $jobs\
 \\$ """
 
-[palettes.chicago95]
-base03 = "#000000"
-base02 = "#545454"
-base01 = "#A8A8A8"
-base00 = "#A8A8A8"
-base0 = "#C0C7C8"
-base1 = "#FFFFFF"
-base2 = "#FFFFFF"
-base3 = "#FFFFFF"
-yellow = "#A85400"
-orange = "#A85400"
-red = "#A80000"
-magenta = "#A800A8"
-violet = "#0000A8"
-blue = "#0000A8"
-cyan = "#00A8A8"
-green = "#00A800"
-
 [username]
 format = "[$user]($style)"
 show_always = true
