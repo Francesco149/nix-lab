@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 {
   nut.deploy.host = config.lab.internet.relay;
   nut.dbus.implementation = "dbus";
@@ -77,12 +82,16 @@
     enable = true;
     settings.main = {
       myhostname = config.lab.domains.mail;
-      inet_interfaces = config.lab.tailnet.relay;
+      # Keep setup commands such as postalias from failing when tailscaled
+      # briefly removes the tailnet address during a deploy. The actual SMTP
+      # listener is still bound to the tailnet address in master.cf below.
+      inet_interfaces = "all";
       inet_protocols = "ipv4";
       mynetworks = config.lab.tailnet.prefixes;
       relay_domains = null;
       smtp_bind_address = config.lab.internet.relay;
     };
+    settings.master.smtp_inet.name = lib.mkForce "${config.lab.tailnet.relay}:smtp";
   };
 
   # nginx is acting as a reverse proxy which routes all connections to their
