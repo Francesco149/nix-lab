@@ -7,7 +7,7 @@
 let
   inherit (config) lab;
   model-dir = "/opt/ai-lab/models";
-  radv-icd = "${pkgs.mesa.drivers}/share/vulkan/icd.d/radeon_icd.x86_64.json";
+  radv-icd = "${pkgs.mesa}/share/vulkan/icd.d/radeon_icd.x86_64.json";
 
   llama-cpp-cuda = pkgs.llama-cpp.override ({ cudaSupport = true; });
   llama-cpp-cuda-video = llama-cpp-cuda.overrideAttrs (old: rec {

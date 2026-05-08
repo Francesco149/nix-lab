@@ -30,23 +30,28 @@ in
   # - things I use all the time
   # - critical tools in case I have no internet to do nix-shell
 
-  home.packages = with pkgs; [
-    age
-    wget
-    curl
-    pv # pipe things with a progress and speed monitor
-    htop
-    iftop
-    jq # cli to parse and query json
-    fd # used by fzf to filter files
-    tmux
-    zellij # modern tmux alternative
-    diskus
-    dust # tree view of disk usage, better du
-    gh # to get github token
-    glab # gitlab token
-    moreutils # ts to timestamp lines of output plus other nice utils
-  ];
+  home.packages =
+    with pkgs;
+    [
+      age
+      wget
+      curl
+      pv # pipe things with a progress and speed monitor
+      htop
+      iftop
+      jq # cli to parse and query json
+      fd # used by fzf to filter files
+      tmux
+      zellij # modern tmux alternative
+      diskus
+      dust # tree view of disk usage, better du
+      gh # to get github token
+      glab # gitlab token
+      moreutils # ts to timestamp lines of output plus other nice utils
+    ]
+    ++ (with inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}; [
+      codex
+    ]);
 
   services.gpg-agent = {
     enable = true;

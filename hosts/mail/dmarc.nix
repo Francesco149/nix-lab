@@ -9,7 +9,7 @@ in
   services.dmarc-analyzer = {
     enable = true;
     mailDir = "/var/vmail/${lab.domains.base}/${lab.mail.master}/mail/.Archive.DMARC/";
-    scanUser = config.mailserver.vmailUserName;
+    scanUser = config.mailserver.storage.owner;
     port = lab.ports.dmarc-analyzer;
     listenHost = lab.lan.mail;
   };

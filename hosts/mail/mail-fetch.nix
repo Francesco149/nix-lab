@@ -3,7 +3,7 @@
 let
   fetchScript = ./mail-fetch/fetch.py;
   secretsDir = config.lab.fetchmail.secrets-dir;
-  vmailUser = config.mailserver.vmailUserName;
+  vmailUser = config.mailserver.storage.owner;
   targetEmail = config.lab.mail.main.addr;
 in
 {

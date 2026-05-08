@@ -50,7 +50,7 @@
     # since 26.05 we explicitly use nginx for the cert
     x509.useACMEHost = config.mailserver.fqdn;
 
-    loginAccounts = builtins.listToAttrs (
+    accounts = builtins.listToAttrs (
       map (user: {
         name = "${user}@${config.lab.domains.base}";
         value =

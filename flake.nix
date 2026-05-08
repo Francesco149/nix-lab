@@ -22,6 +22,7 @@
     shigebot.inputs.nixpkgs.follows = "nixpkgs";
     lurk-monitor.inputs.nixpkgs.follows = "nixpkgs";
     grammar-helper.inputs.nixpkgs.follows = "nixpkgs";
+    llm-agents.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-mailserver.inputs.flake-compat.follows = "deploy-rs/flake-compat";
   };
@@ -59,7 +60,7 @@
             {
               services.shigebot = {
                 enable = true;
-                package = inputs.shigebot.packages.${pkgs.system}.default;
+                package = inputs.shigebot.packages.${pkgs.stdenv.hostPlatform.system}.default;
                 configFile = ./hosts/code/shigebot.toml;
                 environmentFile = "/var/lib/secrets/shigebot-env";
               };
