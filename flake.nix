@@ -38,86 +38,94 @@
       ...
     }@inputs:
 
-    nut.lib.mf {
-      inherit self inputs;
-      dir = ./.;
+    nut.lib.mf [
+      {
+        inherit self inputs;
+        dir = ./.;
 
-      hosts.code = {
         modules = [
-          ./modules/docker.nix
-          ./modules/interactive.nix
-          ./modules/tailscale-home-lan.nix
-          ./modules/local.nix
-
-          inputs.grammar-helper.nixosModules.default
-          inputs.lurk-monitor.nixosModules.default
-
-          # TODO: move to code.nix, somehow thread package through
-          # TODO: allow hot reloading of config file
-          inputs.shigebot.nixosModules.shigebot
-          (
-            { pkgs, ... }:
-            {
-              services.shigebot = {
-                enable = true;
-                package = inputs.shigebot.packages.${pkgs.stdenv.hostPlatform.system}.default;
-                configFile = ./hosts/code/shigebot.toml;
-                environmentFile = "/var/lib/secrets/shigebot-env";
-              };
-            }
-          )
+          (nut.lib.dumb "lab" (import ./lib/lab.nix))
+          ./modules/common.nix
+          ./modules/beszel.nix
+          ./modules/nix.nix
         ];
 
-        hmModules.root = [
-          ./modules/hm/common.nix
-        ];
-      };
-
-      hosts.relay = [ ];
-
-      hosts.mail = [
-        nixos-mailserver.nixosModule
-        inputs.dmarc-analyzer.nixosModules.dmarc-analyzer
-        ./modules/local.nix
-        ./modules/tailscale-home-lan.nix
-      ];
-
-      hosts.cold = [
-        ./modules/local.nix
-        ./modules/tailscale-home-lan.nix
-        ./modules/initrd-unlock.nix
-        ./modules/zfs.nix
-        ./modules/backup-target.nix
-      ];
-
-      hosts.lame = {
-        modules = [
-          disko.nixosModules.disko
-          ./modules/interactive.nix
-          ./modules/local.nix
-          ./modules/tailscale-home-lan.nix
-          ./modules/initrd-unlock.nix
-          ./modules/zfs.nix
-          ./modules/backup-target.nix
-        ];
-
-        hmModules.root = [
-          ./modules/hm/common.nix
-        ];
-      };
-
-      modules = [
-        (nut.lib.dumb "lab" (import ./lib/lab.nix))
-        ./modules/common.nix
-        ./modules/beszel.nix
-        ./modules/nix.nix
-      ];
-
-      perSystem =
-        { pkgs, ... }:
-        {
-          devShells.default = nut.lib.mkDevShell (import ./lib/devShell.nix { inherit pkgs; });
+        hosts = {
+          code = [ ];
+          mail = [ ];
+          relay = [ ];
+          cold = [ ];
+          lame = [ ];
         };
-    };
+
+        perSystem =
+          { pkgs, ... }:
+          {
+            devShells.default = nut.lib.mkDevShell (import ./lib/devShell.nix { inherit pkgs; });
+          };
+      }
+
+      {
+        modules = [
+          ./modules/local.nix
+          ./modules/tailscale-home-lan.nix
+        ];
+
+        hosts = {
+          code.modules = [
+            ./modules/docker.nix
+            ./modules/interactive.nix
+
+            inputs.grammar-helper.nixosModules.default
+            inputs.lurk-monitor.nixosModules.default
+
+            # TODO: move to code.nix, somehow thread package through
+            # TODO: allow hot reloading of config file
+            inputs.shigebot.nixosModules.shigebot
+            (
+              { pkgs, ... }:
+              {
+                services.shigebot = {
+                  enable = true;
+                  package = inputs.shigebot.packages.${pkgs.stdenv.hostPlatform.system}.default;
+                  configFile = ./hosts/code/shigebot.toml;
+                  environmentFile = "/var/lib/secrets/shigebot-env";
+                };
+              }
+            )
+          ];
+
+          mail.modules = [
+            nixos-mailserver.nixosModule
+            inputs.dmarc-analyzer.nixosModules.dmarc-analyzer
+          ];
+
+          cold.modules = [
+            ./modules/initrd-unlock.nix
+            ./modules/zfs.nix
+            ./modules/backup-target.nix
+          ];
+
+          lame.modules = [
+            disko.nixosModules.disko
+            ./modules/interactive.nix
+            ./modules/initrd-unlock.nix
+            ./modules/zfs.nix
+            ./modules/backup-target.nix
+          ];
+        };
+      }
+
+      {
+        hmModules.root = [
+          ./modules/hm/common.nix
+        ];
+
+        hosts = {
+          code = [ ];
+          lame = [ ];
+        };
+      }
+    ];
 
 }
