@@ -4,6 +4,10 @@
 
 { pkgs, ... }:
 {
+  imports = [
+    ./nvim.nix
+  ];
+
   programs.fish.enable = true;
   users.defaultUserShell = pkgs.fish;
   security.sudo.wheelNeedsPassword = false;

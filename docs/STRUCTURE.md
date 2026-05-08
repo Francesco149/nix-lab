@@ -21,6 +21,7 @@ utils/
 docs/
   OPERATIONS.md           deployment, secrets, recovery notes
   STRUCTURE.md            this file
+  NVIM.md                 custom Neovim launcher and editor behavior
 AGENTS.md                 agent-facing conventions and source-of-truth map
 WORKDOC.md                cross-session goals, decisions, and task log
 ```
@@ -47,6 +48,7 @@ Current host entries:
 - `README.md` is an entrypoint and should stay compact.
 - `docs/STRUCTURE.md` documents repo layout and wiring.
 - `docs/OPERATIONS.md` documents procedures.
+- `docs/NVIM.md` documents the custom `e` editor setup.
 - `AGENTS.md` documents conventions for coding agents.
 - `WORKDOC.md` tracks active goals, decisions, and follow-up tasks.
 

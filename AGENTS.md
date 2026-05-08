@@ -58,6 +58,13 @@ Do not duplicate those automatically injected paths in `flake.nix`.
 - Use `rg`/`git ls-files` for exploration and read focused file ranges.
 - Preserve existing uncommitted changes unless the user asks otherwise.
 
+## Commits
+
+- When committing changes, include this trailer on every commit:
+  `Co-authored-by: OpenAI Codex <codex@openai.com>`.
+- Prefer split commits for unrelated work, with the co-author trailer on each
+  commit.
+
 ## Checks
 
 Use the lightest check that validates the change:
@@ -66,3 +73,19 @@ Use the lightest check that validates the change:
 - Nix formatting: `nix fmt` if available for the touched Nix files.
 - Nix evaluation: `nix flake check --no-build` when module wiring changes.
 - Host build smoke test: `build-system <host>` for meaningful host changes.
+
+## Binary Caches
+
+When running Nix builds/checks in this repo, use the homelab cache first. It is
+a local domain: `cache.box.headpats.uk` resolves through the router at
+`10.0.10.1` to `10.0.10.53`, so sandboxed DNS may fail. If a build needs the
+local cache, rerun the Nix command with escalated network access.
+
+Preferred flags:
+
+```sh
+--option substituters "https://cache.box.headpats.uk" \
+--option extra-substituters "https://nix-community.cachix.org https://cache.nixos-cuda.org https://cache.numtide.com" \
+--option trusted-public-keys "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" \
+--option extra-trusted-public-keys "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+```
