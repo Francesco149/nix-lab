@@ -25,11 +25,8 @@
     llm-agents.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-mailserver.inputs.flake-compat.follows = "deploy-rs/flake-compat";
-    nixos-mailserver.inputs.flake-parts.follows = "nut/flake-parts";
     llm-agents.inputs.flake-parts.follows = "nut/flake-parts";
     shigebot.inputs.flake-parts.follows = "nut/flake-parts";
-    grammar-helper.inputs.systems.follows = "llm-agents/systems";
-    deploy-rs.inputs.systems.follows = "llm-agents/systems";
   };
 
   outputs =
