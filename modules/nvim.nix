@@ -67,7 +67,6 @@ let
     vim.opt.updatetime = 300
     vim.opt.timeoutlen = 400
     vim.opt.completeopt = { 'menu', 'menuone', 'noinsert', 'noselect' }
-    vim.opt.clipboard = 'unnamedplus'
 
     local function hi(group, opts)
       vim.api.nvim_set_hl(0, group, opts)
@@ -99,8 +98,11 @@ let
       vim.cmd.packadd(plugin)
     end
 
-    if vim.env.SSH_TTY or vim.env.SSH_CONNECTION then
+    local is_ssh = vim.env.SSH_TTY or vim.env.SSH_CONNECTION
+    if is_ssh then
       local osc52 = require('vim.ui.clipboard.osc52')
+      local copy_to_client = osc52.copy('+')
+
       vim.g.clipboard = {
         name = 'OSC 52',
         copy = {
@@ -112,6 +114,17 @@ let
           ['*'] = function() return { {}, 'v' } end,
         },
       }
+
+      vim.api.nvim_create_autocmd('TextYankPost', {
+        callback = function()
+          local event = vim.v.event
+          if event.operator == 'y' and event.regname ~= '_' then
+            copy_to_client(event.regcontents, event.regtype)
+          end
+        end,
+      })
+    else
+      vim.opt.clipboard = 'unnamedplus'
     end
 
     vim.api.nvim_create_autocmd('FileType', {

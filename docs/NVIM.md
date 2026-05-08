@@ -32,6 +32,11 @@ When `SSH_TTY` or `SSH_CONNECTION` is present, `e` uses Neovim's built-in OSC52
 clipboard provider. This supports copying from remote SSH sessions through a
 terminal such as Alacritty.
 
+In SSH sessions, normal yanks also send the yanked text to the client clipboard
+through OSC52, but `clipboard=unnamedplus` is not set. That keeps Vim's unnamed
+register local, so `yy` followed by `p` works normally even though remote
+clipboard paste cannot be read back through OSC52.
+
 Outside SSH, `clipboard=unnamedplus` is set so local clipboard integration can
 work when workstation use moves to NixOS.
 
