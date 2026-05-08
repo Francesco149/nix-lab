@@ -85,7 +85,10 @@
 
   services.dovecot2.settings = {
     "protocol lda".mail_plugins.sieve = true;
-    plugin.sieve_before = "/etc/dovecot/sieve/headpats-before.sieve";
+    "sieve_script headpats-before" = {
+      type = "before";
+      path = "/etc/dovecot/sieve/headpats-before.sieve";
+    };
   };
 
   # only for the home lan for mail clients to use. not exposed to the internet
