@@ -74,25 +74,6 @@
         hosts = {
           code.modules = [
             ./modules/docker.nix
-            ./modules/interactive.nix
-
-            inputs.grammar-helper.nixosModules.default
-            inputs.lurk-monitor.nixosModules.default
-
-            # TODO: move to code.nix, somehow thread package through
-            # TODO: allow hot reloading of config file
-            inputs.shigebot.nixosModules.shigebot
-            (
-              { pkgs, ... }:
-              {
-                services.shigebot = {
-                  enable = true;
-                  package = inputs.shigebot.packages.${pkgs.stdenv.hostPlatform.system}.default;
-                  configFile = ./hosts/code/shigebot.toml;
-                  environmentFile = "/var/lib/secrets/shigebot-env";
-                };
-              }
-            )
           ];
 
           mail.modules = [
@@ -100,23 +81,18 @@
             inputs.dmarc-analyzer.nixosModules.dmarc-analyzer
           ];
 
-          cold.modules = [
-            ./modules/initrd-unlock.nix
-            ./modules/zfs.nix
-            ./modules/backup-target.nix
-          ];
-
+          cold = [ ];
           lame.modules = [
             disko.nixosModules.disko
-            ./modules/interactive.nix
-            ./modules/initrd-unlock.nix
-            ./modules/zfs.nix
-            ./modules/backup-target.nix
           ];
         };
       }
 
       {
+        modules = [
+          ./modules/interactive.nix
+        ];
+
         hmModules.root = [
           ./modules/hm/common.nix
         ];
@@ -125,6 +101,27 @@
           code = [ ];
           lame = [ ];
         };
+      }
+
+      {
+        modules = [
+          ./modules/initrd-unlock.nix
+          ./modules/zfs.nix
+          ./modules/backup-target.nix
+        ];
+
+        hosts = {
+          cold = [ ];
+          lame = [ ];
+        };
+      }
+
+      {
+        hosts.code.modules = [
+          inputs.grammar-helper.nixosModules.default
+          inputs.lurk-monitor.nixosModules.default
+          inputs.shigebot.nixosModules.shigebot
+        ];
       }
     ];
 

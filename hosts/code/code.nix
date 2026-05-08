@@ -1,4 +1,9 @@
-{ config, ... }:
+{
+  config,
+  inputs,
+  pkgs,
+  ...
+}:
 {
   imports = [
     ./dockge.nix
@@ -39,5 +44,12 @@
     host = "127.0.0.1";
     port = config.lab.ports.grammar-helper;
     envFile = "/var/lib/secrets/shigebot-env";
+  };
+
+  services.shigebot = {
+    enable = true;
+    package = inputs.shigebot.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    configFile = ./shigebot.toml;
+    environmentFile = "/var/lib/secrets/shigebot-env";
   };
 }
