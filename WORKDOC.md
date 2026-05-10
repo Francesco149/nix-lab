@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-05-08
+Last updated: 2026-05-10
 
 ## Project
 
@@ -14,8 +14,8 @@ re-learning project conventions each session.
 - Keep shared constants in `lib/lab.nix`.
 - Provide a system-wide custom Neovim launcher named `e` for interactive hosts
   without changing the clean `neovim` package used by OpenVSCode.
-- Keep editor colors tied to `lib/lab.nix` and avoid overriding the terminal
-  background.
+- Keep interactive tool colors tied to `lib/lab.nix` without overriding the
+  terminal background.
 
 ## Scope Notes
 
@@ -24,6 +24,8 @@ re-learning project conventions each session.
 - `interactive.nix` is currently included by `code` and `lame`.
 - OpenVSCode should keep using system `neovim`; the custom editor should remain
   isolated behind the `e` launcher.
+- System tmux defaults live in `modules/tmux.nix` and are applied through
+  `interactive.nix`.
 
 ## Findings
 
@@ -41,4 +43,6 @@ re-learning project conventions each session.
 - [done] Configure SSH clipboard through OSC52 while leaving local clipboard
   behavior available later.
 - [done] Add conservative LSP, completion, formatting, and fuzzy-find defaults.
+- [done] Add system tmux defaults for interactive hosts with mouse scrolling
+  left to the terminal emulator.
 - [todo] Consider generating docs from `lib/lab.nix` if the host inventory grows.

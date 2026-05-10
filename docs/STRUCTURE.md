@@ -22,6 +22,7 @@ docs/
   OPERATIONS.md           deployment, secrets, recovery notes
   STRUCTURE.md            this file
   NVIM.md                 custom Neovim launcher and editor behavior
+  TMUX.md                 system tmux defaults and keybindings
 AGENTS.md                 agent-facing conventions and source-of-truth map
 WORKDOC.md                cross-session goals, decisions, and task log
 ```
@@ -49,6 +50,7 @@ Current host entries:
 - `docs/STRUCTURE.md` documents repo layout and wiring.
 - `docs/OPERATIONS.md` documents procedures.
 - `docs/NVIM.md` documents the custom `e` editor setup.
+- `docs/TMUX.md` documents the system tmux setup.
 - `AGENTS.md` documents conventions for coding agents.
 - `WORKDOC.md` tracks active goals, decisions, and follow-up tasks.
 

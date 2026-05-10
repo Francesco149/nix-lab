@@ -31,8 +31,8 @@ flake and reverse-proxied by `code`.
 - `AGENTS.md` and `WORKDOC.md` keep coding-agent conventions, goals, and task
   state durable across sessions.
 
-The palette in `lib/lab.nix` is intentionally unused for now; it is reserved
-for future theming work.
+The palette in `lib/lab.nix` is used by small interactive tools such as the
+custom editor and tmux chrome while leaving terminal backgrounds alone.
 
 ## Nut Conventions
 

@@ -6,6 +6,7 @@
 {
   imports = [
     ./nvim.nix
+    ./tmux.nix
   ];
 
   programs.fish.enable = true;
