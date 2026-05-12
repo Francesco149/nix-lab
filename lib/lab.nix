@@ -140,7 +140,7 @@ rec {
   ssh.authorized-keys = [
     # workstation
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF0Hj5jOmw03+LxHO7xOkcPSMknxRXflt+qznZ0SRCQG headpats@cutestation"
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOggpEtx3bYTi/Qr59aaAi2RyAwvsBv04tyPVPGd/9j4 headpats@DESKTOP-2FRVAC7"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJa2cA6+V9KjkEzkgMhoyKBUTOGeJBQpaU5WA3lrRMaF headpats@cutestation"
     # streaming pc
     "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNTISALC2cQaRAtgsLUK1V5Ko1s8eO8/1WHkdnH/ifiglrbftmfZ72HHSSht54lUsRR6CvGnDRQPJfySI1xCHhg= loli@HCUP"
     # laptop
