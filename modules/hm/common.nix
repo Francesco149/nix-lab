@@ -52,6 +52,7 @@ in
     ++ (with inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}; [
       codex
       claude-code
+      opencode
     ]);
 
   services.gpg-agent = {
