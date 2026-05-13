@@ -2,8 +2,38 @@
 let
   inherit (osConfig.lab) colors;
   c = colors;
-  activeColor = "#${c.base0D}";
+  activeColor = "#${c.base03}";
   inactiveColor = "#${c.base01}";
+
+  clipboardSync = pkgs.writeShellScriptBin "niri-clipboard-sync" ''
+    # bidirectional clipboard sync between Wayland and Windows
+    win_hash=""
+    linux_hash=""
+
+    while true; do
+      # Windows -> Linux
+      win_data=$(powershell.exe -NoProfile -Command Get-Clipboard 2>/dev/null | tr -d '\r')
+      new_win_hash=$(printf "%s" "$win_data" | sha1sum)
+
+      if [ "$new_win_hash" != "$win_hash" ]; then
+        printf "%s" "$win_data" | ${pkgs.wl-clipboard}/bin/wl-copy
+        win_hash="$new_win_hash"
+        linux_hash="$new_win_hash"
+      fi
+
+      # Linux -> Windows
+      linux_data=$(${pkgs.wl-clipboard}/bin/wl-paste -n 2>/dev/null)
+      new_linux_hash=$(printf "%s" "$linux_data" | sha1sum)
+
+      if [ "$new_linux_hash" != "$linux_hash" ]; then
+        printf "%s" "$linux_data" | clip.exe
+        linux_hash="$new_linux_hash"
+        win_hash="$new_linux_hash"
+      fi
+
+      sleep 0.3
+    done
+  '';
 in
 {
   xdg.configFile."niri/config.kdl".text = ''
@@ -22,9 +52,7 @@ in
       gaps 8
 
       focus-ring {
-        on
-        active-color "${activeColor}"
-        inactive-color "${inactiveColor}"
+        off
         width 2
       }
 
@@ -102,6 +130,17 @@ in
     // run as a nested session under WSLg/Wayland
     prefer-no-csd
 
+    xwayland-satellite {
+      on
+      path "${pkgs.xwayland-satellite}/bin/xwayland-satellite"
+    }
+
+    // draw borders around windows, not behind them
+    window-rule {
+      draw-border-with-background false
+    }
+
     spawn-at-startup "${pkgs.alacritty}/bin/alacritty"
+    spawn-at-startup "${clipboardSync}/bin/niri-clipboard-sync"
   '';
 }

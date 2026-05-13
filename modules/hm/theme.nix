@@ -1,11 +1,11 @@
-{ pkgs, config, ... }:
+{ osConfig, pkgs, config, ... }:
 let
   gtkTheme = {
-    name = "Flat-Remix-GTK-Violet-Darkest";
+    name = "Flat-Remix-GTK-Cyan-Darkest";
     package = pkgs.flat-remix-gtk;
   };
   iconTheme = {
-    name = "Flat-Remix-Violet-Dark";
+    name = "Flat-Remix-Cyan-Dark";
     package = pkgs.flat-remix-icon-theme;
   };
 in
@@ -14,9 +14,6 @@ in
     enable = true;
     theme = gtkTheme;
     iconTheme = iconTheme;
-    gtk3.extraConfig = {
-      gtk-application-prefer-dark-theme = 1;
-    };
     gtk4.theme = gtkTheme;
   };
 
@@ -25,7 +22,16 @@ in
     platformTheme.name = "gtk";
   };
 
+  dconf = {
+    enable = true;
+    settings."org/gnome/desktop/interface" = {
+      color-scheme = "prefer-dark";
+      monospace-font-name = "JetBrainsMono Nerd Font Semi-Bold 12";
+    };
+  };
+
   home.packages = with pkgs; [
+    cantarell-fonts
     flat-remix-gtk
     flat-remix-icon-theme
   ];

@@ -6,7 +6,7 @@ in
 {
   xdg.configFile."fuzzel/fuzzel.ini".text = ''
     [main]
-    font=PxPlus IBM VGA8:size=12
+    font=sans-serif:size=12
     prompt=
     lines=12
     width=50

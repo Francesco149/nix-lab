@@ -11,6 +11,7 @@ in
         dynamic_padding = true;
         decorations = "None";
         opacity = 0.95;
+        padding = { x = 5; y = 5; };
       };
       font = {
         normal = {
