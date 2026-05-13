@@ -106,11 +106,29 @@
         hosts = {
           code = [ ];
           lame = [ ];
-	  wslop = [
-	     nixos-wsl.nixosModules.default
-	     ./modules/local.nix
-	  ];
         };
+      }
+
+      {
+        modules = [
+          ./modules/interactive.nix
+        ];
+
+        hmModules.headpats = [
+          ./modules/hm/common.nix
+          ./modules/hm/fonts.nix
+          ./modules/hm/alacritty.nix
+          ./modules/hm/fuzzel.nix
+          ./modules/hm/niri-config.nix
+          ./modules/hm/theme.nix
+          ./modules/hm/default-apps.nix
+          ./modules/hm/mpv.nix
+        ];
+
+        hosts.wslop = [
+          nixos-wsl.nixosModules.default
+          ./modules/local.nix
+        ];
       }
 
       {

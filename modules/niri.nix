@@ -5,5 +5,6 @@
     fuzzel
     wayland-utils
     wl-clipboard
+    xwayland-satellite
   ];
 }
