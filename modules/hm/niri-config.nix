@@ -90,6 +90,13 @@ in
       Mod+Shift+7 { move-column-to-workspace 7; }
       Mod+Shift+8 { move-column-to-workspace 8; }
       Mod+Shift+9 { move-column-to-workspace 9; }
+
+      Mod+WheelScrollDown            cooldown-ms=150 { focus-column-right; }
+      Mod+WheelScrollUp              cooldown-ms=150 { focus-column-left; }
+      Mod+Shift+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
+      Mod+Shift+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }
+
+      Mod+Tab { toggle-overview; }
     }
 
     // run as a nested session under WSLg/Wayland

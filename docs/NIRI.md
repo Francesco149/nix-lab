@@ -36,6 +36,9 @@ set) — opening any GUI app first will trigger WSLg startup.
 | `Mod+Shift+1-9` | Move column to workspace 1-9 |
 | `Mod+Home/End` | First/last column |
 | `Mod+Shift+Home/End` | Move column to first/last |
+| `Mod+WheelDown/Up` | Focus column right/left |
+| `Mod+Shift+WheelDown/Up` | Next/previous workspace |
+| `Mod+Tab` | Toggle overview |
 
 `Mod` is `Super` (Windows key) when niri runs directly, `Alt` when nested.
 Under weston/WSLg, `Mod` resolves to `Alt` since niri detects the nested
@@ -58,12 +61,38 @@ PxPlus IBM VGA8 at 12px with bold disabled for pixel-perfect rendering.
 Installed via `modules/hm/fonts.nix`, configured in alacritty with the full
 lab.nix terminal palette.
 
+## Theming
+
+GTK and Qt apps use the Flat-Remix-Violet-Darkest theme with
+Flat-Remix-Violet-Dark icons. Configured in `modules/hm/theme.nix`.
+Firefox runs in dark mode via the GTK theme preference and
+`MOZ_ENABLE_WAYLAND=1`.
+
+## Default Applications
+
+| Role | Application |
+|------|------------|
+| Terminal | alacritty |
+| Launcher | fuzzel |
+| File manager | nautilus |
+| Text editor | zed |
+| Terminal editor | e (custom nvim wrapper) |
+| Image viewer | eog |
+| Video player | mpv |
+| Browser | firefox |
+
+Set in `modules/hm/default-apps.nix` via `xdg.mimeApps` and
+`home.sessionVariables`.
+
 ## Known Issues
 
-- **WSLg resize crash**: The outer WSLg window cannot be resized while niri
-  is running. The kiosk-shell fullscreen setup avoids this by launching at
-  a fixed 1920×1080.
-- **Wayland connection**: `niri-start` will fail if WSLg is not running.
-  Run a GUI app (e.g. `glxgears`) first to trigger WSLg.
-- **No clipboard sharing**: Currently no wayland-to-Windows clipboard bridge
-  is configured. `wl-clipboard` is installed for in-session use.
+- **Resize behavior**: Running niri directly under WSLg (without weston)
+  crashes on resize. When nested under weston in kiosk mode, both niri and
+  weston windows can be resized without crashing, but weston does not change
+  its internal resolution — it crops the view instead. Use the fullscreen
+  setup at 1920×1080 for the best experience.
+- **Wayland connection**: If `niri-start` complains about a missing Wayland
+  display, WSLg may not have started yet. Try running a GUI app (e.g.
+  `glxgears`) first to trigger WSLg, then launch niri again.
+- **No Windows clipboard sharing**: Currently no wayland-to-Windows clipboard
+  bridge is configured. `wl-clipboard` is installed for in-session use.

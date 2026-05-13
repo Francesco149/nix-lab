@@ -6,6 +6,10 @@
 
   environment.systemPackages = with pkgs; [
     weston
+    nautilus
+    zed-editor
+    eog
+    mpv
 
     (writeShellScriptBin "niri-start" ''
       # nested weston under WSLg using kiosk-shell.
