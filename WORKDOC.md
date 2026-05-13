@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-05-10
+Last updated: 2026-05-13
 
 ## Project
 
@@ -46,3 +46,34 @@ re-learning project conventions each session.
 - [done] Add system tmux defaults for interactive hosts with mouse scrolling
   left to the terminal emulator.
 - [todo] Consider generating docs from `lib/lab.nix` if the host inventory grows.
+
+## Niri Desktop (wslop)
+
+Niri is wired as a nested compositor under WSLg on the `wslop` host. The
+non-WSL parts are reusable modules.
+
+### Modules added
+
+| Module | Type | What it does |
+|--------|------|-------------|
+| `modules/niri.nix` | NixOS | Installs niri, wayland-utils, wl-clipboard |
+| `modules/hm/niri-config.nix` | HM | Generates `~/.config/niri/config.kdl` with lab.nix colors |
+| `modules/hm/alacritty.nix` | HM | Installs/configures alacritty with lab.nix colors + PxPlus IBM VGA8 font |
+| `modules/hm/fonts.nix` | HM | Fetches and installs PxPlus_IBM_VGA8.ttf |
+
+### Architecture notes
+
+- HM modules access NixOS options via `osConfig`, same pattern as `starship.nix`.
+- Niri colors apply to focus-ring and border (active=blue base0D, inactive=dark
+  gray base01). Alacritty gets the full terminal palette.
+- WSL launch script (`niri-start`) runs `niri` directly — WSLg provides
+  `WAYLAND_DISPLAY` so niri auto-detects nested mode.
+
+### Known issues
+
+- Resizing the WSLg window while niri is running causes a crash (likely a
+  WSLg/niri interaction). Workaround: press Win+Shift+Enter to fullscreen
+  the WSLg window before launching niri, or avoid resizing.
+- `grammar-helper` and other local inputs are missing in this environment,
+  so `nix flake check` fails on deploy-rs checks. Host-specific builds
+  (`.#nixosConfigurations.wslop`) work fine.
