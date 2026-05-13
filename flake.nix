@@ -4,6 +4,7 @@
     nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/main";
     disko.url = "github:nix-community/disko";
     llm-agents.url = "github:numtide/llm-agents.nix";
+    nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
 
     nut.url = "git+file:///opt/src/nut";
     deploy-rs.url = "github:serokell/deploy-rs";
@@ -23,6 +24,7 @@
     lurk-monitor.inputs.nixpkgs.follows = "nixpkgs";
     grammar-helper.inputs.nixpkgs.follows = "nixpkgs";
     llm-agents.inputs.nixpkgs.follows = "nixpkgs";
+    nixos-wsl.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-mailserver.inputs.flake-compat.follows = "deploy-rs/flake-compat";
     llm-agents.inputs.flake-parts.follows = "nut/flake-parts";
@@ -37,6 +39,7 @@
       dmarc-analyzer,
       disko,
       llm-agents,
+      nixos-wsl,
       ...
     }@inputs:
 
@@ -58,6 +61,7 @@
           relay = [ ];
           cold = [ ];
           lame = [ ];
+	  wslop = [ ];
         };
 
         perSystem =
@@ -102,6 +106,10 @@
         hosts = {
           code = [ ];
           lame = [ ];
+	  wslop = [
+	     nixos-wsl.nixosModules.default
+	     ./modules/local.nix
+	  ];
         };
       }
 
