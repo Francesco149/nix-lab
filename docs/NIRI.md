@@ -15,9 +15,9 @@ config), and `modules/hm/alacritty.nix` (terminal). Colors come from
 niri-start
 ```
 
-The script launches weston (kiosk-shell, fullscreen) which execs niri inside
-it. When niri exits, weston exits. WSLg must be running (`WAYLAND_DISPLAY`
-set) — opening any GUI app first will trigger WSLg startup.
+The script must be run as the `headpats` user (the default WSL user).
+It launches weston (kiosk-shell, fullscreen) which execs niri inside it.
+When niri exits, weston exits.
 
 ## Keybindings
 
@@ -75,7 +75,7 @@ Firefox runs in dark mode via the GTK theme preference and
 | Terminal | alacritty |
 | Launcher | fuzzel |
 | File manager | nautilus |
-| Text editor | zed |
+| Text editor | gedit |
 | Terminal editor | e (custom nvim wrapper) |
 | Image viewer | eog |
 | Video player | mpv |
@@ -94,5 +94,5 @@ Set in `modules/hm/default-apps.nix` via `xdg.mimeApps` and
 - **Wayland connection**: If `niri-start` complains about a missing Wayland
   display, WSLg may not have started yet. Try running a GUI app (e.g.
   `glxgears`) first to trigger WSLg, then launch niri again.
-- **No Windows clipboard sharing**: Currently no wayland-to-Windows clipboard
-  bridge is configured. `wl-clipboard` is installed for in-session use.
+- **Clipboard**: Wayland clipboard changes are mirrored to the Windows
+  clipboard via `wl-paste --watch clip.exe` at startup.

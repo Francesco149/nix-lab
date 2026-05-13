@@ -22,6 +22,11 @@
     EDITOR = "e";
     VISUAL = "e";
     MOZ_ENABLE_WAYLAND = "1";
+    EGL_PLATFORM = "wayland";
+    QT_QPA_PLATFORM = "wayland";
+    GDK_BACKEND = "wayland";
+    SDL_VIDEODRIVER = "wayland";
+    ELECTRON_OZONE_PLATFORM_HINT = "wayland";
   };
 
   home.packages = with pkgs; [
