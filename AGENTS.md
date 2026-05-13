@@ -60,8 +60,11 @@ Do not duplicate those automatically injected paths in `flake.nix`.
 
 ## Commits
 
-- When committing changes, include this trailer on every commit:
-  `Co-authored-by: OpenAI Codex <codex@openai.com>`.
+- When committing changes, include a co-author trailer on every commit with
+  your model name so the provenance is clear:
+  - Codex agents: `Co-authored-by: OpenAI Codex <codex@openai.com>`
+  - Opencode agents: use your model name, e.g.
+    `Co-authored-by: DeepSeek V4 Pro <noreply@opencode.ai>`
 - Prefer split commits for unrelated work, with the co-author trailer on each
   commit.
 
