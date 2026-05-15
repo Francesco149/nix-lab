@@ -18,6 +18,10 @@
     eog
     mpv
 
+    # for the remote deploy trick to deploy faster
+    git
+    deploy-rs
+
     (writeShellScriptBin "niri-start" ''
       # nested weston under WSLg using kiosk-shell.
       # kiosk-shell runs the program from -- args fullscreen, zero chrome.

@@ -61,7 +61,7 @@
           relay = [ ];
           cold = [ ];
           lame = [ ];
-	  wslop = [ ];
+          wslop = [ ];
         };
 
         perSystem =
@@ -112,6 +112,10 @@
       {
         modules = [
           ./modules/interactive.nix
+        ];
+
+        hmModules.root = [
+          ./modules/hm/common.nix
         ];
 
         hmModules.headpats = [
