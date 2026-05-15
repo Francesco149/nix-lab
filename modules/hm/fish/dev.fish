@@ -1,71 +1,71 @@
 function diff-system
-  set -l host $argv[1]
-  set -l key $argv[2]  # optional: path to ssh key
+    set -l host $argv[1]
+    set -l key $argv[2] # optional: path to ssh key
 
-  if test -z "$host"
-    echo "Usage: diff-system <machine> [ssh-key]"
-    return 1
-  end
+    if test -z "$host"
+        echo "Usage: diff-system <machine> [ssh-key]"
+        return 1
+    end
 
-  # fish list = multiple args, not a single string
-  set -l ssh_opts
-  if test -n "$key"
-    set ssh_opts -i $key -o IdentitiesOnly=yes
-    set -x NIX_SSHOPTS "-i $key -o IdentitiesOnly=yes"
-  end
+    # fish list = multiple args, not a single string
+    set -l ssh_opts
+    if test -n "$key"
+        set ssh_opts -i $key -o IdentitiesOnly=yes
+        set -x NIX_SSHOPTS "-i $key -o IdentitiesOnly=yes"
+    end
 
-  set -l machine (nix eval --raw .#deploy.nodes.$host.hostname)
-  set -l new_path (nom build .#nixosConfigurations.$host.config.system.build.toplevel --no-link --print-out-paths 2>&1 | tail -1)
-  set -l current (ssh $ssh_opts root@$machine readlink /run/current-system)
-  nix copy --no-check-sigs --from ssh-ng://root@$machine $current
-  nvd diff $current $new_path
+    set -l machine (nix eval --raw .#deploy.nodes.$host.hostname)
+    set -l new_path (nom build .#nixosConfigurations.$host.config.system.build.toplevel --no-link --print-out-paths 2>&1 | tail -1)
+    set -l current (ssh $ssh_opts root@$machine readlink /run/current-system)
+    nix copy --no-check-sigs --from ssh-ng://root@$machine $current
+    nvd diff $current $new_path
 
-  set -e NIX_SSHOPTS
+    set -e NIX_SSHOPTS
 end
 
 function build-system
-  set -l host $argv[1]
-  if test -z "$host"
-    echo "Usage: build-system <machine>"
-    return 1
-  end
-  nom build .#nixosConfigurations.$host.config.system.build.toplevel
+    set -l host $argv[1]
+    if test -z "$host"
+        echo "Usage: build-system <machine>"
+        return 1
+    end
+    nom build .#nixosConfigurations.$host.config.system.build.toplevel
 end
 
 function check-inputs
-  echo "=== Duplicate input check ==="
+    echo "=== Duplicate input check ==="
 
-  set -l metadata (nix flake metadata --json)
-  set -l inputs (echo $metadata | jq -r '.locks.nodes | keys[]' | grep -v root)
-  set -l found_dupes 0
-  for input in $inputs
-    set -l matches (echo $metadata | jq -r --arg i $input \
+    set -l metadata (nix flake metadata --json)
+    set -l inputs (echo $metadata | jq -r '.locks.nodes | keys[]' | grep -v root)
+    set -l found_dupes 0
+    for input in $inputs
+        set -l matches (echo $metadata | jq -r --arg i $input \
       '.locks.nodes | to_entries[] | select(.key == $i or (.key | startswith($i + "_"))) | .key')
 
-    if test (count $matches) -gt 1
-      set found_dupes 1
-      echo ""
-      echo "⚠ $input has multiple versions:"
-      for match in $matches
-        set -l hash (echo $metadata | jq -r --arg m $match \
+        if test (count $matches) -gt 1
+            set found_dupes 1
+            echo ""
+            echo "⚠ $input has multiple versions:"
+            for match in $matches
+                set -l hash (echo $metadata | jq -r --arg m $match \
           '.locks.nodes[$m].locked.narHash // "follows"')
-        echo " - $match: $hash"
-      end
+                echo " - $match: $hash"
+            end
+        end
     end
-  end
 
-  if test $found_dupes -eq 0
-    echo "✓ no duplicates found"
-  end
+    if test $found_dupes -eq 0
+        echo "✓ no duplicates found"
+    end
 
-  echo ""
-  echo "=== All inputs ==="
-  echo $metadata | jq -r '.locks.nodes | to_entries[] | select(.key != "root") | 
+    echo ""
+    echo "=== All inputs ==="
+    echo $metadata | jq -r '.locks.nodes | to_entries[] | select(.key != "root") | 
     "\(.key): \(.value.locked.narHash // "follows \(.value.follows | join("/"))")"'
 end
 
 function rsync-shallow
-  rsync -a --checksum --delete --itemize-changes $rsync_exclude_flags $argv
+    rsync -a --checksum --delete --itemize-changes $rsync_exclude_flags $argv
 end
 
 # use my workstation when it happens to be online, for faster eval and builds.
@@ -74,12 +74,12 @@ end
 # as an added bonus, we don't have to worry about unstaged changes when
 # deploying remotely.
 
-set -g rd_host 100.64.0.6
-set -g rd_user headpats
+set -g rd_host 100.64.0.9
+set -g rd_user root
 
 function remote-deploy
-  set -l dest $rd_user@$rd_host
-  set -l remote_script '
+    set -l dest $rd_user@$rd_host
+    set -l remote_script '
     echo "--> initializing shallow repos"
 
     set -l inputs nut dmarc-analyzer remote-deploy shigebot lurk-monitor grammar-helper
@@ -97,36 +97,36 @@ function remote-deploy
 
     echo "--> deploying"
   '
-  echo "--> making a shallow copy of the repos"
-  rsync-shallow . $dest:/tmp/remote-deploy/
-  set -l sync_inputs nut shigebot lurk-monitor dmarc-analyzer grammar-helper
-  for dir in $sync_inputs
-    rsync-shallow /opt/src/$dir/ $dest:/tmp/$dir/
-  end
+    echo "--> making a shallow copy of the repos"
+    rsync-shallow . $dest:/tmp/remote-deploy/
+    set -l sync_inputs nut shigebot lurk-monitor dmarc-analyzer grammar-helper
+    for dir in $sync_inputs
+        rsync-shallow /opt/src/$dir/ $dest:/tmp/$dir/
+    end
 
-  echo "--> ssh-ing into workstation"
-  ssh $dest "$remote_script; deploy $argv"
+    echo "--> ssh-ing into workstation"
+    ssh $dest "$remote_script; deploy $argv"
 end
 
 function deploy
-  set -l tsip (tailscale ip | sed 1q)
-  if test $tsip != $rd_host; and tailscale ping -c 1 $rd_host &>/dev/null
-    remote-deploy $argv --skip-checks
-  else
-    command deploy $argv --skip-checks
-  end
+    set -l tsip (tailscale ip | sed 1q)
+    if test $tsip != $rd_host; and tailscale ping -c 1 $rd_host &>/dev/null
+        remote-deploy $argv --skip-checks
+    else
+        command deploy $argv --skip-checks
+    end
 end
 
 function refresh-nix-tokens
-  set -l host (test -n "$argv[1]"; and echo $argv[1]; or echo "root@nixos")
-  set -l github_token (gh auth token)
+    set -l host (test -n "$argv[1]"; and echo $argv[1]; or echo "root@nixos")
+    set -l github_token (gh auth token)
 
-  if test -z "$github_token"
-      echo "Error: could not get GitHub token from gh auth token"
-      return 1
-  end
+    if test -z "$github_token"
+        echo "Error: could not get GitHub token from gh auth token"
+        return 1
+    end
 
-  ssh $host bash -c "'
+    ssh $host bash -c "'
     mkdir -p \$HOME/.config/nix
     echo \"extra-access-tokens = github.com=$github_token\" > \$HOME/.config/nix/nix.conf
     echo \"Token written to \$HOME/.config/nix/nix.conf\"
@@ -138,32 +138,32 @@ end
 # we can now type
 #   ns foo bar github:some/flake#baz
 function ns
-  set -l pkgs
-  for arg in $argv
-    if string match -q '*#*' -- $arg
-      set -a pkgs $arg
-    else
-      set -a pkgs "nixpkgs#$arg"
+    set -l pkgs
+    for arg in $argv
+        if string match -q '*#*' -- $arg
+            set -a pkgs $arg
+        else
+            set -a pkgs "nixpkgs#$arg"
+        end
     end
-  end
-  nix shell $pkgs
+    nix shell $pkgs
 end
 
 function _vipe-age
-  set -l file $argv[1]
-  set -l recipient (cat $age_keyfile | grep public | awk -F'[ :]' '{ print $5 }')
-  vipe | age -r $recipient -o $file
+    set -l file $argv[1]
+    set -l recipient (cat $age_keyfile | grep public | awk -F'[ :]' '{ print $5 }')
+    vipe | age -r $recipient -o $file
 end
 
 function secret-edit
-  set -l file $argv[1]
-  if test -z $file
-    echo "usage: secret-edit /path/to/secret.age"
-    return 1
-  end
-  if test -e $file
-    age -d -i $age_keyfile $file | _vipe-age $file
-  else
-    printf | _vipe-age $file
-  end
+    set -l file $argv[1]
+    if test -z $file
+        echo "usage: secret-edit /path/to/secret.age"
+        return 1
+    end
+    if test -e $file
+        age -d -i $age_keyfile $file | _vipe-age $file
+    else
+        printf | _vipe-age $file
+    end
 end
