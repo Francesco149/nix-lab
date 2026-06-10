@@ -74,7 +74,8 @@ let
       --unlock-bin  ${cold-unlock}/bin/cold-unlock \
       --unlockables ${unlockablesJson} \
       --host-meta   ${hostMetaJson} \
-      --targets     ${targetsJson}
+      --targets     ${targetsJson} \
+      --wslop-addr  ${lab.tailnet.wslop}
   '';
 
 in
@@ -105,7 +106,17 @@ in
         ];
         publicKey = lab.ssh.host."${host}-unlock";
       }
-    ) lab.unlockables;
+    ) lab.unlockables
+    // {
+      # wslop is pushed-to over the tailnet, not an unlockable
+      wslop = {
+        hostNames = [
+          lab.tailnet.wslop
+          "wslop"
+        ];
+        publicKey = lab.ssh.host.wslop;
+      };
+    };
 
   systemd.services.cold-backup = {
     description = "Cold storage backup cycle";

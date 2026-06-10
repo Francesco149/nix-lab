@@ -12,6 +12,12 @@ in
     ./backup.nix
   ];
 
+  # /tmp/stay (cold-unlock --stay) suppresses the auto-shutdown after backups.
+  # /tmp lives on the rootfs, so without this a stay file outlives the manual
+  # session it was meant for and disables auto-shutdown forever (a stale one
+  # from 2026-05-06 was doing exactly that).
+  boot.tmp.cleanOnBoot = true;
+
   # ── ZFS, WoL, remote unlock ──────────────────────────────────────────────
   nut.initrd-unlock.iface = "enp4s0";
   nut.zfs.pools = [

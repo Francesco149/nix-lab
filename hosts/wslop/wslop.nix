@@ -2,6 +2,7 @@
 {
   imports = [
     ../../modules/niri.nix
+    ./backup.nix
   ];
 
   programs.dconf.enable = true;

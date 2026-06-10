@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-05-13
+Last updated: 2026-06-10
 
 ## Project
 
@@ -46,6 +46,42 @@ re-learning project conventions each session.
 - [done] Add system tmux defaults for interactive hosts with mouse scrolling
   left to the terminal emulator.
 - [todo] Consider generating docs from `lib/lab.nix` if the host inventory grows.
+
+## Wslop Cold Backup
+
+`wslop-backup` (hosts/wslop/backup.nix) backs up the WSL guest rootfs and the
+windows drives to cold. Usage and design live in docs/OPERATIONS.md.
+
+Decisions:
+
+- WSL2 NAT drops subnet-directed broadcasts (tested with a sniffer on code:
+  unicast UDP arrives, broadcast never does), so wslop relays wake+unlock
+  through `ssh root@code cold-unlock --host cold` instead of sending WoL.
+- Push runs as root@cold: the interactive ssh keys are authorized everywhere
+  already, cold ships rsync via NixOS defaultPackages, and root can create
+  datasets/snapshots without `zfs allow` — so the manual command works without
+  redeploying cold or code.
+- Skipping the cold wake-up when nothing changed was considered and dropped:
+  `code` is a VM on proxmox and always has new data, so the check would never
+  skip anything.
+
+Deploy state:
+
+- [done] wslop side (command, known hosts, backup user + sudo rule) — only
+  wslop may be redeployed at the moment. Deployed and smoke-tested 2026-06-10
+  (wake, unlock, dataset auto-create, rsync, snapshot+prune, report, poweroff).
+- [done, runtime] cold's deployed generation predates the cutestation key
+  rotation (`4663bfd`), so wslop's root key was appended to
+  `/root/.ssh/authorized_keys` on cold via the root@code relay. Redundant
+  after the next cold redeploy.
+- [todo] code side is wired but NOT deployed: nightly `cold-backup` gained an
+  opportunistic wslop step (`--wslop-addr`, ssh as backup@wslop over the
+  tailnet, non-fatal). Lands with the next routine update/redeploy of code.
+- [todo] cold side wired but NOT deployed: `boot.tmp.cleanOnBoot` — a stale
+  `/tmp/stay` from 2026-05-06 had been suppressing the nightly auto-shutdown
+  (removed manually the same day). Lands with the next cold redeploy.
+- wslop stays out of the auto-unlock flow: bitlocker passphrase without TPM,
+  and the machine is not guaranteed to be up during the backup window.
 
 ## Niri Desktop (wslop)
 

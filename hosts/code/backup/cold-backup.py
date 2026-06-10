@@ -3,6 +3,7 @@ import argparse
 import json
 import logging
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -25,7 +26,17 @@ def parse_args():
     p.add_argument("--unlockables", required=True, help="path to unlockables JSON")
     p.add_argument("--host-meta",   required=True, help="path to host meta JSON")
     p.add_argument("--targets",     required=True, help="path to targets JSON")
+    p.add_argument("--wslop-addr",  default=None,
+                   help="ssh address of wslop; backed up opportunistically when up")
     return p.parse_args()
+
+
+def port_open(host, port, timeout=5):
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
 def ssh_run(args, cmd, *, check=True, capture=False, host=None):
@@ -109,6 +120,33 @@ def main():
         sys.exit(1)
 
     log.info("backup cycle complete")
+
+    # ── 3.5 opportunistic wslop backup ────────────────────────────────────
+    # wslop is a workstation: back it up when it happens to be up during the
+    # backup window, skip it when it isn't. failures are non-fatal so a
+    # mid-backup shutdown of wslop doesn't leave cold running all day.
+    if args.wslop_addr:
+        if port_open(args.wslop_addr, 22):
+            log.info("wslop is up — backing it up")
+            r = subprocess.run(
+                [
+                    "ssh",
+                    "-i", args.ssh_key,
+                    "-o", "StrictHostKeyChecking=yes",
+                    "-o", "HostKeyAlias=wslop",
+                    "-o", "BatchMode=yes",
+                    "-o", "ConnectTimeout=30",
+                    "-o", "ServerAliveInterval=60",
+                    "-o", "ServerAliveCountMax=10",
+                    f"backup@{args.wslop_addr}",
+                    "sudo /run/current-system/sw/bin/wslop-backup --no-poweroff",
+                ],
+                check=False,
+            )
+            if r.returncode != 0:
+                log.error("wslop backup exited %d — continuing", r.returncode)
+        else:
+            log.info("wslop is down — skipping its backup")
 
     # ── 4. shutdown cold unless stay file exists ──────────────────────────
     for host in wakeup_targets:

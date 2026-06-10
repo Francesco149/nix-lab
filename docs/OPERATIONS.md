@@ -103,6 +103,60 @@ Roundcube gotchas, if it is enabled again:
   environment to know the port.
 - `maxAttachmentSize` must be an integer.
 
+## Cold Storage Backups
+
+The nightly cycle runs from `code` (`hosts/code/backup.nix`): it wakes and
+unlocks `cold` plus any unlockable source machines, triggers the syncoid pull
+cycle on `cold` for the targets in `lab.backup.targets`, then powers
+everything back down unless `/tmp/stay` exists on a machine
+(`cold-unlock --stay` creates it).
+
+### Wslop
+
+`wslop-backup` on wslop backs up the WSL guest rootfs and every fixed windows
+drive under `/mnt` to the dataset in `lab.backup.wslop`. It is fully
+self-contained — run it from any shell on wslop (it sudoes itself):
+
+```sh
+wslop-backup                       # wake+unlock cold, back up, report, power off
+wslop-backup --only rootfs         # limit targets (rootfs, windows/c, ...)
+wslop-backup --no-poweroff         # leave cold running afterwards
+```
+
+Design notes:
+
+- WSL2 NAT forwards unicast but drops subnet-directed broadcasts (verified
+  empirically), so wslop cannot send WoL packets. Wake+unlock is relayed by
+  running `cold-unlock --host cold` on `code` over ssh as root.
+- Data is pushed with rsync as `root@cold`, so cold needs no delegation, no
+  backup user changes, and no redeploy: the dataset is created automatically
+  on first run.
+- wslop authenticates with its root ssh key, which must be accepted by
+  `root@cold`. The key is in `lab.ssh.authorized-keys`, but a cold deployed
+  before a key rotation will reject it; until cold is redeployed, append the
+  key at runtime (done 2026-06-10, becomes redundant on the next redeploy):
+
+  ```sh
+  ssh root@code "ssh root@cold 'echo <wslop root pubkey> >> /root/.ssh/authorized_keys'"
+  ```
+- The rootfs target keeps hardlinks, ACLs, xattrs, and numeric ids for full
+  restore fidelity; restore with plain `rsync -aHAX --numeric-ids` from
+  `<dataset>/rootfs/`. Windows drives are content backups (`-rlt`): NTFS
+  metadata is synthetic through drvfs and not worth preserving.
+- Locked windows files (registry hives, files held by running programs,
+  EFS/ACL-restricted files) cannot be read through drvfs. rsync counts them
+  as errors and the run is reported as `partial`; the error count and per-run
+  logs under `/var/log/wslop-backup/` show what was skipped. OneDrive
+  cloud-only placeholders get hydrated when read — keep them out via
+  `lab.backup.wslop.windows-excludes` if that becomes a problem.
+- Every successful run snapshots the dataset (`@wslop-<timestamp>`) and prunes
+  old snapshots beyond `lab.backup.wslop.keep-snapshots`, so point-in-time
+  restores survive the rsync `--delete` mirroring.
+- The nightly orchestrator on `code` probes `lab.tailnet.wslop` after the
+  syncoid cycle: if wslop is up it runs `wslop-backup --no-poweroff` through
+  the `backup` user, if not it skips it. wslop cannot join the automatic
+  unlock flow because its bitlocker uses a passphrase without TPM.
+
 ## Recovery
 
 If a deploy cannot switch in-place, set the target profile to the built system

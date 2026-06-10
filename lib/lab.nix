@@ -9,6 +9,12 @@ rec {
   tailnet.mail = "${tailnet.prefix}.1";
   tailnet.relay = "${tailnet.prefix}.2";
 
+  # the windows host that runs the wslop WSL guest. tailscale runs on the
+  # windows side; a netsh portproxy forwards :22 into the guest's sshd, so
+  # this address doubles as wslop's ssh endpoint (also used by the fish
+  # remote-deploy helpers as rd_host).
+  tailnet.wslop = "${tailnet.prefix}.9";
+
   # public ip of your vps
   internet.relay = "198.46.149.19";
 
@@ -115,6 +121,46 @@ rec {
   ssh.host.cold = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAqjHsgUF2s+MRJqSvyB14w05NXVRoaimZjPyu/S3NYX root@nixos";
   ssh.host.cold-unlock = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOSXuJ592PTKU3Kxo8vcBT8VOnkEXBJVcEjk9vMx1VKx cold-initrd";
   ssh.host.lame-unlock = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMk71LondG3mBFE2pECMWN+iNht3di9Bcla+jkOZX6zy lame-initrd";
+
+  # known hosts for the wslop backup (wslop -> code relay, wslop -> cold push)
+  # and for the orchestrator on code to reach wslop
+  ssh.host.code = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDS6Yrr49OImcExU3Mx07jEJ3avQkD7k0HqQXq5Zqj4+ root@code";
+  ssh.host.wslop = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIACy/6kUkKqi9XZEmTmgYxKk5j4VvdyPx2v1M5SSjHnR root@wslop";
+
+  # wslop cold backup: rootfs of the WSL guest plus every fixed windows drive
+  # mounted under /mnt, pushed with rsync as root@cold into `dataset`.
+  # WSL2 NAT drops subnet-directed broadcasts (verified empirically), so the
+  # guest cannot send WoL packets: wake+unlock is relayed through
+  # `cold-unlock --host cold` on code instead.
+  backup.wslop = {
+    dataset = "gigavault/wslop-backup";
+    keep-snapshots = 14;
+    rootfs-src = "/";
+    rootfs-excludes = [
+      # pseudo filesystems and windows mounts; rsync -x already keeps these as
+      # empty dirs, the explicit excludes also cover same-fs bind mounts
+      "/proc/*"
+      "/sys/*"
+      "/dev/*"
+      "/run/*"
+      "/tmp/*"
+      "/var/tmp/*"
+      "/mnt/*"
+      "/usr/lib/wsl/*"
+      "/lost+found"
+    ];
+    windows-excludes = [
+      # unreadable/pointless system files; everything else is best-effort
+      "/pagefile.sys"
+      "/hiberfil.sys"
+      "/swapfile.sys"
+      "/DumpStack.log*"
+      "/System Volume Information"
+      "/$Recycle.Bin"
+      "/$WinREAgent"
+      "/$SysReset"
+    ];
+  };
 
   # data for remote unlock and backup scripts
 
