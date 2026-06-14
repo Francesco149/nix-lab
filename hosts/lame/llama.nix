@@ -181,6 +181,16 @@ let
 
 in
 {
-  systemd.services = lib.mapAttrs' (name: cfg: mkLlamaService ({ inherit name; } // cfg)) instances;
-  networking.firewall.allowedTCPPorts = map (cfg: cfg.port) (lib.attrValues instances);
+  # `video` is temporarily disabled (2026-06-15): the updated nixpkgs llama-cpp
+  # moved its web UI to tools/ui, which the pinned April llama.cpp commit behind
+  # the Cobdog video patch lacks, so llama-cpp-cuda-video's npm-deps build fails
+  # (`pushd: tools/ui: No such file or directory`). Drop it from this removeAttrs
+  # once src.rev + the video patch are bumped to a commit matching the new
+  # layout. removeAttrs also keeps Nix from forcing (building) the broken derivation.
+  systemd.services = lib.mapAttrs' (
+    name: cfg: mkLlamaService ({ inherit name; } // cfg)
+  ) (removeAttrs instances [ "video" ]);
+  networking.firewall.allowedTCPPorts = map (cfg: cfg.port) (
+    lib.attrValues (removeAttrs instances [ "video" ])
+  );
 }
