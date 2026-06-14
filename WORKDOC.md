@@ -49,11 +49,22 @@ re-learning project conventions each session.
 
 ## Wslop Cold Backup
 
-`wslop-backup` (hosts/wslop/backup.nix) backs up the WSL guest rootfs and the
-windows drives to cold. Usage and design live in docs/OPERATIONS.md.
+`wslop-backup` (hosts/wslop/backup.nix) backs up the WSL guest rootfs and a
+curated list of windows work dirs to cold. Usage and design live in
+docs/OPERATIONS.md.
 
 Decisions:
 
+- 2026-06-14 redesign: the windows side no longer mirrors whole `/mnt` drives
+  (that pulled `Windows/`, `Program Files/`, the 414G WSL `ext4.vhdx` under
+  AppData, and locked system files over slow 9p, and failed instantly on a
+  missing `windows/<drive>` dest dir). It is now an explicit
+  `backup.wslop.windows.{work,optional}` list of actual work dirs; capture/
+  trace dirs drop image/video (`image-junk`), keeping only binary traces.
+  rootfs is unchanged — it reads native ext4 `/` (not 9p) and is a cheap
+  rsync incremental. Fixes shipped: `--mkpath` (the instant-failure bug),
+  dataset `acltype=posixacl` (killed the `set_acl Operation not supported`
+  spam on `/var/log/journal`), and skip wake/unlock when cold is already up.
 - WSL2 NAT drops subnet-directed broadcasts (tested with a sniffer on code:
   unicast UDP arrives, broadcast never does), so wslop relays wake+unlock
   through `ssh root@code cold-unlock --host cold` instead of sending WoL.
@@ -70,18 +81,53 @@ Deploy state:
 - [done] wslop side (command, known hosts, backup user + sudo rule) — only
   wslop may be redeployed at the moment. Deployed and smoke-tested 2026-06-10
   (wake, unlock, dataset auto-create, rsync, snapshot+prune, report, poweroff).
-- [done, runtime] cold's deployed generation predates the cutestation key
-  rotation (`4663bfd`), so wslop's root key was appended to
-  `/root/.ssh/authorized_keys` on cold via the root@code relay. Redundant
-  after the next cold redeploy.
-- [todo] code side is wired but NOT deployed: nightly `cold-backup` gained an
-  opportunistic wslop step (`--wslop-addr`, ssh as backup@wslop over the
-  tailnet, non-fatal). Lands with the next routine update/redeploy of code.
-- [todo] cold side wired but NOT deployed: `boot.tmp.cleanOnBoot` — a stale
-  `/tmp/stay` from 2026-05-06 had been suppressing the nightly auto-shutdown
-  (removed manually the same day). Lands with the next cold redeploy.
+- [done] All of the above deployed 2026-06-15 (full lab update, see section
+  below): code's opportunistic wslop step + the orchestrator shutdown fix,
+  cold's `boot.tmp.cleanOnBoot`, and the cutestation/wslop-root key is now in
+  every host's deployed config (the runtime appends on cold/mail/relay are
+  redundant).
+- [done] Backup redesign deployed + verified 2026-06-15: a full run was clean
+  (rootfs 6.3M files / 0 ACL errors, all windows work dirs, `--mkpath` created
+  the `windows/<name>/` dests, snapshot `wslop-20260615-000430`).
 - wslop stays out of the auto-unlock flow: bitlocker passphrase without TPM,
   and the machine is not guaranteed to be up during the backup window.
+
+## 2026-06-15 Lab Update + Robustness
+
+Full update of all hosts (nixpkgs a799d3e → 9ae611a; deployed gens were the
+stale 26.05.20260430 — ~6 weeks behind; home-manager/mailserver/disko/
+llm-agents/nixos-wsl bumped, deploy-rs already current). Built + `nvd diff`'d
+every host on wslop (the rd_host build box), then deployed from wslop with
+`nix copy [-s] --to` → `nix-env --set` → `switch-to-configuration boot` →
+reboot (avoiding deploy-rs hangs). Runbook now in `docs/UPDATING.md`; health
+check in `utils/lab-check.sh` (run after every deploy). All hosts `running` on
+9ae611a; final `lab-check.sh` = PASS=35/WARN=0/FAIL=0.
+
+- code/mail/lame/relay rebooted; **cold** used a live `switch` (encrypted +
+  must stay up; new kernel lands on its next power-cycle). lame's reboot needed
+  `cold-unlock --host lame` (LUKS initrd).
+- Rot fixed: `caddy.withPlugins` hash (`hosts/code/caddy.nix`); **lurk-monitor
+  retired** (input + code module + caddy vhost + lab port) — also removed the
+  only `pkgs.system` deprecation (it came from lurk-monitor's flake).
+- Orchestrator fix (`hosts/code/backup/cold-backup.py`): shutdown loop now
+  targets each woken host by its own ip + HostKeyAlias (it always hit cold with
+  no host=, bypassing cold's `/tmp/stay` during lame's iteration and never
+  reaching lame). Fail-safe added: unreachable host → don't shut down.
+- lame: llama re-enabled (vulkan + embed active, GPU OK). The **`video`
+  instance is disabled** in `hosts/lame/llama.nix` — new nixpkgs llama-cpp moved
+  its web UI to `tools/ui`, incompatible with the pinned April commit the Cobdog
+  video patch needs. [todo] re-enable after bumping src.rev + the patch.
+- Deploy access: deploys push from wslop (rd_host). mail/relay had rejected
+  wslop's root key (stale gens predating it); bootstrapped via code, now in
+  their deployed config.
+- relay headscale cert was **expired since 2026-05-27** (pre-existing, not this
+  update): HTTP-01 can't run on relay (:80 is the mail stream-proxy). Switched
+  `hs.headpats.uk` to **DNS-01 (cloudflare)** — reused code's CF token at
+  `/var/lib/secrets/acme-cloudflare` (`CLOUDFLARE_DNS_API_TOKEN`); cert reissued
+  (valid to Sep 2026), tailnet control plane recovered.
+- cold + lame pinned with `/tmp/stay` (helium drives — avoid power cycling).
+  Nightly timer re-armed; the fixed orchestrator respects the stays. `/tmp/stay`
+  is tmpfs — recreate after any reboot.
 
 ## Niri Desktop (wslop)
 
