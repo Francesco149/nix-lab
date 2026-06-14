@@ -32,7 +32,9 @@ def parse_args():
     p.add_argument("--cold-ip", required=True)
     p.add_argument("--config",  required=True, help="path to backup config JSON")
     p.add_argument("--only", action="append", default=None, metavar="TARGET",
-                   help="limit to the given target(s), e.g. rootfs or windows/c")
+                   help="limit to the given target(s), e.g. rootfs or windows/documents")
+    p.add_argument("--all", action="store_true",
+                   help="also back up the optional windows targets (games, downloads, ...)")
     p.add_argument("--no-poweroff", action="store_true",
                    help="leave cold running (used by the orchestrator on code)")
     return p.parse_args()
@@ -90,7 +92,17 @@ def ensure_dataset(args, dataset):
     r = ssh_cold(args, f"zfs list -H -o name {dataset}", check=False, capture=True)
     if r.returncode != 0:
         log.info("creating dataset %s", dataset)
-        ssh_cold(args, f"zfs create -p -o xattr=sa {dataset}")
+        # acltype=posixacl + xattr=sa so the rootfs's `-aHAX` ACLs/xattrs land
+        # without the noisy "Operation not supported" spam on every file
+        ssh_cold(args, f"zfs create -p -o xattr=sa -o acltype=posixacl {dataset}")
+    else:
+        # repair datasets created before acltype was set (rsync -A would
+        # otherwise fail on every ACL-bearing file, e.g. /var/log/journal)
+        acltype = ssh_cold(args, f"zfs get -H -o value acltype {dataset}",
+                           capture=True).stdout.strip()
+        if acltype not in ("posixacl", "posix"):
+            log.info("enabling acltype=posixacl on %s", dataset)
+            ssh_cold(args, f"zfs set acltype=posixacl {dataset}", check=False)
 
     mounted = ssh_cold(args, f"zfs get -H -o value mounted {dataset}",
                        capture=True).stdout.strip()
@@ -107,28 +119,38 @@ def ensure_dataset(args, dataset):
 
 
 def list_targets(cfg):
+    # rootfs: native ext4 read, full restore fidelity. -x stays on the rootfs;
+    # -H/-A/-X/--numeric-ids preserve hardlinks/ACLs/xattrs/ids.
     targets = [{
         "name": "rootfs",
-        "src": cfg["rootfs-src"],
-        "excludes": cfg["rootfs-excludes"],
-        # -x: stay on the rootfs; -H/-A/-X/--numeric-ids: full restore fidelity
+        "src": cfg["rootfs"]["src"],
+        "excludes": cfg["rootfs"]["excludes"],
         "flags": ["-aHAXxS", "--numeric-ids"],
+        "optional": False,
     }]
 
-    drives = sorted(
-        d for d in os.listdir("/mnt")
-        if len(d) == 1 and os.path.ismount(f"/mnt/{d}")
-    )
-    if not drives:
-        log.warning("no windows drives found under /mnt — drvfs automount broken?")
-    for d in drives:
-        targets.append({
-            "name": f"windows/{d}",
-            "src": f"/mnt/{d}/",
-            "excludes": cfg["windows-excludes"],
-            # drvfs ownership/modes are synthetic, keep only structure+times
-            "flags": ["-rltS"],
-        })
+    win = cfg["windows"]
+    common = win.get("common-excludes", [])
+    missing = []
+    for tier, optional in (("work", False), ("optional", True)):
+        for w in win.get(tier, []):
+            src = w["src"]
+            if not os.path.isdir(src):
+                # a configured dir that isn't there (renamed/removed on the
+                # windows side) — skip it rather than fail the whole run
+                missing.append(w["name"])
+                continue
+            targets.append({
+                "name": f"windows/{w['name']}",
+                # trailing slash: copy the dir's *contents* into the dest
+                "src": src.rstrip("/") + "/",
+                "excludes": common + w.get("excludes", []),
+                # drvfs ownership/modes are synthetic, keep only structure+times
+                "flags": ["-rltS"],
+                "optional": optional,
+            })
+    if missing:
+        log.warning("skipping missing windows source(s): %s", ", ".join(missing))
     return targets
 
 
@@ -136,6 +158,9 @@ def run_rsync(target, dest, log_path):
     cmd = [
         "rsync",
         *target["flags"],
+        # create the full dest path: windows/<name>/ is two levels below the
+        # dataset root and rsync won't make intermediate dirs without this
+        "--mkpath",
         "--delete",
         "--delete-excluded",
         "--info=stats2,progress2",
@@ -311,9 +336,17 @@ def main():
                       ", ".join(t["name"] for t in targets))
             sys.exit(1)
         targets = [t for t in targets if t["name"] in args.only]
+    elif not args.all:
+        # default run: rootfs + the work windows targets, skip the optional ones
+        targets = [t for t in targets if not t["optional"]]
 
-    unlock_cold(args)
-    check_cold_access(args)
+    # cold may already be up (left running, or the nightly cycle has it). only
+    # pay the wake+unlock relay through code when cold is actually unreachable.
+    if ssh_cold(args, "true", check=False).returncode == 0:
+        log.info("cold already reachable — skipping wake/unlock relay")
+    else:
+        unlock_cold(args)
+        check_cold_access(args)
     mountpoint = ensure_dataset(args, dataset)
 
     results = []
