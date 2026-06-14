@@ -113,24 +113,48 @@ everything back down unless `/tmp/stay` exists on a machine
 
 ### Wslop
 
-`wslop-backup` on wslop backs up the WSL guest rootfs and every fixed windows
-drive under `/mnt` to the dataset in `lab.backup.wslop`. It is fully
-self-contained — run it from any shell on wslop (it sudoes itself):
+`wslop-backup` on wslop backs up two kinds of source to the dataset in
+`lab.backup.wslop`: the WSL guest **rootfs** and a curated list of **windows**
+work dirs. It is self-contained — run it from any shell on wslop (it sudoes
+itself):
 
 ```sh
-wslop-backup                       # wake+unlock cold, back up, report, power off
-wslop-backup --only rootfs         # limit targets (rootfs, windows/c, ...)
+wslop-backup                       # rootfs + windows work dirs, report, power off
+wslop-backup --all                 # also the optional targets (steam, downloads, ...)
+wslop-backup --only rootfs         # limit to named target(s)
+wslop-backup --only windows/documents
 wslop-backup --no-poweroff         # leave cold running afterwards
 ```
 
+Targets are defined in `lib/lab.nix` (`backup.wslop.rootfs`,
+`backup.wslop.windows.{work,optional}`). Each lands in `<dataset>/<name>/`
+(`rootfs/`, `windows/documents/`, ...).
+
 Design notes:
 
-- WSL2 NAT forwards unicast but drops subnet-directed broadcasts (verified
-  empirically), so wslop cannot send WoL packets. Wake+unlock is relayed by
-  running `cold-unlock --host cold` on `code` over ssh as root.
+- **rootfs is not 9p.** `/` is native ext4 inside the VM, so it reads at full
+  disk speed; rsync ships only deltas, making it a cheap incremental of the
+  whole rootfs. The rootfs lives on the windows host as a ~400G `ext4.vhdx`
+  under `AppData\Local\wsl`, but that blob is locked while WSL runs and useless
+  for file-level restore — so the live `/` is backed up, never the vhdx. The
+  vhdx (and `Windows/`, `Program Files/`, all of `AppData/`) are therefore kept
+  out of the windows source list.
+- **windows targets only exist over slow 9p/drvfs.** The list is deliberately
+  narrow (actual work, not the whole C: drive). Capture/trace dirs
+  (`oss-osr`, `osscap`, `openrecet-traces`) exclude image/video via the
+  `image-junk` list, keeping only the binary traces. Optional, big or
+  re-downloadable sources (games, Downloads, Videos) are skipped unless
+  `--all` is passed.
+- Wake/unlock is skipped when cold is already reachable. When cold is down,
+  WSL2 NAT drops subnet-directed broadcasts (verified empirically) so wslop
+  cannot send WoL; wake+unlock is relayed by running `cold-unlock --host cold`
+  on `code` over ssh as root.
 - Data is pushed with rsync as `root@cold`, so cold needs no delegation, no
   backup user changes, and no redeploy: the dataset is created automatically
-  on first run.
+  on first run with `xattr=sa` + `acltype=posixacl` (so the rootfs's `-A`/`-X`
+  land without `Operation not supported` spam; a dataset created before that
+  property is repaired in place on the next run). `--mkpath` lets rsync create
+  the two-level `windows/<name>/` dest dirs.
 - wslop authenticates with its root ssh key, which must be accepted by
   `root@cold`. The key is in `lab.ssh.authorized-keys`, but a cold deployed
   before a key rotation will reject it; until cold is redeployed, append the
@@ -141,17 +165,18 @@ Design notes:
   ```
 - The rootfs target keeps hardlinks, ACLs, xattrs, and numeric ids for full
   restore fidelity; restore with plain `rsync -aHAX --numeric-ids` from
-  `<dataset>/rootfs/`. Windows drives are content backups (`-rlt`): NTFS
+  `<dataset>/rootfs/`. Windows targets are content backups (`-rltS`): NTFS
   metadata is synthetic through drvfs and not worth preserving.
 - Locked windows files (registry hives, files held by running programs,
   EFS/ACL-restricted files) cannot be read through drvfs. rsync counts them
   as errors and the run is reported as `partial`; the error count and per-run
   logs under `/var/log/wslop-backup/` show what was skipped. OneDrive
-  cloud-only placeholders get hydrated when read — keep them out via
-  `lab.backup.wslop.windows-excludes` if that becomes a problem.
+  cloud-only placeholders get hydrated when read — keep them out of the
+  windows source list if that becomes a problem.
 - Every successful run snapshots the dataset (`@wslop-<timestamp>`) and prunes
   old snapshots beyond `lab.backup.wslop.keep-snapshots`, so point-in-time
-  restores survive the rsync `--delete` mirroring.
+  restores survive the rsync `--delete` mirroring. A `partial` run (locked
+  files) still snapshots; a hard failure does not.
 - The nightly orchestrator on `code` probes `lab.tailnet.wslop` after the
   syncoid cycle: if wslop is up it runs `wslop-backup --no-poweroff` through
   the `backup` user, if not it skips it. wslop cannot join the automatic
