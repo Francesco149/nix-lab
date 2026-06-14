@@ -9,7 +9,7 @@ in
 
     package = pkgs.caddy.withPlugins {
       plugins = [ "github.com/caddy-dns/cloudflare@v0.2.4" ];
-      hash = "sha256-J0HWjCPoOoARAxDpG2bS9c0x5Wv4Q23qWZbTjd8nW84=";
+      hash = "sha256-8yZDrejNKsaUnUaTUFYbarWNmxafqp2z2rWo+XRsxV8=";
     };
 
     globalConfig = ''
@@ -97,11 +97,6 @@ in
     virtualHosts."dmarc.box.headpats.uk".extraConfig = ''
       import authentik
       reverse_proxy mail.soy:${toString p.dmarc-analyzer}
-    '';
-
-    virtualHosts."lurk.box.headpats.uk".extraConfig = ''
-      import authentik
-      reverse_proxy localhost:${toString p.lurk-monitor}
     '';
 
     virtualHosts."grammar.box.headpats.uk".extraConfig = ''
