@@ -39,16 +39,21 @@ def port_open(host, port, timeout=5):
         return False
 
 
-def ssh_run(args, cmd, *, check=True, capture=False, host=None):
+def ssh_run(args, cmd, *, check=True, capture=False, host="cold", ip=None):
+    # `host` is the known-hosts alias (drives -o HostKeyAlias); `ip` is what we
+    # actually connect to. both default to cold. callers targeting another
+    # machine (the shutdown loop) MUST pass both, otherwise the strict host-key
+    # check runs against cold's key and the connection silently fails — which is
+    # exactly why lame was never shut down and cold's shutdown ignored its alias.
     return subprocess.run(
         [
             "ssh",
             "-i", args.ssh_key,
             "-o", "StrictHostKeyChecking=yes",
-            "-o", "HostKeyAlias=cold",
+            "-o", f"HostKeyAlias={host}",
             "-o", "BatchMode=yes",
             "-o", "ConnectTimeout=120",
-            f"backup@{host or args.cold_ip}",
+            f"backup@{ip or args.cold_ip}",
             cmd,
         ],
         check=check,
@@ -57,10 +62,16 @@ def ssh_run(args, cmd, *, check=True, capture=False, host=None):
     )
 
 
-def stay_exists(args, host=None):
+def stay_exists(args, host="cold", ip=None):
     r = ssh_run(args,
         f"test -f {STAY_FILE} && echo yes || echo no",
-        check=False, capture=True, host=host)
+        check=False, capture=True, host=host, ip=ip)
+    # fail safe: if the host can't be reached to check, do NOT shut it down — a
+    # transient ssh hiccup should never translate into powering a machine off
+    if r.returncode != 0:
+        log.warning("could not check %s on %s (ssh rc=%d) — leaving it running",
+                    STAY_FILE, host, r.returncode)
+        return True
     return r.stdout.strip() == "yes"
 
 
@@ -148,13 +159,18 @@ def main():
         else:
             log.info("wslop is down — skipping its backup")
 
-    # ── 4. shutdown cold unless stay file exists ──────────────────────────
+    # ── 4. shut each woken host down unless its stay file exists ──────────
+    # NB: target each host by its own ip + host-key alias. previously the
+    # shutdown ssh passed no host, so it always landed on cold (ignoring cold's
+    # own stay file when issued during another host's iteration) and lame was
+    # never reached at all.
     for host in wakeup_targets:
-        if stay_exists(args, host=host):
+        ip = host_meta[host]["ip"]
+        if stay_exists(args, host=host, ip=ip):
             log.info("%s exists on %s — skipping shut down", STAY_FILE, host)
         else:
             log.info("shutting down %s", host)
-            ssh_run(args, "sudo shutdown -h now", check=False)
+            ssh_run(args, "sudo shutdown -h now", check=False, host=host, ip=ip)
 
 
 if __name__ == "__main__":
