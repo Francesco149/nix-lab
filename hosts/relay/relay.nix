@@ -94,21 +94,30 @@
     settings.master.smtp_inet.name = lib.mkForce "${config.lab.tailnet.relay}:smtp";
   };
 
+  # hs.headpats.uk's cert is issued via DNS-01 (cloudflare): relay's :80 is the
+  # mail stream-proxy (and forwards the mail server's own HTTP-01 challenge), so
+  # HTTP-01 can't be served here — which is why this cert silently stopped
+  # renewing and expired 2026-05-27. Reuses the same cloudflare API token Caddy
+  # uses on code; the env file holds CLOUDFLARE_DNS_API_TOKEN. Provision it with
+  # the value from code's /var/lib/secrets/caddy (CLOUDFLARE_API_TOKEN).
+  security.acme.certs.${config.lab.domains.headscale} = {
+    dnsProvider = "cloudflare";
+    environmentFile = "${config.lab.secrets.dir}/acme-cloudflare";
+    group = config.services.nginx.group; # nginx (useACMEHost) must read the cert
+  };
+
   # nginx is acting as a reverse proxy which routes all connections to their
   # destination. the stream proxy is great for tunneling ports over tailnet
 
   services.nginx = {
     enable = true;
 
-    # port 80 is occupied by the stream proxy, so don't let the headscale vhost
-    # also try to grab it, and ACME will sort itself out on 443.
-
     # this way the mail server at home is also able to do cert generation, but
     # on port 80 which we tunnel over.
 
     virtualHosts.${config.lab.domains.headscale} = {
       onlySSL = true;
-      enableACME = true;
+      useACMEHost = config.lab.domains.headscale;
 
       # headscale wants to be the root location so we can't do something like
       # /headscale/ but we can do hs.domain.example
