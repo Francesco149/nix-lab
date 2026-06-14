@@ -127,40 +127,98 @@ rec {
   ssh.host.code = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDS6Yrr49OImcExU3Mx07jEJ3avQkD7k0HqQXq5Zqj4+ root@code";
   ssh.host.wslop = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIACy/6kUkKqi9XZEmTmgYxKk5j4VvdyPx2v1M5SSjHnR root@wslop";
 
-  # wslop cold backup: rootfs of the WSL guest plus every fixed windows drive
-  # mounted under /mnt, pushed with rsync as root@cold into `dataset`.
+  # wslop cold backup. two kinds of source, pushed with rsync as root@cold
+  # into `dataset`:
+  #
+  #   rootfs  — the WSL guest's own disk (`/`). this is native ext4 inside the
+  #             VM, NOT the slow 9p/drvfs windows mount, so it reads at full
+  #             speed; rsync only ships deltas, making it a cheap incremental
+  #             of the whole rootfs after the first run. (the rootfs lives on
+  #             the windows host as a ~400G ext4.vhdx under AppData, but that
+  #             blob is locked while WSL runs and useless for file-level
+  #             restore, so backing the live `/` up is the right way — not the
+  #             vhdx.) "plenty of storage", so only pseudo-fs is excluded.
+  #
+  #   windows — work that only exists on the windows host. it can only be read
+  #             through the slow 9p drvfs mount, so the list is deliberately
+  #             narrow: actual work, never the whole C: drive (no Windows/,
+  #             Program Files/, AppData/ or the ext4.vhdx). image/video files
+  #             in the capture+trace dirs are throwaway and excluded, leaving
+  #             the binary traces.
+  #
   # WSL2 NAT drops subnet-directed broadcasts (verified empirically), so the
-  # guest cannot send WoL packets: wake+unlock is relayed through
-  # `cold-unlock --host cold` on code instead.
-  backup.wslop = {
-    dataset = "gigavault/wslop-backup";
-    keep-snapshots = 14;
-    rootfs-src = "/";
-    rootfs-excludes = [
-      # pseudo filesystems and windows mounts; rsync -x already keeps these as
-      # empty dirs, the explicit excludes also cover same-fs bind mounts
-      "/proc/*"
-      "/sys/*"
-      "/dev/*"
-      "/run/*"
-      "/tmp/*"
-      "/var/tmp/*"
-      "/mnt/*"
-      "/usr/lib/wsl/*"
-      "/lost+found"
-    ];
-    windows-excludes = [
-      # unreadable/pointless system files; everything else is best-effort
-      "/pagefile.sys"
-      "/hiberfil.sys"
-      "/swapfile.sys"
-      "/DumpStack.log*"
-      "/System Volume Information"
-      "/$Recycle.Bin"
-      "/$WinREAgent"
-      "/$SysReset"
-    ];
-  };
+  # guest cannot send WoL packets: when cold is down, wake+unlock is relayed
+  # through `cold-unlock --host cold` on code instead.
+  backup.wslop =
+    let
+      # capture/trace dirs keep only the binary traces; rendered frames and
+      # video are disposable and otherwise dominate the slow 9p transfer.
+      image-junk = [
+        "*.png"
+        "*.bmp"
+        "*.jpg"
+        "*.jpeg"
+        "*.gif"
+        "*.webp"
+        "*.mp4"
+        "*.mov"
+        "*.avi"
+        "*.webm"
+        "*.mkv"
+      ];
+    in
+    {
+      dataset = "gigavault/wslop-backup";
+      keep-snapshots = 14;
+
+      rootfs = {
+        src = "/";
+        excludes = [
+          # pseudo filesystems and the windows mounts; rsync -x already keeps
+          # these as empty dirs, the explicit excludes also cover bind mounts
+          "/proc/*"
+          "/sys/*"
+          "/dev/*"
+          "/run/*"
+          "/tmp/*"
+          "/var/tmp/*"
+          "/mnt/*"
+          "/usr/lib/wsl/*"
+          "/lost+found"
+        ];
+      };
+
+      windows = {
+        # applied to every windows target on top of any per-target excludes
+        common-excludes = [
+          "desktop.ini"
+          "Thumbs.db"
+          "thumbs.db"
+          "*.tmp"
+        ];
+
+        # backed up by default
+        work = [
+          { name = "documents"; src = "/mnt/c/Users/headpats/Documents"; } # blender + docs
+          { name = "desktop"; src = "/mnt/c/Users/headpats/Desktop"; }
+          { name = "pictures"; src = "/mnt/c/Users/headpats/Pictures"; }
+          { name = "music"; src = "/mnt/c/Users/headpats/Music"; }
+          { name = "password-store"; src = "/mnt/c/Users/headpats/.password-store"; }
+          { name = "blender-config"; src = "/mnt/c/Users/headpats/AppData/Roaming/Blender Foundation"; }
+          { name = "oss-osr"; src = "/mnt/c/oss-osr"; excludes = image-junk; }
+          { name = "osscap"; src = "/mnt/c/osscap"; excludes = image-junk; }
+          { name = "openrecet-traces"; src = "/mnt/c/Users/headpats/openrecet-traces"; excludes = image-junk; }
+        ];
+
+        # backed up only with `wslop-backup --all`; big and/or re-downloadable
+        optional = [
+          { name = "downloads"; src = "/mnt/c/Users/headpats/Downloads"; }
+          { name = "videos"; src = "/mnt/c/Users/headpats/Videos"; }
+          { name = "steam"; src = "/mnt/c/Program Files (x86)/Steam/steamapps"; }
+          { name = "gog"; src = "/mnt/c/GOG Games"; }
+        ];
+      };
+    };
 
   # data for remote unlock and backup scripts
 
@@ -226,7 +284,6 @@ rec {
   ports.cache = 8765;
   ports.dmarc-analyzer = 8741;
   ports.roundcube = 3100;
-  ports.lurk-monitor = 5050;
   ports.grammar-helper = 5060;
 
   # docker containers
