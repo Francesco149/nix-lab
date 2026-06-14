@@ -1,0 +1,162 @@
+# Updating The Lab (manual runbook)
+
+Step-by-step for a periodic update + redeploy of the lab, with the critical
+checks at each stage. This is what to do by hand when the automation isn't
+driving it. Keep it current — see the reminder in `CLAUDE.md`.
+
+Companion script: **`./utils/lab-check.sh`** runs the post-deploy health checks
+for you (verbose, with a PASS/WARN/FAIL summary). Run it after every deploy.
+
+## Model
+
+- **Builds happen on `wslop`** — it is the `rd_host` (see `modules/hm/fish/dev.fish`).
+  Run these steps from wslop (or a box that delegates to it). Heavy builds must
+  not run on `code`.
+- **Deploys are pushed from wslop** to each host over ssh as `root`. wslop's
+  root key is the `headpats@cutestation` key in `lab.ssh.authorized-keys`; it is
+  in every host's config. If a host rejects it (a stale generation), append it
+  once via `code` (which can reach everyone) — see Gotchas.
+- Hosts: `code` (proxmox VM), `mail` (LAN), `relay` (RackNerd VPS), `cold`
+  (encrypted backup target, normally powered off), `lame` (encrypted, GPU box).
+
+## 1. Update inputs
+
+Update the upstream inputs only; leave the local `git+file:///opt/src/*` app
+inputs (nut, shigebot, dmarc-analyzer, grammar-helper) pinned unless you mean to
+ship app changes:
+
+```sh
+cd /opt/src/nix-lab
+nix flake update nixpkgs nixos-mailserver disko llm-agents nixos-wsl deploy-rs home-manager
+```
+
+A plain `nix flake update` also re-locks the local app inputs to their current
+HEAD — only do that if you intend to deploy those app changes.
+
+## 2. Build every host + diff
+
+Build each system and compare against what's deployed. Fix anything that fails
+to build (see step 3) before deploying anything.
+
+```sh
+for h in code mail relay cold lame; do
+  nix build ".#nixosConfigurations.$h.config.system.build.toplevel" --no-link --print-out-paths
+done
+```
+
+Diff each host (the fish helper does build + fetch-current + `nvd diff`):
+
+```sh
+diff-system code     # repeat per host; or use nvd diff <current> <new> manually
+```
+
+Read every diff. Expect version bumps; be suspicious of **removed** services or
+units you didn't intend. Common benign churn from a nixpkgs jump: openssl point
+releases, `util-linux` output reshuffles, the scripted-networking unit rename
+(`network-setup.service` → `networking-scripted.target`).
+
+## 3. Fix rot
+
+The update will surface breakage to fix before deploying:
+
+- **Fixed-output hash mismatches** (e.g. `caddy.withPlugins`): copy the `got:`
+  hash into the `hash = ` field (`hosts/code/caddy.nix`).
+- **Eval/deprecation warnings**: fix in-repo; if it comes from an input flake,
+  note it (or retire/​bump that input).
+- Re-build the affected host until it succeeds.
+
+## 4. Deploy
+
+`deploy` (deploy-rs) can hang for ages on benign failures, so for a
+reboot-everything cycle prefer the explicit push + activate + reboot below. Do
+the low-risk hosts first, the VPS last.
+
+For each host: push the closure, set it as the system profile, stage it for
+boot, then reboot.
+
+```sh
+NEW=/nix/store/...-nixos-system-<host>-...        # from step 2
+nix copy --no-check-sigs --to ssh-ng://root@<addr> "$NEW"
+ssh root@<addr> "nix-env -p /nix/var/nix/profiles/system --set '$NEW' \
+  && '$NEW'/bin/switch-to-configuration boot"
+ssh root@<addr> systemctl reboot
+```
+
+Use `switch-to-configuration switch` instead of `boot` (no reboot) when you want
+the change live without rebooting (see `cold` below).
+
+Per-host nuances (order: code → mail → lame → relay, then cold):
+
+- **code** — VM. Reboot is safe; recover from the proxmox console if it doesn't
+  return. Deploying it also activates the `cold-backup` orchestrator changes.
+- **mail** — LAN. Reboot. Verify postfix + dovecot come up (dovecot is the
+  `dovecot.service` unit, renamed from `dovecot2` in newer nixpkgs).
+- **lame** — root is LUKS-encrypted, so a **reboot drops it to initrd**. After
+  `systemctl reboot`, unlock it: `ssh root@code cold-unlock --host lame`, then
+  wait for full boot. Reboot is needed here so the new kernel matches the nvidia
+  module. Verify `nvidia-smi` and the `llama-*` services after.
+- **relay** — RackNerd VPS, no encryption (GRUB on `/dev/vda`). It has bitten us
+  on reboot before ("install corrupt"), recoverable only from the **RackNerd web
+  console (VNC + power controls)** — have it open before you reboot. Push with
+  `nix copy -s ...` so relay substitutes stock paths from cache.nixos.org
+  instead of a slow full push over the internet. After staging, confirm
+  `switch-to-configuration boot` printed `installing the GRUB 2 boot loader ...
+  No error reported` before rebooting. Poll ssh after reboot; if it doesn't
+  return in a few minutes, hard-reboot from RackNerd.
+- **cold** — encrypted + meant to stay up (helium drives dislike power cycling).
+  Prefer a live **`switch`** (no reboot): the new kernel lands on cold's next
+  natural power-cycle. A reboot would need `ssh root@code cold-unlock --host cold`
+  from initrd. Never deploy/reboot cold while a backup is running.
+
+## 5. Keep cold / lame up; manage the nightly
+
+- The nightly `cold-backup.timer` on `code` fires at 01:30. To avoid it colliding
+  with a manual run, stop it for the night: `ssh root@code systemctl stop
+  cold-backup.timer` (re-arm with `systemctl start`).
+- To keep `cold`/`lame` powered on, create `/tmp/stay` on them
+  (`touch /tmp/stay`, or `cold-unlock --stay`). The fixed orchestrator
+  (`hosts/code/backup/cold-backup.py`) skips shutdown for any host with the
+  stay file. **Caveat:** `/tmp/stay` lives in tmpfs-cleaned `/tmp`, so it only
+  survives until that host reboots — recreate it after a reboot.
+
+## 6. Verify
+
+```sh
+./utils/lab-check.sh           # all hosts, verbose + summary
+```
+
+Critical checks (also what the script asserts):
+
+- Every host: `systemctl is-system-running` = `running`, **no failed units**,
+  `/run/current-system` points at the new generation.
+- code: caddy, docker, beszel-agent, `cold-backup.timer`, app services active.
+- mail: postfix, dovecot, rspamd active.
+- relay: headscale, nginx, tailscaled active; `http://127.0.0.1:8080/health` =
+  200; the **hs.headpats.uk cert is not expired** (it renews via DNS-01 — see
+  Gotchas). Sanity-check the tailnet: `ssh root@relay headscale nodes list`.
+- cold: both zpools `ONLINE`, `gigavault/wslop-backup` present with a recent
+  `@wslop-*` snapshot, `/tmp/stay` present if it should stay up.
+- lame: `nvidia-smi` works, `llama-vulkan`/`llama-embed` active.
+
+Read the verbose output too — a scripted check can pass while something next to
+it quietly failed.
+
+## Gotchas
+
+- **Remote login shells are fish on `code` and `lame`.** `bash` loops/`$()` in a
+  one-shot ssh command break there. Pipe scripts via `ssh root@host 'bash -s'`
+  (what `lab-check.sh` does), or keep remote commands to single statements.
+- **Host rejects wslop's deploy key** (stale generation predating the key):
+  append it once via code, then deploy to make it permanent —
+  `ssh root@code 'ssh root@<host> "cat >> /root/.ssh/authorized_keys"' < <(ssh root@code cat /var/lib/secrets/... )`
+  (the cutestation pubkey). After the deploy the key is in config and this is
+  no longer needed.
+- **relay's hs.headpats.uk cert uses DNS-01 (cloudflare), not HTTP-01** — relay's
+  :80 is the mail stream-proxy, so HTTP-01 can't be served there (this is why
+  the cert silently expired once). The token lives at
+  `/var/lib/secrets/acme-cloudflare` (`CLOUDFLARE_DNS_API_TOKEN`, same token
+  Caddy uses on code). If you rebuild relay fresh, provision that file or the
+  cert won't issue.
+- **lame's llama `video` instance is disabled** (`hosts/lame/llama.nix`) — its
+  pinned llama.cpp commit is incompatible with newer nixpkgs (web UI moved to
+  `tools/ui`). Re-enable after bumping the pinned `src.rev` + the video patch.
