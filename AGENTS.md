@@ -67,6 +67,10 @@ Do not duplicate those automatically injected paths in `flake.nix`.
     `Co-authored-by: DeepSeek V4 Pro <noreply@opencode.ai>`
 - Prefer split commits for unrelated work, with the co-author trailer on each
   commit.
+- Commit in logical units AS YOU GO. Don't let unrelated changes pile up into
+  one large mixed changeset and commit it all at the end — land each coherent
+  change as its own commit while working. (A single file spanning concerns can
+  still be one commit; the point is incremental, scoped history.)
 
 ## Checks
 
@@ -76,6 +80,24 @@ Use the lightest check that validates the change:
 - Nix formatting: `nix fmt` if available for the touched Nix files.
 - Nix evaluation: `nix flake check --no-build` when module wiring changes.
 - Host build smoke test: `build-system <host>` for meaningful host changes.
+
+## Operations & Updates
+
+Operational docs (link to these; don't duplicate their contents):
+
+- `docs/OPERATIONS.md` — deploy/recovery, backups, service notes.
+- `docs/UPDATING.md` — step-by-step manual update + redeploy runbook.
+- `utils/lab-check.sh` — verbose post-deploy health check with a PASS/WARN/FAIL
+  summary; run after every deploy.
+
+`docs/UPDATING.md` and `utils/lab-check.sh` encode how the lab is updated,
+deployed, and verified. They drift silently and only bite during a bad deploy,
+so update them IN THE SAME CHANGE whenever structure shifts: a host
+added/removed/renamed or its address/role changes; the deploy/unlock flow,
+`/tmp/stay`, or the nightly timer changes; a new critical service/cert/backup
+invariant a healthy host must have (add a check); or a new class of update-time
+"rot" to fix (note it in the runbook). If you change those without touching
+these files, say why.
 
 ## Binary Caches
 
