@@ -114,3 +114,23 @@ Preferred flags:
 --option trusted-public-keys "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" \
 --option extra-trusted-public-keys "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
 ```
+
+## haruness — Coding Harness Experiments (`/opt/src/haruness`)
+
+The lab's **agentic-coding harness experimentation** infra lives in its own
+flake/repo at `/opt/src/haruness` (a sibling, not in this repo). It A/B-tests
+harness configurations (the "knobs") against local models to find per-model
+setups that code better + faster; its engine is built to also become a real
+interactive coding harness later.
+
+- **Read `../haruness/AGENTS.md` first** for any harness work — architecture, the
+  knob catalog, and the loop are there. This pointer is just orientation.
+- **Autonomous mode is the default:** harness work is self-driving — tweak a
+  knob/config → run on lame → analyze → record in `../haruness/docs/JOURNAL.md` →
+  repeat; surface to the human only when genuinely blocked. Push comparison
+  graphs to `../llm-feed` every few iterations so progress stays visible.
+- **Why sessions run from THIS repo:** so you can reach + wake lame (the GPU /
+  model / Docker host the harness runs on) using the deploy/unlock notes above.
+  Develop here, run on lame, detached + resumable so a crash doesn't kill it.
+- Model picks + the native-video / local-VLM eval that informs them live in
+  `research/video-understanding/`.
