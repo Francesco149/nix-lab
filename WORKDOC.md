@@ -116,7 +116,9 @@ check in `utils/lab-check.sh` (run after every deploy). All hosts `running` on
 - lame: llama re-enabled (vulkan + embed active, GPU OK). The **`video`
   instance is disabled** in `hosts/lame/llama.nix` — new nixpkgs llama-cpp moved
   its web UI to `tools/ui`, incompatible with the pinned April commit the Cobdog
-  video patch needs. [todo] re-enable after bumping src.rev + the patch.
+  video patch needs. **[update 2026-06-15] Resolved differently:** upstream
+  llama.cpp now has *native* video (no Cobdog patch needed) — re-enable by
+  dropping the patch + April pin. See "Video Understanding" section below.
 - Deploy access: deploys push from wslop (rd_host). mail/relay had rejected
   wslop's root key (stale gens predating it); bootstrapped via code, now in
   their deployed config.
@@ -128,6 +130,49 @@ check in `utils/lab-check.sh` (run after every deploy). All hosts `running` on
 - cold + lame pinned with `/tmp/stay` (helium drives — avoid power cycling).
   Nightly timer re-armed; the fixed orchestrator respects the stays. `/tmp/stay`
   is tmpfs — recreate after any reboot.
+
+## Video Understanding / Local VLM Eval (2026-06-15)
+
+Investigated replacing the broken `llama-video` (Cobdog patch) setup. **Upstream
+llama.cpp has native video since `8f83d6c` (2026-06-08)** — temporal-merge +
+M-RoPE + ffmpeg frame extraction + interleaved timestamps — matching/beating the
+patch, no patch needed. Proven on lame (7800XT/Vulkan) with the existing
+`Qwen3.6-35B-A3B` + mmproj: high-quality, temporally-ordered descriptions
+(user-confirmed ≥ llama-video). Full findings + reusable testbed live in
+`research/video-understanding/` (build/run scripts, perf matrix, model rec).
+
+Key results:
+- Native temporal video is **Qwen-VL-lineage only** (our Qwen3.6 models qualify).
+  nixpkgs `llama-cpp` b9503 predates video by 4 days → build from source for now
+  (`research/.../scripts/build-llama.sh`), or wait for nixpkgs ≥ ~b9510.
+- Perf (7800XT 16 G, fully on GPU): MoE quants that fit VRAM ≈ **120 t/s**;
+  dense-27B ≈ 31 t/s, **+MTP ≈ 54 t/s (1.74×)**; the offloaded `Q4_K_P` (current
+  prod config) only **14–25 t/s**. The 3080 (10 G) is VRAM-bound for 27–35 B →
+  the **7800XT is the better card** here.
+- Two real gotchas (documented): the helper's **ffmpeg-feeder SIGPIPE bug**
+  (needs SIG_IGN; one-line upstream fix worth a PR) and the **video token budget**
+  (~1.3k tok/sec-of-video at full res → cap `--image-max-tokens`/fps for long clips).
+- **MTP + `--mmproj` works for video** (tested); mmproj is shareable across
+  Qwen3.6 finetunes of the same base.
+
+Follow-ups:
+- [todo] Re-enable the `video` instance in `hosts/lame/llama.nix` **natively**:
+  drop the Cobdog patch + April `src.rev` pin, put `pkgs.ffmpeg` in the service
+  PATH, carry the SIGPIPE fix until upstreamed. Pick the model/quant per the
+  `research/video-understanding/README.md` recommendation (A: APEX-MTP Mini
+  ~120 t/s, or B: dense-27B + MTP ~54 t/s) — both beat the offloaded `Q4_K_P`.
+- [todo] The `ingest` service can be rewritten to the new interface (OAI
+  `input_video`, or the C++ video helper) — user confirmed breaking it is fine.
+- [planned] Agentic-coding eval harness (`research/agentic-coding/`) to settle
+  the model choice on coding quality; fold MTP on/off in (free dense speedup).
+- **Runtime state for next session:** `llama-vulkan` + `ollama-proxy` are
+  **stopped** to free the 7800XT for harness dev; `llama-embed` stays up on the
+  3080. `hosts/lame/llama.nix` is unchanged, so a lame reboot/redeploy restarts
+  them — re-stop (or comment out + deploy) if the 7800XT must stay free.
+- A from-source video-enabled llama.cpp (mtmd-cli, bench, cli) is built under
+  `lame:/tmp/llama.cpp/build-{vulkan,cuda}` and the APEX-MTP + dense-MTP GGUFs are
+  downloaded in `/opt/ai-lab/models` — reusable next session (rebuild via the
+  research scripts if `/tmp` was cleared).
 
 ## Niri Desktop (wslop)
 
