@@ -34,6 +34,17 @@
   };
   services.xserver.videoDrivers = [ "nvidia" ];
 
+  # Let Docker containers use the 3080 (CUDA / OpenGL / NVENC) WITHOUT vfio
+  # passthrough — the host nvidia driver + GL (/run/opengl-driver) is injected into
+  # the container (CDI). Powers the interactive GPU sandbox: Godot/OpenGL rendered
+  # on the 3080 at native speed, streamed out via Sunshine/Moonlight. Run a GPU
+  # container with `docker run --device nvidia.com/gpu=all …` (or `--gpus all`).
+  # NOTE: enabling this reconfigures the docker runtime, so `nixos-rebuild switch`
+  # restarts dockerd — deploy only when no Docker workload (e.g. a haruness sweep)
+  # is mid-run, or it will kill the running containers. The 3080 is freed for this
+  # by disabling the llama-embed service (see hosts/lame/llama.nix).
+  hardware.nvidia-container-toolkit.enable = true;
+
   # make both GPUs visible to the right tools
   environment.variables = {
     # hide 3080 from Vulkan (7800XT only), CUDA still sees it

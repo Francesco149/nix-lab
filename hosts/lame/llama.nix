@@ -187,10 +187,16 @@ in
   # (`pushd: tools/ui: No such file or directory`). Drop it from this removeAttrs
   # once src.rev + the video patch are bumped to a commit matching the new
   # layout. removeAttrs also keeps Nix from forcing (building) the broken derivation.
+  #
+  # `embed` is disabled (2026-06-15) to FREE THE 3080 for the interactive GPU
+  # sandbox (Godot/OpenGL over Sunshine; the 3080 is shared into containers via
+  # nvidia-container-toolkit — see hosts/lame/lame.nix). The lab isn't using
+  # embeddings right now. Re-enable by dropping "embed" here when the 3080 is wanted
+  # for embeddings again (note: open-webui RAG embeddings depend on this service).
   systemd.services = lib.mapAttrs' (
     name: cfg: mkLlamaService ({ inherit name; } // cfg)
-  ) (removeAttrs instances [ "video" ]);
+  ) (removeAttrs instances [ "video" "embed" ]);
   networking.firewall.allowedTCPPorts = map (cfg: cfg.port) (
-    lib.attrValues (removeAttrs instances [ "video" ])
+    lib.attrValues (removeAttrs instances [ "video" "embed" ])
   );
 }
