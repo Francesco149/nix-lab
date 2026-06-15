@@ -134,7 +134,11 @@ for h in "${HOSTS[@]}"; do
       ;;
     lame)
       check lame "gpu (nvidia)"     'nvidia-smi --query-gpu=name,driver_version --format=csv,noheader'        'NVIDIA'
-      check lame "llama services"   'systemctl is-active llama-vulkan llama-embed | paste -sd," "'            'active'
+      # llama-vulkan/llama-embed are intentionally DISABLED on lame (7800XT freed for
+      # haruness harness dev — see hosts/lame/llama.nix + WORKDOC.md). Check the durable
+      # interactive-GPU-sandbox prereqs instead: the uinput module + the nvidia-container-
+      # toolkit CDI spec (host GPU shared into containers for Sunshine/Moonlight).
+      check lame "sandbox prereqs"  'lsmod | grep -q uinput && test -e /run/cdi/nvidia-container-toolkit.json && echo ok || echo MISSING'  'ok'
       check lame "stay (kept up)"   'test -f /tmp/stay && echo present || echo absent'                        'present'
       ;;
   esac

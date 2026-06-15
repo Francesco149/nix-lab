@@ -21,8 +21,13 @@ let
   # the repo itself lives outside the nix store so config.toml and
   # sessions.json can be edited without a rebuild
   src = "/opt/ai-lab/ollama-proxy";
+
+  # DISABLED for now (2026-06-16): ollama-proxy bridges to llama-vulkan, which is
+  # disabled to keep the 7800XT free for haruness harness dev (see llama.nix +
+  # ../../WORKDOC.md). Flip to true to restore it together with llama-vulkan.
+  enable = false;
 in
-{
+lib.mkIf enable {
   systemd.services.ollama-proxy = {
     description = "Ollama proxy (llama.cpp bridge + agentic loop)";
     after = [

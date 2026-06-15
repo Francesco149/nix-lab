@@ -136,7 +136,10 @@ Critical checks (also what the script asserts):
   Gotchas). Sanity-check the tailnet: `ssh root@relay headscale nodes list`.
 - cold: both zpools `ONLINE`, `gigavault/wslop-backup` present with a recent
   `@wslop-*` snapshot, `/tmp/stay` present if it should stay up.
-- lame: `nvidia-smi` works, `llama-vulkan`/`llama-embed` active.
+- lame: `nvidia-smi` works; interactive-GPU-sandbox prereqs present (uinput module +
+  `/run/cdi/nvidia-container-toolkit.json`). NOTE: `llama-vulkan`/`llama-embed` are
+  intentionally **disabled** (7800XT freed for haruness harness dev — see WORKDOC.md);
+  re-enable in `hosts/lame/llama.nix` to restore the shared llama endpoint.
 
 Read the verbose output too — a scripted check can pass while something next to
 it quietly failed.

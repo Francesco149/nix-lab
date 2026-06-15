@@ -193,10 +193,15 @@ in
   # nvidia-container-toolkit — see hosts/lame/lame.nix). The lab isn't using
   # embeddings right now. Re-enable by dropping "embed" here when the 3080 is wanted
   # for embeddings again (note: open-webui RAG embeddings depend on this service).
+  #
+  # `vulkan` is disabled (2026-06-16) to FREE THE 7800XT for haruness harness dev,
+  # which spins up its own llama.cpp servers on that card (see ../../WORKDOC.md).
+  # With all three removed the llama stack is fully off on lame. Re-enable by
+  # dropping "vulkan" here when the lab wants its shared llama endpoint back.
   systemd.services = lib.mapAttrs' (
     name: cfg: mkLlamaService ({ inherit name; } // cfg)
-  ) (removeAttrs instances [ "video" "embed" ]);
+  ) (removeAttrs instances [ "video" "embed" "vulkan" ]);
   networking.firewall.allowedTCPPorts = map (cfg: cfg.port) (
-    lib.attrValues (removeAttrs instances [ "video" "embed" ])
+    lib.attrValues (removeAttrs instances [ "video" "embed" "vulkan" ])
   );
 }
