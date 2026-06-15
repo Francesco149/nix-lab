@@ -194,13 +194,19 @@ nix-lab side (this repo):
   (pre-existing — see Niri "Known issues").
 
 Deploy state:
-- [done] Config committed; the exact ruleset is ALSO live on lame as runtime
-  `nixos-fw` rules (added by hand; user confirmed Moonlight video + control).
-- [todo] **Not yet deployed via `switch`.** Deploying makes it survive reboots,
-  but per the Video-Understanding runtime note a lame redeploy also RESTARTS the
-  manually-stopped `llama-vulkan`/`ollama-proxy` (re-grabbing the 7800XT) — so do
-  it deliberately when the 7800XT can be reclaimed (or re-stop them after). Until
-  then the runtime rules cover it; recreate them if lame reboots first.
+- [done] Committed (cc67b95 firewall ports; 645c976 disables llama+ollama-proxy)
+  AND deployed to lame via a live `switch` on 2026-06-16 (now survives reboots).
+  To stop the redeploy from restarting the manually-stopped `llama-vulkan`/
+  `ollama-proxy` (which would re-grab the 7800XT needed for harness dev), they
+  were first DISABLED in config (llama.nix removeAttrs += "vulkan"; ollama-proxy
+  wrapped in `lib.mkIf enable`, enable=false). The closure diff confirmed no
+  docker/nvidia/kernel change, so the switch only stopped those two units +
+  reloaded the firewall — **dockerd untouched, the gpu-sandbox container +
+  Moonlight session survived, no reboot.** `lab-check lame` = PASS 7/0/0.
+- Re-enable the lab's llama endpoint by dropping "vulkan" from llama.nix's
+  removeAttrs / flipping ollama-proxy's `enable` to true, then redeploy.
+- `utils/lab-check.sh` + `docs/UPDATING.md` updated: lame no longer asserts llama
+  active; it checks the sandbox prereqs (uinput + nvidia-container-toolkit CDI).
 
 ## Niri Desktop (wslop)
 
