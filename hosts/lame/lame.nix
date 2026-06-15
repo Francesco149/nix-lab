@@ -45,6 +45,10 @@
   # by disabling the llama-embed service (see hosts/lame/llama.nix).
   hardware.nvidia-container-toolkit.enable = true;
 
+  # uinput: virtual mouse/keyboard for the interactive GPU sandbox (Sunshine injects
+  # Moonlight input via /dev/uinput). Load it at boot so the sandbox survives reboots.
+  boot.kernelModules = [ "uinput" ];
+
   # make both GPUs visible to the right tools
   environment.variables = {
     # hide 3080 from Vulkan (7800XT only), CUDA still sees it
