@@ -49,6 +49,24 @@
   # Moonlight input via /dev/uinput). Load it at boot so the sandbox survives reboots.
   boot.kernelModules = [ "uinput" ];
 
+  # Sunshine/Moonlight streaming ports for the interactive GPU sandbox. The container
+  # runs with --network host (required so the host udevd's input-hotplug uevents reach
+  # its Xorg — how Moonlight mouse/kb works), so Docker no longer publishes ports and
+  # the host firewall must allow them directly. See haruness docs/interactive-sandbox.md.
+  networking.firewall.allowedTCPPorts = with config.lab.ports; [
+    sunshine-https
+    sunshine-http
+    sunshine-web
+    sunshine-rtsp
+  ];
+  networking.firewall.allowedUDPPorts = with config.lab.ports-udp; [
+    sunshine-video
+    sunshine-control
+    sunshine-audio
+    sunshine-mic
+    mdns
+  ];
+
   # make both GPUs visible to the right tools
   environment.variables = {
     # hide 3080 from Vulkan (7800XT only), CUDA still sees it

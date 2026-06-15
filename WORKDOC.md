@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-06-10
+Last updated: 2026-06-16
 
 ## Project
 
@@ -173,6 +173,34 @@ Follow-ups:
   `lame:/tmp/llama.cpp/build-{vulkan,cuda}` and the APEX-MTP + dense-MTP GGUFs are
   downloaded in `/opt/ai-lab/models` — reusable next session (rebuild via the
   research scripts if `/tmp` was cleared).
+
+## 2026-06-16 Interactive GPU Sandbox — Moonlight input + firewall
+
+The haruness interactive GPU sandbox (lame 3080 → Sunshine/Moonlight) now has
+working mouse/keyboard. Root cause + fix live in haruness
+`docs/interactive-sandbox.md` (short version: run the container with
+`--network host` + the host's udev DB so Xorg hotplugs Sunshine's uinput devices
+— NOT the systemd/logind rewrite previously planned).
+
+nix-lab side (this repo):
+- `--network host` means Docker no longer publishes Sunshine's ports, so the host
+  firewall must allow them. Added to `hosts/lame/lame.nix`
+  (`networking.firewall.allowed{TCP,UDP}Ports`) referencing new
+  `lab.ports.sunshine-*` / `lab.ports-udp.*` labels in `lib/lab.nix`. Ports: TCP
+  47984/47989/47990/48010, UDP 47998-48000/48002, + mDNS 5353.
+- Validated by host eval (`nix eval
+  .#nixosConfigurations.lame.config.networking.firewall.*`). Full `nix flake
+  check` still fails only on the known missing-local-inputs deploy-schema check
+  (pre-existing — see Niri "Known issues").
+
+Deploy state:
+- [done] Config committed; the exact ruleset is ALSO live on lame as runtime
+  `nixos-fw` rules (added by hand; user confirmed Moonlight video + control).
+- [todo] **Not yet deployed via `switch`.** Deploying makes it survive reboots,
+  but per the Video-Understanding runtime note a lame redeploy also RESTARTS the
+  manually-stopped `llama-vulkan`/`ollama-proxy` (re-grabbing the 7800XT) — so do
+  it deliberately when the 7800XT can be reclaimed (or re-stop them after). Until
+  then the runtime rules cover it; recreate them if lame reboots first.
 
 ## Niri Desktop (wslop)
 

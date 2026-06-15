@@ -302,6 +302,21 @@ rec {
   ports.llama-embed = 6080;
   ports.ingest = 8083;
 
+  # interactive GPU sandbox on lame: Sunshine streaming host → Moonlight. The
+  # container runs with --network host (so the host udevd's input-hotplug uevents
+  # reach its Xorg — that is what makes Moonlight mouse/kb work), so Docker does NOT
+  # publish these; the host firewall must. Values are the Sunshine default port table
+  # (base 47989). See haruness docs/interactive-sandbox.md.
+  ports.sunshine-https = 47984;
+  ports.sunshine-http = 47989;
+  ports.sunshine-web = 47990; # web UI / pairing PIN
+  ports.sunshine-rtsp = 48010;
+  ports-udp.sunshine-video = 47998;
+  ports-udp.sunshine-control = 47999;
+  ports-udp.sunshine-audio = 48000;
+  ports-udp.sunshine-mic = 48002;
+  ports-udp.mdns = 5353; # Moonlight host auto-discovery
+
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 
   # router ip (default gateway)
