@@ -132,5 +132,11 @@ interactive coding harness later.
 - **Why sessions run from THIS repo:** so you can reach + wake lame (the GPU /
   model / Docker host the harness runs on) using the deploy/unlock notes above.
   Develop here, run on lame, detached + resumable so a crash doesn't kill it.
+- **wslop has every tool via the flake — nothing is "missing" locally.** Wrap any
+  command in the haruness devShell (`cd /opt/src/haruness && nix develop --command
+  <cmd>`) and you get bun + python3 + matplotlib + the CLI's shell-outs. So plotting
+  and publishing run locally — `nix develop --command bash scripts/publish.sh <exp>
+  "Title"` plots + pushes to `../llm-feed`. There is NO "no python3 on wslop" blocker;
+  if a tool seems absent, go through the flake instead of working around it.
 - Model picks + the native-video / local-VLM eval that informs them live in
   `research/video-understanding/`.
