@@ -311,6 +311,7 @@ rec {
   ports.sunshine-http = 47989;
   ports.sunshine-web = 47990; # web UI / pairing PIN
   ports.sunshine-rtsp = 48010;
+  ports.haruness-dashboard = 8799; # haruness experiment dashboard (run monitor + interactive sandbox control)
   ports-udp.sunshine-video = 47998;
   ports-udp.sunshine-control = 47999;
   ports-udp.sunshine-audio = 48000;

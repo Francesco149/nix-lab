@@ -58,6 +58,7 @@
     sunshine-http
     sunshine-web
     sunshine-rtsp
+    haruness-dashboard # the harness dashboard (bun, port 8799) — standing service we poke the GPU sandbox from
   ];
   networking.firewall.allowedUDPPorts = with config.lab.ports-udp; [
     sunshine-video
