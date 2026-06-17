@@ -74,6 +74,14 @@
           type = "zfs_fs";
           mountpoint = "/opt/ai-lab/data";
         };
+        # Docker's data-root: keep its images/overlay2 off the 98G LUKS root (it
+        # filled to 100% during a haruness sweep) on the 800G pool instead. overlay2
+        # on ZFS is supported here (OpenZFS 2.4 / kernel 6.18). See hosts/lame/lame.nix
+        # (virtualisation.docker.daemon.settings.data-root) + docs/UPDATING.md.
+        "docker" = {
+          type = "zfs_fs";
+          mountpoint = "/lamedata/docker";
+        };
       };
     };
   };

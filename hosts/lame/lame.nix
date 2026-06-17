@@ -45,6 +45,18 @@
   # by disabling the llama-embed service (see hosts/lame/llama.nix).
   hardware.nvidia-container-toolkit.enable = true;
 
+  # Docker's data-root lives on the lamedata ZFS pool (hundreds of GB free), NOT the
+  # 98G LUKS root — a haruness sweep filled root to 100% (docker images + /nix/store).
+  # overlay2 on ZFS is supported here (OpenZFS 2.4 / kernel 6.18). The `lamedata/docker`
+  # dataset (hosts/lame/disko.nix) mounts at /lamedata/docker; docker is ordered after
+  # zfs.target so it never writes to that path before the dataset is mounted (which
+  # would be shadowed on the next boot). See docs/UPDATING.md.
+  virtualisation.docker.daemon.settings.data-root = "/lamedata/docker";
+  systemd.services.docker = {
+    after = [ "zfs.target" ];
+    requires = [ "zfs.target" ];
+  };
+
   # uinput: virtual mouse/keyboard for the interactive GPU sandbox (Sunshine injects
   # Moonlight input via /dev/uinput). Load it at boot so the sandbox survives reboots.
   boot.kernelModules = [ "uinput" ];

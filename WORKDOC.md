@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-06-16
+Last updated: 2026-06-17
 
 ## Project
 
@@ -207,6 +207,32 @@ Deploy state:
   removeAttrs / flipping ollama-proxy's `enable` to true, then redeploy.
 - `utils/lab-check.sh` + `docs/UPDATING.md` updated: lame no longer asserts llama
   active; it checks the sandbox prereqs (uinput + nvidia-container-toolkit CDI).
+
+## 2026-06-17 Docker data-root → ZFS pool (lame root disk pressure)
+
+lame's 98G LUKS **root filled to 100%** during a haruness sweep (the harness builds
++ runs on lame). Breakdown was `/nix/store` 64G, docker 14G in `/var`, plus the
+non-haruness `llmtoy-zig` (12G) and the `open-webui` image (6.7G). Fixed:
+
+- **Docker moved off root onto the `lamedata` ZFS pool** (hundreds of GB free).
+  `hosts/lame/disko.nix` declares a `lamedata/docker` dataset (mountpoint
+  `/lamedata/docker`); `hosts/lame/lame.nix` sets
+  `virtualisation.docker.daemon.settings.data-root = "/lamedata/docker"` and orders
+  `docker.service` **after + requires `zfs.target`** so it never writes to the path
+  before the dataset mounts (which would be shadowed on the next boot). overlay2-on-
+  ZFS is supported here (OpenZFS 2.4 / kernel 6.18, verified).
+- **Migration (live, no reboot):** stopped docker → `zfs create lamedata/docker` →
+  `rsync -aHAX --numeric-ids /var/lib/docker/ /lamedata/docker/` (preserves the
+  hardlinks/xattrs the containerd-snapshotter store needs) → `switch-to-configuration
+  switch` → verified `docker info` data-root + all 5 images + open-webui **healthy**
+  → removed the old `/var/lib/docker`. Also ran `nix-collect-garbage -d` (**41 GiB**).
+- **Result:** root **0 free (100%) → 57G free (40% used)**; `lamedata/docker` 4.9G /
+  ~197G free. `utils/lab-check.sh` gained "docker on zfs" + "root disk free" checks;
+  `docs/UPDATING.md` notes the data-root + the post-reboot verify.
+- **Risk/follow-up:** boot ordering is by construction (matches the host's other
+  zfs-dependent services) but not yet reboot-tested — a future lame reboot will
+  confirm docker comes up on `/lamedata/docker`. Non-haruness root hogs remain
+  (`llmtoy-zig` 12G, `open-webui` image 6.7G) if more root space is wanted later.
 
 ## Niri Desktop (wslop)
 

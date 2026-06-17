@@ -139,6 +139,11 @@ for h in "${HOSTS[@]}"; do
       # interactive-GPU-sandbox prereqs instead: the uinput module + the nvidia-container-
       # toolkit CDI spec (host GPU shared into containers for Sunshine/Moonlight).
       check lame "sandbox prereqs"  'lsmod | grep -q uinput && test -e /run/cdi/nvidia-container-toolkit.json && echo ok || echo MISSING'  'ok'
+      # Docker's data-root lives on the lamedata ZFS pool, NOT the 98G LUKS root — a
+      # haruness sweep once filled root to 100% (hosts/lame/lame.nix + disko.nix). If this
+      # ever reads /var/lib/docker again the move regressed and root will refill.
+      check lame "docker on zfs"    'docker info -f "{{.DockerRootDir}}" 2>/dev/null'                          '/lamedata/docker'
+      check lame "root disk free"   'u=$(df --output=pcent / | tr -cd 0-9); [ "${u:-100}" -lt 90 ] && echo "ok ${u}%used" || echo "LOW ${u}%used"'  'ok'
       check lame "stay (kept up)"   'test -f /tmp/stay && echo present || echo absent'                        'present'
       ;;
   esac
