@@ -132,6 +132,15 @@ interactive coding harness later.
 - **Why sessions run from THIS repo:** so you can reach + wake lame (the GPU /
   model / Docker host the harness runs on) using the deploy/unlock notes above.
   Develop here, run on lame, detached + resumable so a crash doesn't kill it.
+- **Monitor detached runs with the lame-side watcher service — do NOT hand-roll
+  ssh poll loops.** `../haruness/scripts/lame-watch.sh up [LOGFILE]` starts a
+  `haruness-watch` systemd unit on lame that tails the run log and keeps a
+  one-glance `/run/haruness-watch/status` (progress, VRAM, de-rum SUMMARIZED/EVICT,
+  IDENTITY-FAIL, last cell); check it with `lame-watch.sh status` / `log [N]`.
+  This exists to REPLACE ad-hoc background `ssh … | grep | sleep` pollers — those
+  leak, don't flush, and break on lame's **fish** login shell (any non-trivial
+  remote command must go through `bash -s` / `bash -lc`, which the wrapper does
+  with a `ConnectTimeout`).
 - **wslop has every tool via the flake — nothing is "missing" locally.** Wrap any
   command in the haruness devShell (`cd /opt/src/haruness && nix develop --command
   <cmd>`) and you get bun + python3 + matplotlib + the CLI's shell-outs. So plotting
