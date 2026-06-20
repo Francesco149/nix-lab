@@ -52,5 +52,9 @@ in
       TimeoutStartSec = "20h";
     };
   };
+  # the time machine courier restic-pushes its Win7/XP images into
+  # gigavault/timemachine-restic over sftp as this backup user
+  users.users.backup.openssh.authorizedKeys.keys = [ lab.ssh.pub.timemachine-restic ];
+
   programs.ssh.knownHosts = lab.ssh.cold-backup-known-hosts;
 }

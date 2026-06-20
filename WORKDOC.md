@@ -234,6 +234,56 @@ non-haruness `llmtoy-zig` (12G) and the `open-webui` image (6.7G). Fixed:
   confirm docker comes up on `/lamedata/docker`. Non-haruness root hogs remain
   (`llmtoy-zig` 12G, `open-webui` image 6.7G) if more root space is wanted later.
 
+## 2026-06-20 Time Machine (Win7/XP) Weekly Image Backup
+
+New foreign backup target `timemachine`: a Win7/XP retro gaming box whose NixOS
+"courier" (NVMe) images the *cold* Windows system disks to cold. Config is split —
+the **courier** side lives in the `retro-hardware` repo (`builds/nixos-utility/`),
+the **orchestration** here.
+
+Design:
+
+- Courier boots NixOS by default; the Windows SSDs are cold block devices, so the
+  NTFS images are crash-consistent. `tm-backup` (on the courier) resolves the XP
+  (Crucial MX300) + Win7 (Netac) disks BY MODEL via `/dev/disk/by-id` (sdX is
+  unstable — RETRO-KIT SD + USB readers reshuffle letters), images each NTFS
+  partition with `ntfsclone` (used-clusters-only; *refuses* an inconsistent FS) +
+  the first MiB (MBR/parttable) via dd, and restic-pushes to
+  `sftp:backup@cold:/gigavault/timemachine-restic`. Rollback = `restic dump … |
+  ntfsclone --restore-image`.
+- `code` runs it weekly (`tm-backup.timer`, Sun 04:00): cold-unlock cold → WoL the
+  courier (`mac.timemachine`) → wait for ssh → `ssh backup@timemachine sudo
+  tm-backup` → power both down. Orchestrator `hosts/code/backup/tm-backup.py` is a
+  SIBLING of cold-backup (not folded in — different cadence/dep/failure domain).
+  Fail-safe: never power a host off when its state is uncertain.
+- restic over syncoid/zfs-send: the source is foreign Windows block devices (no ZFS
+  dataset to send); restic gives dedup/incremental + tagged snapshots + one-command
+  restore, repo still on a scrubbed ZFS dataset. Mirrors the wslop PUSH precedent.
+
+Decisions / facts:
+
+- timemachine is DHCP + normally OFF; addressed by `lan.timemachine = "timemachine.soy"`
+  (router DNS) for ssh and `mac.timemachine` for WoL. NOT in `backup.targets` (that's
+  the syncoid pull list) nor the lab-check default host loop (it's off).
+- WoL verified to survive a NixOS shutdown (Test A: ~107s wake incl. POST). Win7/XP
+  shutdown persistence still under test.
+- The courier's RTC is localtime (`time.hardwareClockInLocalTime`) so it doesn't
+  fight Win7/XP over the hardware clock on boot-switches.
+
+Deploy state:
+
+- [done] Built + validated: code/cold/courier toplevels build; `tm-backup --check`
+  ran on hardware (Win7 images clean; XP was UNHEALTHY → user running `chkdsk /f`).
+- [TODO before enabling the timer] (1) generate the courier restic key on
+  timemachine and replace the `ssh.pub.timemachine-restic` PLACEHOLDER in lib/lab.nix;
+  (2) on cold: `zfs create gigavault/timemachine-restic`, chown backup, `restic init`;
+  (3) place `/etc/tm-restic-password` + cold's host key in root's known_hosts on the
+  courier; (4) deploy code (switch) + cold (LIVE switch only — no reboot, not mid-
+  backup) + courier; (5) run `tm-backup-cycle` by hand and confirm a Win7 snapshot
+  lands BEFORE trusting the timer.
+- Risk: foreign-repo coupling is invisible to nix checks — the pubkey strings in
+  lab.nix and the authorizedKeys on the courier must match by hand.
+
 ## Niri Desktop (wslop)
 
 Niri is wired as a nested compositor under WSLg on the `wslop` host. The

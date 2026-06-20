@@ -29,9 +29,14 @@ rec {
   lan.cold-unlock = "${lan.prefix}.60";
   lan.lame-unlock = "${lan.prefix}.61";
 
+  # the Win7/XP "time machine" courier is DHCP and normally powered off; reached
+  # by its router-DNS name for ssh (WoL targets mac.timemachine instead).
+  lan.timemachine = "timemachine.soy";
+
   # MACs for WoL
   mac.cold = "74:56:3c:fc:9b:30";
   mac.lame = "2c:f0:5d:db:7c:1c";
+  mac.timemachine = "74:d4:35:ea:6d:f2"; # Win7/XP courier, onboard I217-V
 
   # all of these point to internet.relay. see README.md for records setup
   domains.base = "headpats.uk";
@@ -116,6 +121,11 @@ rec {
   secrets.ssh.unlock = "${secrets.dir}/cold-unlock-key";
   ssh.pub.unlock = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwEiN9bssyDBj+Ldj8nbZs/sFoNRNJYrPX9rb+iHnCH unlock@code";
 
+  # the courier's restic push key (authorized on cold's `backup` user). generate
+  # on timemachine: `ssh-keygen -t ed25519 -f /root/.ssh/tm-restic -C restic@timemachine`
+  # then paste its public half here (replaces the placeholder).
+  ssh.pub.timemachine-restic = "ssh-ed25519 AAAA_PLACEHOLDER_FILL_FROM_COURIER restic@timemachine";
+
   # known hosts for backup/unlock orchestrator on code
   ssh.host.lame = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPiyiPPDqtIjkp6xeNsigSBkDivCAAgydcUHImaz34qN root@lame";
   ssh.host.cold = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAqjHsgUF2s+MRJqSvyB14w05NXVRoaimZjPyu/S3NYX root@nixos";
@@ -126,6 +136,9 @@ rec {
   # and for the orchestrator on code to reach wslop
   ssh.host.code = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDS6Yrr49OImcExU3Mx07jEJ3avQkD7k0HqQXq5Zqj4+ root@code";
   ssh.host.wslop = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIACy/6kUkKqi9XZEmTmgYxKk5j4VvdyPx2v1M5SSjHnR root@wslop";
+
+  # the time machine courier (foreign NixOS box; config lives in the retro-hardware repo)
+  ssh.host.timemachine = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjLzKpKiMIq85211LwpuEazdFBcLIDgKKu/F2EMBirv root@timemachine";
 
   # wslop cold backup. two kinds of source, pushed with rsync as root@cold
   # into `dataset`:

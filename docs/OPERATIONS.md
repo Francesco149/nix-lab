@@ -182,6 +182,49 @@ Design notes:
   the `backup` user, if not it skips it. wslop cannot join the automatic
   unlock flow because its bitlocker uses a passphrase without TPM.
 
+### Timemachine (Win7/XP image backup)
+
+`timemachine` is a FOREIGN host — its NixOS "courier" config lives in the
+`retro-hardware` repo (`builds/nixos-utility/`). The courier boots NixOS by
+default and images the *cold* Win7/XP system disks to cold with restic. It is
+normally powered OFF; `code` wakes it weekly.
+
+Flow (`tm-backup-cycle` on code → `hosts/code/backup/tm-backup.py`, weekly
+`tm-backup.timer` Sun 04:00):
+
+1. `cold-unlock --host cold` (idempotent) — cold up + `gigavault` mounted.
+2. `wakeonlan ${mac.timemachine}` — wake the courier into NixOS.
+3. wait for ssh, then `ssh backup@${lan.timemachine} sudo tm-backup` — the courier
+   images each Win7/XP NTFS partition (`ntfsclone`, used-clusters-only) + the
+   disk's first MiB (MBR) and restic-pushes to
+   `sftp:backup@cold:/gigavault/timemachine-restic`.
+4. power off the courier, then cold (unless `/tmp/stay` or a running nightly).
+
+Run by hand from code: `tm-backup-cycle`. On the courier, `tm-backup`
+(`builds/nixos-utility/backup/tm-backup.py`) also has `--check` (preflight only)
+and `--local DIR` (image to a local dir) for testing.
+
+One-time setup (out of band — see WORKDOC's deploy TODO):
+
+- On the courier: `ssh-keygen -t ed25519 -f /root/.ssh/tm-restic -C restic@timemachine`,
+  paste its pubkey into `lab.ssh.pub.timemachine-restic` (replaces the placeholder),
+  add cold's host key to root's known_hosts, and place the restic password at
+  `/etc/tm-restic-password` (0400 root).
+- On cold: `zfs create gigavault/timemachine-restic`, `chown backup:backup` its
+  mountpoint, `chmod 700`, then `restic init` once.
+
+Notes:
+
+- The Windows disks are imaged COLD (NixOS booted, not Windows), so the NTFS is
+  crash-consistent. `ntfsclone` *refuses* an inconsistent FS — if a volume is dirty
+  or damaged, `tm-backup` fails that partition with a "run chkdsk /f" message rather
+  than checkpointing corruption. Restore: `restic dump <snap> <name> | ntfsclone
+  --restore-image -O /dev/<part> -` (dd for the MBR image).
+- Disks are resolved BY MODEL via `/dev/disk/by-id` (Crucial=XP, Netac=Win7), never
+  by sdX (the RETRO-KIT SD + USB readers reshuffle letters every boot).
+- WoL survives NixOS and XP shutdowns (tested); the courier arms it via
+  `networking.interfaces.eno1.wakeOnLan.enable`.
+
 ## Recovery
 
 If a deploy cannot switch in-place, set the target profile to the built system

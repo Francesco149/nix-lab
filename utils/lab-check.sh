@@ -105,6 +105,7 @@ for h in "${HOSTS[@]}"; do
     code)
       check code "core services" 'systemctl is-active caddy docker beszel-agent sshd | paste -sd," "'        'active'
       check code "nightly timer" 'systemctl is-active cold-backup.timer'                                     'active'
+      check code "tm-backup timer" 'systemctl is-active tm-backup.timer'                                     'active'
       check code "app services"  'systemctl is-active shigebot grammar-helper | paste -sd," "'               'active'
       ;;
     mail)
@@ -130,6 +131,7 @@ for h in "${HOSTS[@]}"; do
       check cold "zfs pools online" 'zpool list -H -o name,health | sed "s/\t/ /" ; zpool list -H -o health | grep -qv ONLINE && echo NOT_ALL_ONLINE || echo all-online' 'all-online'
       check cold "backup dataset"   'zfs list -H -o name gigavault/wslop-backup'                              'wslop-backup'
       check cold "recent snapshot"  'zfs list -H -t snapshot -o name -s creation gigavault/wslop-backup | tail -1' '@wslop-'
+      check cold "tm restic repo"   'zfs list -H -o name gigavault/timemachine-restic'                        'timemachine-restic'
       check cold "stay (kept up)"   'test -f /tmp/stay && echo present || echo absent'                        'present'
       ;;
     lame)

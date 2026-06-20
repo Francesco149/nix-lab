@@ -88,7 +88,8 @@ the change live without rebooting (see `cold` below).
 Per-host nuances (order: code → mail → lame → relay, then cold):
 
 - **code** — VM. Reboot is safe; recover from the proxmox console if it doesn't
-  return. Deploying it also activates the `cold-backup` orchestrator changes.
+  return. Deploying it also activates the `cold-backup` orchestrator changes and
+  the weekly `tm-backup` timer (Win7/XP image backup — see OPERATIONS.md).
 - **mail** — LAN. Reboot. Verify postfix + dovecot come up (dovecot is the
   `dovecot.service` unit, renamed from `dovecot2` in newer nixpkgs).
 - **lame** — root is LUKS-encrypted, so a **reboot drops it to initrd**. After
@@ -111,13 +112,18 @@ Per-host nuances (order: code → mail → lame → relay, then cold):
 - **cold** — encrypted + meant to stay up (helium drives dislike power cycling).
   Prefer a live **`switch`** (no reboot): the new kernel lands on cold's next
   natural power-cycle. A reboot would need `ssh root@code cold-unlock --host cold`
-  from initrd. Never deploy/reboot cold while a backup is running.
+  from initrd. Never deploy/reboot cold while a backup is running. (A cold switch
+  also lands the `timemachine-restic` push key on its `backup` user; the
+  `gigavault/timemachine-restic` dataset + `restic init` are manual one-time steps.)
 
 ## 5. Keep cold / lame up; manage the nightly
 
 - The nightly `cold-backup.timer` on `code` fires at 01:30. To avoid it colliding
   with a manual run, stop it for the night: `ssh root@code systemctl stop
   cold-backup.timer` (re-arm with `systemctl start`).
+- The weekly `tm-backup.timer` on `code` fires Sun 04:00 — it wakes the (normally
+  off) `timemachine` courier via WoL, runs its image backup to cold, and powers
+  both down. Run on demand with `ssh root@code tm-backup-cycle`. See OPERATIONS.md.
 - To keep `cold`/`lame` powered on, create `/tmp/stay` on them
   (`touch /tmp/stay`, or `cold-unlock --stay`). The fixed orchestrator
   (`hosts/code/backup/cold-backup.py`) skips shutdown for any host with the
@@ -134,13 +140,14 @@ Critical checks (also what the script asserts):
 
 - Every host: `systemctl is-system-running` = `running`, **no failed units**,
   `/run/current-system` points at the new generation.
-- code: caddy, docker, beszel-agent, `cold-backup.timer`, app services active.
+- code: caddy, docker, beszel-agent, `cold-backup.timer`, `tm-backup.timer`, app services active.
 - mail: postfix, dovecot, rspamd active.
 - relay: headscale, nginx, tailscaled active; `http://127.0.0.1:8080/health` =
   200; the **hs.headpats.uk cert is not expired** (it renews via DNS-01 — see
   Gotchas). Sanity-check the tailnet: `ssh root@relay headscale nodes list`.
 - cold: both zpools `ONLINE`, `gigavault/wslop-backup` present with a recent
-  `@wslop-*` snapshot, `/tmp/stay` present if it should stay up.
+  `@wslop-*` snapshot, `gigavault/timemachine-restic` present, `/tmp/stay` present
+  if it should stay up.
 - lame: `nvidia-smi` works; interactive-GPU-sandbox prereqs present (uinput module +
   `/run/cdi/nvidia-container-toolkit.json`). NOTE: `llama-vulkan`/`llama-embed` are
   intentionally **disabled** (7800XT freed for haruness harness dev — see WORKDOC.md);

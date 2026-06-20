@@ -78,11 +78,37 @@ let
       --wslop-addr  ${lab.tailnet.wslop}
   '';
 
+  tm-orch-py = pkgs.writeText "tm-backup.py" (builtins.readFile ./backup/tm-backup.py);
+
+  # weekly: wake cold + the time machine courier, run the courier's image backup,
+  # then power both back down.
+  tm-backup-cycle = pkgs.writeShellScriptBin "tm-backup-cycle" ''
+    export PATH="${
+      lib.makeBinPath (
+        with pkgs;
+        [
+          openssh
+          wakeonlan
+          netcat-openbsd
+          python3
+        ]
+      )
+    }:$PATH"
+    exec ${pkgs.python3}/bin/python3 ${tm-orch-py} \
+      --ssh-key    ${sshKey} \
+      --unlock-bin ${cold-unlock}/bin/cold-unlock \
+      --tm-addr    ${lab.lan.timemachine} \
+      --tm-mac     ${lab.mac.timemachine} \
+      --cold-addr  ${lab.lan.cold} \
+      "$@"
+  '';
+
 in
 {
   environment.systemPackages = [
     cold-unlock
     cold-backup
+    tm-backup-cycle
   ];
 
   # cold pub key (backup) + all initrd pub keys (unlocks)
@@ -116,6 +142,14 @@ in
         ];
         publicKey = lab.ssh.host.wslop;
       };
+      # the time machine courier: woken weekly, ssh'd into to run tm-backup
+      timemachine = {
+        hostNames = [
+          "timemachine"
+          lab.lan.timemachine
+        ];
+        publicKey = lab.ssh.host.timemachine;
+      };
     };
 
   systemd.services.cold-backup = {
@@ -136,6 +170,29 @@ in
       OnCalendar = "*-*-* 01:30:00";
       Persistent = false;
       Unit = "cold-backup.service";
+    };
+  };
+
+  # weekly image backup of the Win7/XP time machine to cold (Sunday, clear of the
+  # nightly syncoid window; tm-backup-cycle re-unlocks cold idempotently anyway).
+  systemd.services.tm-backup = {
+    description = "Time Machine (Win7/XP) weekly image backup";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${tm-backup-cycle}/bin/tm-backup-cycle";
+      TimeoutStartSec = "12h";
+      Restart = "no";
+    };
+  };
+
+  systemd.timers.tm-backup = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Sun *-*-* 04:00:00";
+      Persistent = false;
+      Unit = "tm-backup.service";
     };
   };
 }
