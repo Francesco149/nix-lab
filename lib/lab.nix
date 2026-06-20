@@ -124,7 +124,7 @@ rec {
   # the courier's restic push key (authorized on cold's `backup` user). generate
   # on timemachine: `ssh-keygen -t ed25519 -f /root/.ssh/tm-restic -C restic@timemachine`
   # then paste its public half here (replaces the placeholder).
-  ssh.pub.timemachine-restic = "ssh-ed25519 AAAA_PLACEHOLDER_FILL_FROM_COURIER restic@timemachine";
+  ssh.pub.timemachine-restic = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKf7hzcJ1V98PUZ3c5UIuCEt9aGm+nTQZeGa7rH30CJf restic@timemachine";
 
   # known hosts for backup/unlock orchestrator on code
   ssh.host.lame = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPiyiPPDqtIjkp6xeNsigSBkDivCAAgydcUHImaz34qN root@lame";
