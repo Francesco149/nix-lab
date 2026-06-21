@@ -89,6 +89,13 @@ in
       reverse_proxy localhost:${toString p.cache}
     '';
 
+    # Plain-HTTP intercept for the らき☆マス launcher (gcal-emu, ./gcal-emu.nix). The
+    # `http://` scheme keeps it on :80 with no HTTPS upgrade (the launcher is HTTP/1.0,
+    # no TLS); only XP — pointed here by a hosts redirect — ever sends this Host.
+    virtualHosts."http://www.google.com".extraConfig = ''
+      reverse_proxy localhost:${toString p.gcal-emu}
+    '';
+
     virtualHosts."rack.box.headpats.uk".extraConfig = ''
       import authentik
       reverse_proxy localhost:${toString p.rackpeek}

@@ -12,6 +12,7 @@
     ./caddy.nix
     ./roundcube.nix
     ./backup.nix
+    ./gcal-emu.nix
   ];
 
   # enable other machines in the tailnet to see my home lan

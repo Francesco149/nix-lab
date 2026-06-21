@@ -212,23 +212,65 @@ rec {
 
         # backed up by default
         work = [
-          { name = "documents"; src = "/mnt/c/Users/headpats/Documents"; } # blender + docs
-          { name = "desktop"; src = "/mnt/c/Users/headpats/Desktop"; }
-          { name = "pictures"; src = "/mnt/c/Users/headpats/Pictures"; }
-          { name = "music"; src = "/mnt/c/Users/headpats/Music"; }
-          { name = "password-store"; src = "/mnt/c/Users/headpats/.password-store"; }
-          { name = "blender-config"; src = "/mnt/c/Users/headpats/AppData/Roaming/Blender Foundation"; }
-          { name = "oss-osr"; src = "/mnt/c/oss-osr"; excludes = image-junk; }
-          { name = "osscap"; src = "/mnt/c/osscap"; excludes = image-junk; }
-          { name = "openrecet-traces"; src = "/mnt/c/Users/headpats/openrecet-traces"; excludes = image-junk; }
+          {
+            name = "documents";
+            src = "/mnt/c/Users/headpats/Documents";
+          } # blender + docs
+          {
+            name = "desktop";
+            src = "/mnt/c/Users/headpats/Desktop";
+          }
+          {
+            name = "pictures";
+            src = "/mnt/c/Users/headpats/Pictures";
+          }
+          {
+            name = "music";
+            src = "/mnt/c/Users/headpats/Music";
+          }
+          {
+            name = "password-store";
+            src = "/mnt/c/Users/headpats/.password-store";
+          }
+          {
+            name = "blender-config";
+            src = "/mnt/c/Users/headpats/AppData/Roaming/Blender Foundation";
+          }
+          {
+            name = "oss-osr";
+            src = "/mnt/c/oss-osr";
+            excludes = image-junk;
+          }
+          {
+            name = "osscap";
+            src = "/mnt/c/osscap";
+            excludes = image-junk;
+          }
+          {
+            name = "openrecet-traces";
+            src = "/mnt/c/Users/headpats/openrecet-traces";
+            excludes = image-junk;
+          }
         ];
 
         # backed up only with `wslop-backup --all`; big and/or re-downloadable
         optional = [
-          { name = "downloads"; src = "/mnt/c/Users/headpats/Downloads"; }
-          { name = "videos"; src = "/mnt/c/Users/headpats/Videos"; }
-          { name = "steam"; src = "/mnt/c/Program Files (x86)/Steam/steamapps"; }
-          { name = "gog"; src = "/mnt/c/GOG Games"; }
+          {
+            name = "downloads";
+            src = "/mnt/c/Users/headpats/Downloads";
+          }
+          {
+            name = "videos";
+            src = "/mnt/c/Users/headpats/Videos";
+          }
+          {
+            name = "steam";
+            src = "/mnt/c/Program Files (x86)/Steam/steamapps";
+          }
+          {
+            name = "gog";
+            src = "/mnt/c/GOG Games";
+          }
         ];
       };
     };
@@ -294,6 +336,7 @@ rec {
 
   ports.openvscode-server = 3010;
   ports.beszel = 8090;
+  ports.gcal-emu = 8091; # synthetic Google test-board for the らき☆マス launcher (localhost; Caddy-fronted)
   ports.cache = 8765;
   ports.dmarc-analyzer = 8741;
   ports.roundcube = 3100;

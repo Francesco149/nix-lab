@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-06-17
+Last updated: 2026-06-21
 
 ## Project
 
@@ -283,6 +283,25 @@ Deploy state:
   lands BEFORE trusting the timer.
 - Risk: foreign-repo coupling is invisible to nix checks — the pubkey strings in
   lab.nix and the authorizedKeys on the courier must match by hand.
+
+## 2026-06-21 gcal-emu test-board on code (らき☆マス launcher)
+
+- Added `hosts/code/gcal-emu.nix` — a localhost Python systemd service
+  (`lab.ports.gcal-emu` = 8091, calendar-only / `--no-pop`) + a plain-HTTP
+  `http://www.google.com` Caddy vhost (in `caddy.nix`) reverse-proxying to it. Lets
+  the **XP Time Machine** reach a fake Google during a probe run: the Time Machine's
+  own NixOS courier is offline while XP is booted (one OS at a time, shared NIC), so
+  the emulator must live on a separate always-on box — `code` via its existing Caddy.
+  The `http://` site stays plain :80, no HTTPS upgrade (validated with `caddy validate`).
+- Flip the speech bubble live: `ssh code 'echo calendar=none > /var/lib/gcal-emu/scenario.conf'`
+  (`calendar=schedule|none|error`); read the captured request log at
+  `/var/lib/gcal-emu/gcal-emu.log`.
+- `gcal-emu/gcal_emu.py` is a **vendored mirror** of
+  `/opt/src/LuckyMasterEN/tools/gcal-emu/gcal_emu.py` — re-sync if that changes.
+  This is **testing scaffolding**; the end goal is a native XP-local build (no Python
+  on XP), at which point this module + the vhost can be removed.
+- Risk/follow-up: POP3 mail can't be Caddy-fronted (not HTTP) → deferred. Needs
+  `deploy .#code` to go live; eval + Caddyfile-validated, not yet deployed.
 
 ## Niri Desktop (wslop)
 
