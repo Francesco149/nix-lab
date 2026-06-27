@@ -10,10 +10,17 @@
   # ── ZFS, WoL, remote unlock ──────────────────────────────────────────────
   nut.zfs.pools = [ "lamedata" ];
   nut.initrd-unlock.iface = "enp42s0";
-  services.zfs.autoSnapshot.enable = true;
-  # remember to do:
-  # zfs set com.sun:auto-snapshot=true lamedata
-  # zfs allow -u backup hold,send,snapshot,mount
+  # NO local auto-snapshots on lame. lamedata holds big, re-downloadable, frequently
+  # deleted model data; a long zfs-auto-snap retention (276 snaps) pinned ~103 GB of
+  # deleted models and filled the pool to 98% (2026-06). The cold backup keeps the
+  # history instead: syncoid replicates to cold using BOOKMARKS (see
+  # hosts/cold/backup/cold-backup.py), so lame retains only zero-space bookmarks, never
+  # snapshots. disko already sets the pool com.sun:auto-snapshot=false — do NOT
+  # `zfs set …=true lamedata` again (that override is what filled the disk).
+  services.zfs.autoSnapshot.enable = false;
+  # one-time, so the backup user can do syncoid-with-bookmarks (create a transient sync
+  # snap, send it, leave a bookmark, prune the snap):
+  #   zfs allow -u backup hold,send,snapshot,bookmark,destroy,mount lamedata
 
   # ── GPU ──────────────────────────────────────────────────────────────────
   nixpkgs.config.allowUnfree = true;
