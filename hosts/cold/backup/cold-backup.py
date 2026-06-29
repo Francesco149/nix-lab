@@ -29,12 +29,15 @@ def run_syncoid(source, dest):
                 SYNCOID,
                 "--recursive",
                 "--no-privilege-elevation",
-                # lame must NOT retain local snapshots (big, re-downloadable, frequently
-                # deleted model data filled its pool): create a transient sync snapshot and
-                # leave a zero-space BOOKMARK, so cold keeps the snapshot history while lame
-                # keeps nothing. Other targets (proxmox) snapshot themselves, so we just
-                # replicate their existing snaps with --no-sync-snap.
-                *(["--use-bookmarks"] if "@lame:" in source else ["--no-sync-snap"]),
+                # lame has no external snapshotter (zfs auto-snapshots are off — their
+                # accumulation filled the pool), so let syncoid create + manage its OWN sync
+                # snapshot: it keeps a single transient snap on lame (recreated each run,
+                # ~0 space) as the incremental anchor, and the full history lands on cold.
+                # (syncoid has no "--use-bookmarks"; --create-bookmark needs --no-sync-snap +
+                # pre-existing snaps, which lame doesn't have — so plain default sync is right.)
+                # Other targets (proxmox) snapshot themselves, so for those replicate their
+                # existing snaps with --no-sync-snap and take none here.
+                *([] if "@lame:" in source else ["--no-sync-snap"]),
                 "--sshkey", "/root/.ssh/syncoid_id",
                 source, dest,
             ],
