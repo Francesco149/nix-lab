@@ -63,6 +63,16 @@ The update will surface breakage to fix before deploying:
   hash into the `hash = ` field (`hosts/code/caddy.nix`).
 - **Eval/deprecation warnings**: fix in-repo; if it comes from an input flake,
   note it (or retire/​bump that input).
+- **Uncached package forces a from-source build (which may then fail).** A fresh
+  `nixpkgs` can ship a leaf package Hydra hasn't cached *and* that is broken to
+  build — e.g. `cantarell-fonts 0.311` (an `afdko` regression broke its
+  variable-font step): it 404s on every substituter, the source build fails, and
+  it cascades to fail the whole host. An input's own cache can also lag (e.g.
+  `pi` from `llm-agents` not yet on `cache.numtide.com`). Confirm with
+  `curl -sI https://<cache>/<storehash>.narinfo` (404 = not cached). Fixes: hold
+  or advance `nixpkgs` to a rev where the package is cached + builds, or — if you
+  only need one input (e.g. a newer `claude-code` from `llm-agents`) — do a
+  **surgical** `nix flake update llm-agents` and leave `nixpkgs` pinned.
 - Re-build the affected host until it succeeds.
 
 ## 4. Deploy

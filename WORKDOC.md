@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-06-21
+Last updated: 2026-06-30
 
 ## Project
 
@@ -302,6 +302,28 @@ Deploy state:
   on XP), at which point this module + the vhost can be removed.
 - Risk/follow-up: POP3 mail can't be Caddy-fronted (not HTTP) → deferred. Needs
   `deploy .#code` to go live; eval + Caddyfile-validated, not yet deployed.
+
+## 2026-06-30 claude-code bump (wslop) — surgical update, pi disabled
+
+Goal was a newer `claude-code` from `llm-agents`. A full `nix flake update`
+broke the wslop build, and a bump of `llm-agents` alone wanted to build `pi`
+from source. Resolved by deploying a **surgical** update instead.
+
+- **claude-code 2.1.197 deployed to wslop** via `nix flake update llm-agents`
+  only (+ its private `bun2nix`); `nixpkgs` held at the known-good `9ae611a`.
+  `nixos-rebuild switch` clean; `claude --version` = 2.1.197 live.
+- **pi-gemma disabled** — commented out (import + config block) in
+  `modules/hm/common.nix`, preserved for a later revamp. Reason: `pi 0.80.2`
+  isn't on `cache.numtide.com` (404), so enabling it forces a from-source
+  bun2nix build. Verified this is **not** the `nixpkgs.follows` — pi resolves to
+  the *identical* path with or without the follows, and both 404. [todo] re-enable
+  the import + block when revamping pi.
+- **Known risk — full flake update is currently blocked**: the fresh `nixpkgs`
+  (`b5aa0fb`) ships `cantarell-fonts 0.311` broken to build (an `afdko`
+  `otfautohint` regression) **and** uncached on every substituter, so it fails
+  from source and cascades to fail the whole host. Stay on the surgical update
+  until a `nixpkgs` rev where cantarell builds/caches. Documented as a rot class
+  in `docs/UPDATING.md` (step 3).
 
 ## Niri Desktop (wslop)
 
