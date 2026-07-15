@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 {
   imports = [
     ../../modules/niri.nix
@@ -6,6 +6,14 @@
   ];
 
   programs.dconf.enable = true;
+
+  # beszel-agent is wired globally (modules/beszel.nix) for the lab's GPU/server
+  # hosts and expects a secret at /var/lib/secrets/beszel-agent. wslop has no
+  # such secret and no reason to report to beszel, so mask the unit here rather
+  # than provision a credential it will never use. (Left failing since before
+  # this host existed in beszel; see WORKDOC 2026-07-15.)
+  services.beszel.agent.enable = lib.mkForce false;
+  systemd.services.beszel-agent.enable = lib.mkForce false;
 
   environment.variables = {
     GALLIUM_DRIVER = "d3d12";

@@ -352,6 +352,23 @@ diffed, and deployed to wslop locally. Delivered the original goal — the lates
   `switch-to-configuration switch`), not a rebuild-from-flake, so the live
   generation is exactly the diffed one. Old generation retained for rollback.
 
+## 2026-07-15 beszel-agent masked on wslop
+
+`beszel-agent.service` had been failing on wslop since the host was created —
+`Result: resources`, never activated, no logs — because the globally-wired
+`modules/beszel.nix` (built for the GPU/server hosts; note the `/dev/nvidia*`
+device rules) expects a secret at `/var/lib/secrets/beszel-agent` that was never
+provisioned here. The 2026-07-15 redeploy surfaced it (restarted the unit); it
+did not cause it (present identically in generation-49).
+
+- Fix: masked the unit on wslop in `hosts/wslop/wslop.nix`
+  (`services.beszel.agent.enable` and `systemd.services.beszel-agent.enable`
+  both `lib.mkForce false`). Activation is now clean (exit 0); unit is `masked`.
+- Not lab-check-visible: `utils/lab-check.sh` only checks
+  `code mail cold lame relay`, and its beszel assertion is `code`-specific — no
+  check change needed.
+- If wslop should ever report to beszel, provision the secret instead of masking.
+
 ## Niri Desktop (wslop)
 
 Niri is wired as a nested compositor under WSLg on the `wslop` host. The
