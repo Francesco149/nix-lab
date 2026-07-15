@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-06-30
+Last updated: 2026-07-15
 
 ## Project
 
@@ -324,6 +324,33 @@ from source. Resolved by deploying a **surgical** update instead.
   from source and cascades to fail the whole host. Stay on the surgical update
   until a `nixpkgs` rev where cantarell builds/caches. Documented as a rot class
   in `docs/UPDATING.md` (step 3).
+  - **[resolved 2026-07-15]** The full update landed — `nixpkgs 0bb7ec5`
+    (26.11.20260708) builds/caches cantarell again, so the surgical-only
+    constraint is lifted. See the 2026-07-15 entry.
+
+## 2026-07-15 full flake update deployed (wslop) — cantarell unblocked
+
+Full `nix flake update` (superseding the 2026-06-30 surgical-only hold) built,
+diffed, and deployed to wslop locally. Delivered the original goal — the latest
+`claude-code` + `codex` from `llm-agents` — plus a month of `nixpkgs`.
+
+- **Versions live on wslop**: `claude-code 2.1.197 → 2.1.206`,
+  `codex 0.142.4 → 0.144.1`; `nixpkgs 9ae611a → 0bb7ec5`
+  (26.11.20260610 → 26.11.20260708).
+- **The "builds from source" scare was one lagging package, not a cache
+  misconfig.** Under the *unchanged* substituter set, `codex`/`opencode` fetched
+  from `cache.numtide.com` (HTTP 200) and the `nixpkgs` closure came from cache;
+  only `claude-code 2.1.206` 404'd on numtide (their CI had not published that
+  fresh version yet) and built once locally. No substituter setting conjures an
+  unpublished path. The `llm-agents.inputs.nixpkgs.follows = "nixpkgs"` is *not*
+  the cause — numtide cache hits under the follows prove it (matches the
+  2026-06-30 `pi` finding). It re-caches once numtide catches up.
+- **cantarell no longer blocks**: the `afdko`/`otfautohint` regression that broke
+  `cantarell-fonts 0.311` at `b5aa0fb` is gone at `0bb7ec5`; the full toplevel
+  evaluates clean (only per-config wrapper derivations build, as always).
+- Deployed by activating the built closure (`nix-env --set` +
+  `switch-to-configuration switch`), not a rebuild-from-flake, so the live
+  generation is exactly the diffed one. Old generation retained for rollback.
 
 ## Niri Desktop (wslop)
 
