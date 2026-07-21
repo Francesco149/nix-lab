@@ -12,6 +12,7 @@ in
     ./backup.nix
     ./desktop.nix
     ./torrents.nix
+    ./archive.nix
   ];
 
   # ── interactive user ─────────────────────────────────────────────────────

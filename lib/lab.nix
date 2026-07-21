@@ -295,6 +295,31 @@ rec {
   };
 
   ##################################################################################
+  # long-term archive on cold (hosts/cold/archive.nix)
+
+  archive = {
+    dataset = "gigavault/archive";
+    root = "/gigavault/archive";
+
+    # Snapshot retention. The archive holds large files that are written once
+    # and then mostly read, so snapshots cost ~nothing day to day: they only
+    # start pinning space once something is DELETED, and then they pin it for
+    # the full window below. That is the whole point — it is the undo buffer for
+    # a delete-to-free-space that turns out to be a mistake.
+    #
+    # The flip side is that deleting from the archive does NOT return space until
+    # these expire. `archive-reclaim` on cold is the escape hatch for a real
+    # disk-space emergency; see docs/OPERATIONS.md.
+    retention = {
+      hourly = 0; # pointless here, nothing changes hour to hour
+      daily = 7;
+      weekly = 4;
+      monthly = 6; # an archive mistake can go unnoticed for a long time
+      yearly = 0;
+    };
+  };
+
+  ##################################################################################
   # torrent inbox on cold (hosts/cold/torrents.nix)
 
   torrents = {
