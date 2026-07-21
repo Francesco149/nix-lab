@@ -180,7 +180,51 @@ Per-host nuances (order: code → mail → lame → relay, then cold and wslop):
   NixOS-WSL uses the Windows-provided kernel, and a full WSL shutdown must be
   initiated from Windows if it is ever needed.
 
-## 5. Keep cold / lame up; manage the nightly
+## 5. Update Proxmox separately (when requested)
+
+The Proxmox host is outside this flake. Update it only after the guest fleet is
+healthy, and do not reboot it unless the operator has explicitly handed over
+that step. Access is normally relayed through `code`.
+
+Before changing packages, record `uname -r`, `pveversion`, `qm list`, `pct list`,
+`zpool status -x`, `systemctl --failed`, and root-disk headroom. Run
+`apt-get -s dist-upgrade` first; investigate removals or held packages rather
+than accepting them. After the real `apt-get dist-upgrade`, require all of:
+
+- `apt-get check` and `dpkg --audit` clean; a second simulated dist-upgrade has
+  zero pending upgrades/removals. Do not autoremove the rollback kernel before
+  the new kernel has booted successfully.
+- PVE services active, no failed units, pools/storage healthy, and the same
+  guests still running. An unauthenticated PVE API version request returning
+  HTTP 401 is expected and proves the proxy answered; it is not a failed proxy.
+- The first Linux command in GRUB's default entry names the intended new kernel,
+  its kernel/initrd files are non-empty, `grub-script-check` passes, and the ZFS
+  module exists for that exact kernel.
+
+Treat GRUB's `Removable bootloader found ... but GRUB packages not set up to
+update it` warning as a pre-reboot blocker, especially when `efibootmgr` says
+`BootCurrent` is the `\\EFI\\BOOT\\BOOTX64.EFI` fallback. Apply the remediation
+printed by the package, then verify the fallback matches the current signed
+shim:
+
+```sh
+echo 'grub-efi-amd64 grub2/force_efi_extra_removable boolean true' \
+  | debconf-set-selections -v -u
+DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y grub-efi-amd64
+cmp /boot/efi/EFI/proxmox/shimx64.efi /boot/efi/EFI/BOOT/BOOTX64.EFI
+```
+
+This host mirrors its main ESP with `/usr/local/sbin/sync-esp`, called by both
+kernel and GRUB hooks. Its rsync source must be `/boot/efi/` (trailing slash),
+or FAT's case-insensitive `efi` directory becomes an unbootable `EFI/EFI` tree
+on the backup ESP. The script must also stay silent on stdout because
+`/etc/grub.d/99-sync-esp` otherwise writes rsync progress into `grub.cfg`.
+After touching it, run `update-grub`, check that no rsync text appears in
+`/boot/grub/grub.cfg`, and compare the main and backup `EFI/proxmox` plus
+`EFI/BOOT` files. Leave the host running and report the installed versus running
+kernel so the operator can reboot it.
+
+## 6. Keep cold / lame up; manage the nightly
 
 - The nightly `cold-backup.timer` on `code` fires at 01:30. To avoid it colliding
   with a manual run, stop it for the night: `ssh root@code systemctl stop
@@ -194,7 +238,7 @@ Per-host nuances (order: code → mail → lame → relay, then cold and wslop):
   stay file. **Caveat:** `/tmp/stay` lives in tmpfs-cleaned `/tmp`, so it only
   survives until that host reboots — recreate it after a reboot.
 
-## 6. Verify
+## 7. Verify
 
 ```sh
 ./utils/lab-check.sh           # all hosts, verbose + summary

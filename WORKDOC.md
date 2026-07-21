@@ -416,6 +416,22 @@ Manager, llm-agents, nixos-mailserver, and NixOS-WSL.
   so it needs an authorized reboot/unlock rather than a mismatched live switch.
   The six-host aggregate health check finished at PASS=51, WARN=0, FAIL=0; lame
   remains healthy on the matching old kernel/userspace until that reboot.
+- Proxmox was updated afterward from PVE 9.1.7 to `proxmox-ve 9.2.0` /
+  `pve-manager 9.2.4` (213 upgrades, five new packages, zero removals or holds).
+  APT/dpkg are clean with no pending upgrades; PVE services, all storage and
+  `tank`, VMs 104/105, and CT 102 remained healthy throughout. Kernel
+  `7.0.14-5-pve` is installed with ZFS 2.4.3 and is GRUB's explicit default,
+  while the host intentionally remains on `6.17.13-2-pve` for the operator's
+  pending reboot.
+- The Proxmox upgrade found and fixed two boot risks before that reboot. The
+  machine had actually booted through a stale removable fallback loader; GRUB's
+  prescribed `force_efi_extra_removable` remediation now keeps it current and
+  it matches the signed Proxmox shim. The custom `/usr/local/sbin/sync-esp` also
+  lacked a trailing slash, producing an unbootable `EFI/EFI` tree on the backup
+  ESP, and emitted rsync progress into `grub.cfg` through its GRUB hook. The
+  script now mirrors silently into the correct root, both ESPs compare clean,
+  `grub-script-check` passes, and the original script is retained remotely as
+  `sync-esp.pre-update-20260721`.
 - Follow-up: decide whether code should get a scheduled Nix GC policy. This
   update does not introduce automatic deletion behavior without an explicit
   retention decision.
