@@ -475,6 +475,13 @@ rec {
   # world-readable in the store) and takes a file instead. Generate with
   # `aria2-set-secret` on cold.
   secrets.aria2 = "${secrets.dir}/aria2-rpc-secret";
+
+  # archive.org credentials for the `ia` CLI — S3 keys plus the logged-in
+  # session cookies, which is what unlocks account-restricted downloads. Kept
+  # here rather than the default ~/.config/internetarchive/ia.ini so it sits with
+  # the other secrets and is not tied to whichever user happens to run `ia`.
+  # Create with `ia-login` on cold.
+  secrets.ia = "${secrets.dir}/ia.ini";
   headscale.db-path = "/var/lib/headscale/db.sqlite";
   headscale.noise.private-key-path = "/var/lib/headscale/noise_private.key";
   derp.urls = [ "https://controlplane.tailscale.com/derpmap/default" ];

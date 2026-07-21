@@ -316,6 +316,41 @@ ssh root@cold aria2-set-secret    # generates the RPC secret, prints it once
 
 ### Two tools, different jobs
 
+### Logging in to archive.org
+
+Needed for anything the account gates. Interactive, once:
+
+```sh
+ssh -t root@cold ia-login          # prompts for email + password
+ssh    root@cold ia-login --whoami # confirm which account is active
+ssh    root@cold ia-login --check  # validate the stored S3 keys
+```
+
+The `-t` matters — it prompts, and deliberately so: `ia configure -u/-p` would
+put the password in the command line and therefore in the process list and shell
+history.
+
+Credentials land in `lab.secrets.ia` (`/var/lib/secrets/ia.ini`, mode 0600)
+rather than `~/.config/internetarchive/`, so they are with the other secrets and
+not tied to whichever user runs `ia`. `IA_CONFIG_FILE` points both the wrappers
+and an interactive `ia` at it. The file holds two things: the **S3 keys** (API
+access) and the **`logged-in-*` session cookies** — the cookies are the half that
+unlocks restricted downloads.
+
+Until you log in, `ia-fetch` still works for public items and says so:
+
+```
+note: not logged in (/var/lib/secrets/ia.ini missing) — public items only.
+```
+
+**What this does and does not unlock.** It authenticates you, so anything your
+account can see becomes downloadable — restricted collections, items visible only
+to logged-in users, and your own uploads. It does **not** get around
+lending-library books: those need an active loan per item, which `ia` does not
+manage. If an item 403s while `ia-login --whoami` reports the right account, that
+is the likely reason rather than a broken login. Accounts with 2FA may also need
+the login done from a browser session first.
+
 **`ia-fetch <identifier>`** — the official archive.org CLI, for when you know the
 item:
 

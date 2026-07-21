@@ -72,6 +72,46 @@ let
     cat ${lab.secrets.aria2}
   '';
 
+  # Log in to archive.org. Needed for anything the account gates — restricted
+  # collections and items only visible to a logged-in user.
+  #
+  # Writes to lab.secrets.ia rather than ~/.config/internetarchive/ia.ini so the
+  # credentials live with the other secrets and do not depend on which user runs
+  # `ia`. The file holds S3 keys AND the logged-in-* session cookies; the cookies
+  # are the half that actually unlocks restricted downloads.
+  ia-login = pkgs.writeShellScriptBin "ia-login" ''
+    set -eu
+    if [ "$(id -u)" != 0 ]; then echo "must run as root" >&2; exit 1; fi
+
+    install -d -m 0700 ${lab.secrets.dir}
+    export IA_CONFIG_FILE=${lab.secrets.ia}
+
+    # `ia configure --whoami` on a missing config dies with a raw python
+    # traceback, so answer the "am I logged in?" question ourselves first.
+    case "''${1:-}" in
+      --whoami|-w|--check|-C)
+        if [ ! -r ${lab.secrets.ia} ]; then
+          echo "not logged in — ${lab.secrets.ia} does not exist. Run: ia-login" >&2
+          exit 1
+        fi
+        case "$1" in
+          --whoami|-w) exec ${pkgs.internetarchive}/bin/ia configure --whoami ;;
+          *)           exec ${pkgs.internetarchive}/bin/ia configure --check ;;
+        esac
+        ;;
+    esac
+
+    echo "archive.org login — credentials go to ${lab.secrets.ia}"
+    # Interactive on purpose: `ia configure -u/-p` would put the password in the
+    # command line, and therefore in the process list and shell history.
+    ${pkgs.internetarchive}/bin/ia configure
+    chmod 0600 ${lab.secrets.ia}
+
+    echo
+    echo "verifying:"
+    ${pkgs.internetarchive}/bin/ia configure --whoami
+  '';
+
   # Convenience wrapper: fetch an archive.org item straight into staging.
   # `ia` defaults to the current directory, which on a box you ssh into is
   # /root — the wrong filesystem entirely.
@@ -84,6 +124,17 @@ let
     fi
     id="$1"; shift
     dest=${s.root}
+
+    # Set explicitly rather than relying on environment.variables: sshd runs a
+    # non-interactive shell for `ssh cold ia-fetch ...`, which never sources
+    # /etc/profile, so the global would silently not apply — and the failure mode
+    # is "restricted item 403s" rather than anything obvious.
+    export IA_CONFIG_FILE=${lab.secrets.ia}
+    if [ ! -r "$IA_CONFIG_FILE" ]; then
+      echo "note: not logged in (${lab.secrets.ia} missing) — public items only." >&2
+      echo "      run 'ia-login' for account-restricted downloads." >&2
+    fi
+
     echo "fetching '$id' into $dest"
     # --checksum verifies against archive.org's manifest and skips files already
     # present, which makes re-running after an interruption cheap and safe.
@@ -94,10 +145,16 @@ in
   environment.systemPackages = [
     staging-init
     aria2-set-secret
+    ia-login
     ia-fetch
     pkgs.internetarchive # the `ia` CLI itself, for metadata/search/upload
     pkgs.aria2 # aria2c for one-off command-line fetches
   ];
+
+  # So a bare `ia ...` in an interactive shell finds the same credentials as the
+  # wrappers. Only covers login shells — the wrappers export it themselves for
+  # the `ssh cold ia-fetch ...` case, which never sources /etc/profile.
+  environment.variables.IA_CONFIG_FILE = lab.secrets.ia;
 
   # ── aria2 daemon ─────────────────────────────────────────────────────────
   services.aria2 = {
