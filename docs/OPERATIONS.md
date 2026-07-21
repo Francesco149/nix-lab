@@ -273,20 +273,34 @@ against a human mistake — mounted backup datasets look exactly like ordinary
 folders under `/gigavault`, and one of them was once emptied by hand on the
 assumption it was an old backup.
 
-| Dataset | readonly | Why |
-|---------|----------|-----|
-| `gigavault/lame-backup` | **on** | syncoid (`zfs receive`) |
-| `gigavault/proxmox-backup` | **on** | syncoid (`zfs receive`) |
-| `gigavault/q9650-backup` | **on** | legacy static win7/xp images, nothing writes it |
-| `gigavault/wslop-backup` | off | **rsync** — writes through the filesystem |
-| `gigavault/timemachine-restic` | off | **restic over sftp** — writes through the filesystem |
+| Dataset | readonly | Written by |
+|---------|----------|------------|
+| `gigavault/lame-backup` | **on** | syncoid — `zfs receive` |
+| `gigavault/proxmox-backup` | **on** | syncoid — `zfs receive` |
+| `gigavault/wslop-backup` | off | `wslop-backup` — **rsync** |
+| `gigavault/timemachine-restic` | off | `tm-backup` — **restic over sftp** |
+| `gigavault/q9650-backup` | off | `q9650-backup` — **`ssh root@cold "cat > file"`** |
 
-**The distinction is the transport, not the intent.** `readonly` blocks writes
-through the POSIX layer but does not affect `zfs receive`, so syncoid replicates
-into a read-only dataset perfectly happily (verified: a full incremental run
-lands all seven `lame-backup` datasets with `readonly=on`). rsync and restic are
-ordinary filesystem writers, so setting `readonly` on their targets **would break
-those backups**. Do not "tidy up" by making them uniform.
+**The distinction is the transport, not the age or importance of the data.**
+`readonly` blocks writes through the POSIX layer but does not affect
+`zfs receive`, so syncoid replicates into a read-only dataset perfectly happily
+(verified: a full incremental run lands all seven `lame-backup` datasets with
+`readonly=on`).
+
+Everything else on gigavault is an ordinary filesystem writer and **`readonly`
+would break it**:
+
+- `wslop-backup` — rsync push.
+- `timemachine-restic` — restic over sftp.
+- `q9650-backup` — the courier streams ntfsclone images with
+  `ssh root@cold "cat > '<dest>'"`, then `zfs snapshot`s the dataset. The images
+  look static and the courier is normally powered off, which makes this dataset
+  *look* like dead history — but the backup is **opportunistic/manual**, so it
+  must stay writable. Config lives in `../retro-hardware`
+  (`builds/nixos-q9650/`), not this repo, so nothing here will remind you.
+
+Do not "tidy up" by making gigavault uniform. Only the two syncoid targets can
+be read-only.
 
 Property is inherited, so children need no separate setting. To make a legitimate
 manual change, flip it, do the work, flip it back:

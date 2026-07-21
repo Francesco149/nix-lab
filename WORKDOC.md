@@ -572,16 +572,29 @@ incremental sent 4 KB for that dataset, which is the proof the restore was exact
   merely mounting a received dataset dirties it — which is exactly why syncoid
   defaults to `-F`.
 
-**`readonly=on` on the zfs-receive targets** (`lame-backup`, `proxmox-backup`,
-plus the legacy static `q9650-backup`). `readonly` gates the POSIX layer only,
-not `zfs receive`, so replication is unaffected — verified with a full syncoid
-run landing all seven `lame-backup` datasets while readonly.
+**`readonly=on` on the zfs-receive targets ONLY** — `lame-backup` and
+`proxmox-backup`. `readonly` gates the POSIX layer, not `zfs receive`, so
+replication is unaffected; verified with a full syncoid run landing all seven
+`lame-backup` datasets while readonly.
 
-**`wslop-backup` and `timemachine-restic` are deliberately left writable.** They
-are fed by **rsync** and **restic-over-sftp**, ordinary filesystem writers that
-`readonly` would break. The split is by TRANSPORT, not by intent — anyone
-"tidying up" to make gigavault uniform breaks two backups. `lab-check.sh` now
-asserts both halves so the asymmetry cannot silently drift.
+**Everything else on gigavault must stay writable**, because it is written by an
+ordinary filesystem writer:
+
+| Dataset | transport |
+|---------|-----------|
+| `wslop-backup` | rsync |
+| `timemachine-restic` | restic over sftp |
+| `q9650-backup` | `ssh root@cold "cat > '<dest>'"` then `zfs snapshot` |
+
+`q9650-backup` was **wrongly set readonly during this session and reverted.** The
+reasoning that failed: nothing in *this* repo writes it, its newest file was
+weeks old, and it holds win7/xp ntfsclone images that look like dead history — so
+it read as legacy. In fact it is an opportunistic/manual backup whose courier is
+normally powered off, and whose config lives in `../retro-hardware`
+(`builds/nixos-q9650/`). **Absence of a writer in nix-lab does not mean absence
+of a writer** — two of the five gigavault backup targets are driven from a
+different repo. `lab-check.sh` now asserts both halves of the split so it cannot
+drift.
 
 **`gigavault/archive`** (`hosts/cold/archive.nix`, `lab.archive`) for long-term
 large-file storage: `recordsize=1M`, `compression=zstd`, `atime=off` (files are

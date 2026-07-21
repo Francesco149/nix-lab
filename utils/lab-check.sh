@@ -182,14 +182,18 @@ for h in "${HOSTS[@]}"; do
       check cold "archive dataset"  'zfs list -H -o name gigavault/archive'                                   'archive'
       check cold "archive snapshots" 'systemctl is-enabled sanoid.timer 2>&1'                                 'enabled'
 
-      # Backup targets are readonly so they cannot be emptied by hand. Only the
-      # zfs-receive ones — wslop-backup (rsync) and timemachine-restic (restic
-      # over sftp) MUST stay writable or those backups break. See OPERATIONS.md.
+      # Backup targets are readonly so they cannot be emptied by hand — but ONLY
+      # the zfs-receive ones. Every other target is an ordinary filesystem
+      # writer (rsync / restic-sftp / ssh "cat >") and readonly WOULD BREAK IT.
+      # q9650 especially: its images look like dead history and its courier is
+      # normally powered off, but the backup is opportunistic and its config
+      # lives in ../retro-hardware, so nothing here would remind you.
+      # See OPERATIONS.md "Backup datasets are read-only".
       check cold "backup ro (zfs-recv)" \
         'for d in gigavault/lame-backup gigavault/proxmox-backup; do zfs get -H -o value readonly $d; done | sort -u' \
         'on'
-      check cold "backup rw (rsync/restic)" \
-        'for d in gigavault/wslop-backup gigavault/timemachine-restic; do zfs get -H -o value readonly $d; done | sort -u' \
+      check cold "backup rw (must stay writable)" \
+        'for d in gigavault/wslop-backup gigavault/timemachine-restic gigavault/q9650-backup; do zfs get -H -o value readonly $d; done | sort -u' \
         'off'
       ;;
     lame)
