@@ -504,17 +504,56 @@ modified. Consequence to remember: `/tmp/stay` is tmpfs + `cleanOnBoot`, so it
 must be re-created after every boot or the next nightly cycle powers cold off
 mid-download. qBittorrent resume data survives, so this stalls rather than loses.
 
+Findings from the deploy (2026-07-21, two reboots, unlocked via
+`cold-unlock --host cold --stay` each time):
+
+- **VAAPI hardware encode confirmed on the box**: `vainfo` reports
+  `VAEntrypointEncSlice` for H264 High and HEVC Main/Main10 through
+  radeonsi/renoir. Sunshine is not falling back to software x264.
+- **cold's HDMI connector reports `connected` but supplies NO EDID.** The kernel
+  therefore fell back to a generic mode list capping at **1366x768**, and that is
+  what KWin and Moonlight got. `video=HDMI-A-1:1920x1080@60e` did **not** fix it
+  — the forced mode never entered the probed mode list (checked with
+  `kscreen-doctor` after a reboot). Generating an EDID via `hardware.display`
+  did: the session now reports `1920x1080@60.00*!` and geometry 1920x1080.
+  Remember this shape — "forced mode silently ignored, needs a real EDID" — for
+  any other headless output in the lab.
+- The mount gate works as designed, verified in the journal: at boot qBittorrent
+  logged `skipped, unmet condition check
+  ConditionPathIsMountPoint=/gigavault/torrents`, then the mount-watch timer
+  started it 16s after the unlock mounted the pool. Nothing was written to the
+  rootfs.
+- Backup data paths re-verified after the shell change: `zfs` resolves through
+  root's login shell, an rsync push to `root@cold` succeeds, root is bash,
+  `backup` is still bash.
+- `/gigavault` and some existing content (`footage/`, `lame-backup/models`) were
+  owned by an orphan uid 1000 and now resolve to `headpats`. That is *correct*
+  rather than accidental — those files arrived from hosts where headpats is uid
+  1000 — but it does mean the desktop user now owns them.
+- `lab-check.sh` gained `labnum()`: `nix eval --raw` refuses to coerce an
+  integer, so reading a port through `labval` returned empty and built a
+  nonsense URL. It reported WARN for a healthy service until fixed.
+
 Deploy state:
 
-- [todo] Provision on the box (both need the pool unlocked, neither is automatic):
-  `torrent-storage-init` then `qbittorrent-set-password`.
+- [done] Deployed and rebooted 2026-07-21. Plasma session autologins, Sunshine
+  runs, qBittorrent serves on `lab.ports.qbittorrent`. Full-lab `lab-check.sh` =
+  PASS 57 / WARN 0 / FAIL 0.
+- [done] `torrent-storage-init` — `gigavault/torrents` created (recordsize=1M,
+  atime=off, compression=lz4) with complete/incomplete/watch.
+- [todo] `qbittorrent-set-password` on cold — needs an interactive password, so
+  it was left to the operator. Until then the client uses a per-session
+  temporary password logged to `journalctl -u qbittorrent`.
 - [todo] Forward `lab.ports.torrent` (51413) **TCP+UDP** on opnsense to
   `lab.lan.cold`. Nothing else is forwarded; web UI + Sunshine stay LAN-side.
-- [todo] Pair Moonlight against `https://cold:47990`.
-- Risk: the Plasma-on-Wayland + Sunshine KMS capture path is unproven on THIS
-  box — the lab's only prior Sunshine experience is lame's containerised Xorg
-  sandbox, which shares only the uinput/firewall skeleton. If capture fails,
-  the fallbacks are an X11 session or `xf86-video-dummy`.
+  **Until this exists, connectivity is outbound-only** — torrents will connect
+  but only to peers that accept inbound.
+- [todo] Pair Moonlight against `https://cold:47990`. **The Sunshine capture path
+  itself is still unproven** — the units are up and the encoder is present, but
+  nothing has actually streamed a frame yet. The lab's only prior Sunshine
+  experience is lame's containerised Xorg sandbox, which shares just the
+  uinput/firewall skeleton. If Wayland KMS capture misbehaves, the fallbacks are
+  an X11 Plasma session or `xf86-video-dummy`.
 
 ## Niri Desktop (wslop)
 
