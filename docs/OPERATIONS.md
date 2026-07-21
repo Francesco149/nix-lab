@@ -266,6 +266,71 @@ The order to work through in an actual emergency:
    that deletion effective immediately.
 3. `zpool list gigavault` to confirm the pool-level free space moved.
 
+## Downloads (archive.org and direct HTTP)
+
+For material where the torrent is dead or was never offered.
+`hosts/cold/downloads.nix`. Everything lands in `gigavault/staging`
+(`lab.staging`) for manual sorting into the archive afterwards.
+
+Provision once, after the pool is unlocked:
+
+```sh
+ssh root@cold staging-init        # creates gigavault/staging
+ssh root@cold aria2-set-secret    # generates the RPC secret, prints it once
+```
+
+### Two tools, different jobs
+
+**`ia-fetch <identifier>`** — the official archive.org CLI, for when you know the
+item:
+
+```sh
+ssh root@cold ia-fetch some-item                  # whole item
+ssh root@cold ia-fetch some-item --glob='*.iso'   # skip the derivatives
+```
+
+It works in item identifiers rather than URLs, pulls the metadata alongside the
+files, and verifies against archive.org's checksum manifest. `--checksum` is on
+by default in the wrapper, so re-running after an interruption skips what is
+already correct instead of refetching. (Plain `ia` is also installed for
+`ia search`, `ia metadata`, etc. — the wrapper exists only to force the
+destination, since `ia` otherwise writes to the current directory, which over ssh
+is `/root`: the wrong filesystem entirely.)
+
+**aria2 + AriaNg** — for a bare URL, or a stubborn one. Web UI at
+`http://cold:6880`; on first visit set the RPC secret in its aria2 settings
+(AriaNg → Settings → RPC → Secret). The secret is at `lab.secrets.aria2` on cold,
+and `aria2-set-secret` reprints it.
+
+aria2 is configured for how archive.org actually behaves: `continue=true`,
+`max-tries=0` (retry indefinitely rather than abandon a 40G item), 4 connections
+per server. archive.org stalls and drops large transfers routinely, so resume is
+the whole point — a single-stream `wget` of a big item will fail and start over.
+The session is saved to disk every 60s and reloaded on start, so the queue
+survives cold being powered off mid-download.
+
+It also speaks BitTorrent and magnet links, so a half-working torrent can be
+tried from the same UI. Real torrenting still belongs in qBittorrent, which owns
+the forwarded peer port.
+
+### Promoting from staging to the archive
+
+Staging is its **own dataset**, deliberately: it is churn — half-finished and
+abandoned downloads — and if it lived inside `gigavault/archive` every one of
+them would be caught by the archive's snapshot policy and pin space for months.
+
+The cost of that split is that promoting is a **copy, not a rename** (different
+datasets, so no instant `mv`). For large items:
+
+```sh
+rsync -ah --remove-source-files --info=progress2 \
+  /gigavault/staging/<item>/ /gigavault/archive/<where-it-belongs>/
+```
+
+Nothing snapshots staging, so anything deleted there is gone immediately — which
+is the intent. It also means **nothing protects you in staging**; the undo buffer
+only starts once a file is in the archive.
+
 ## Backup datasets are read-only
 
 The zfs-receive targets on gigavault are `readonly=on`. This is purely a guard

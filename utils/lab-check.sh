@@ -182,6 +182,13 @@ for h in "${HOSTS[@]}"; do
       check cold "archive dataset"  'zfs list -H -o name gigavault/archive'                                   'archive'
       check cold "archive snapshots" 'systemctl is-enabled sanoid.timer 2>&1'                                 'enabled'
 
+      # Download staging (hosts/cold/downloads.nix). aria2 is mount-gated like
+      # qbittorrent, so an inactive aria2 on a locked pool is correct.
+      ARIA_WEB="$(labnum ports.aria2-web)"
+      check cold "staging dataset"  'zfs list -H -o name gigavault/staging'                                   'staging'
+      check cold "aria2"            'systemctl is-active aria2'                                               'active'
+      check cold "ariang web"       "curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:$ARIA_WEB/ || echo FAILED" '200'
+
       # Backup targets are readonly so they cannot be emptied by hand — but ONLY
       # the zfs-receive ones. Every other target is an ordinary filesystem
       # writer (rsync / restic-sftp / ssh "cat >") and readonly WOULD BREAK IT.
