@@ -45,6 +45,11 @@ rcmd() {
 # Resolve a value from lab.nix (single source of truth for addresses).
 labval() { nix eval --raw --impure --expr "(import $REPO/lib/lab.nix).$1" 2>/dev/null; }
 
+# Same, for numeric values. `--raw` refuses to coerce an integer, so a port read
+# through labval silently comes back EMPTY and builds a nonsense URL — which is
+# how this helper came to exist.
+labnum() { nix eval --raw --impure --expr "toString (import $REPO/lib/lab.nix).$1" 2>/dev/null; }
+
 # openssl for the runner (cert checks). Fall back to a throwaway nix shell.
 if command -v openssl >/dev/null 2>&1; then OPENSSL=(openssl); else OPENSSL=(nix run nixpkgs#openssl --); fi
 
@@ -160,7 +165,7 @@ for h in "${HOSTS[@]}"; do
       # it rather than letting it write the profile onto the rootfs. Checking the
       # mount first means an inactive client reads as "pool still locked" instead
       # of "service broken".
-      QBT_PORT="$(labval ports.qbittorrent)"
+      QBT_PORT="$(labnum ports.qbittorrent)"
       check cold "torrent dataset"  'zfs list -H -o name gigavault/torrents'                                  'torrents'
       check cold "torrent inbox mounted" 'mountpoint -q /gigavault/torrents && echo mounted || echo UNMOUNTED' 'mounted'
       check cold "qbittorrent"      'systemctl is-active qbittorrent'                                         'active'
