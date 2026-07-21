@@ -1,4 +1,19 @@
 {
+  nixpkgs.overlays = [
+    (_final: prev: {
+      pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+        (_pythonFinal: pythonPrev: {
+          # inline-snapshot 0.32.5's documentation snapshots assume Black 25
+          # formatting and fail with Black 26.5.1. Keep the functional test
+          # suite while nixpkgs/upstream catches up.
+          inline-snapshot = pythonPrev.inline-snapshot.overridePythonAttrs (old: {
+            disabledTestPaths = (old.disabledTestPaths or [ ]) ++ [ "tests/test_docs.py" ];
+          });
+        })
+      ];
+    })
+  ];
+
   nix.settings = {
     experimental-features = [
       "flakes"

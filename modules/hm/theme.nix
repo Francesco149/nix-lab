@@ -1,4 +1,9 @@
-{ osConfig, pkgs, config, ... }:
+{
+  osConfig,
+  pkgs,
+  config,
+  ...
+}:
 let
   gtkTheme = {
     name = "Flat-Remix-GTK-Cyan-Darkest";
@@ -19,7 +24,7 @@ in
 
   qt = {
     enable = true;
-    platformTheme.name = "gtk";
+    platformTheme.name = "gtk3";
   };
 
   dconf = {

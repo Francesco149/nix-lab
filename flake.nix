@@ -81,7 +81,7 @@
           ];
 
           mail.modules = [
-            nixos-mailserver.nixosModule
+            nixos-mailserver.nixosModules.default
             inputs.dmarc-analyzer.nixosModules.dmarc-analyzer
           ];
 

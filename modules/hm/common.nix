@@ -90,10 +90,10 @@ in
 
     # find command for running `fzf` directly and CTRL+T respectively
     defaultCommand = "fd --type f --hidden --follow " + excludeFlags;
-    fileWidgetCommand = defaultCommand;
+    fileWidget.command = defaultCommand;
 
     # ALT-C
-    changeDirWidgetCommand = "fd --type d --hidden --follow " + excludeFlags;
+    changeDirWidget.command = "fd --type d --hidden --follow " + excludeFlags;
 
     # install shell hooks
     enableFishIntegration = true;

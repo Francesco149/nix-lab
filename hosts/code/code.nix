@@ -1,9 +1,21 @@
 {
   config,
   inputs,
+  lib,
   pkgs,
   ...
 }:
+let
+  shigebotPackage =
+    inputs.shigebot.packages.${pkgs.stdenv.hostPlatform.system}.default.overridePythonAttrs
+      (old: {
+        # The input instantiates nixpkgs without the host overlays. Replace its
+        # yt-dlp dependency so the temporary inline-snapshot workaround applies.
+        dependencies =
+          builtins.filter (dependency: lib.getName dependency != "yt-dlp") old.dependencies
+          ++ [ pkgs.python312Packages.yt-dlp ];
+      });
+in
 {
   imports = [
     ./dockge.nix
@@ -36,7 +48,7 @@
 
   services.shigebot = {
     enable = true;
-    package = inputs.shigebot.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    package = shigebotPackage;
     configFile = ./shigebot.toml;
     environmentFile = "/var/lib/secrets/shigebot-env";
   };
