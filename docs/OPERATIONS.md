@@ -88,6 +88,36 @@ The relay public IP, mail domains, internal domain, and ports are defined in
 the tailnet. The relay stream-proxies inbound SMTP and HTTP-01 ACME traffic
 back to `mail`.
 
+## Named routes (`*.box.headpats.uk`)
+
+Internal services are reached by name through code's Caddy
+(`hosts/code/caddy.nix`) rather than as `host:port`. The router already resolves
+**`*.box.headpats.uk` → code** as a wildcard, so a new vhost needs no DNS change,
+and Caddy mints its cert automatically over DNS-01 (Cloudflare) — a new name is
+live a minute or two after the deploy.
+
+| Name | Backend |
+|------|---------|
+| `qbit.box.headpats.uk` | cold — qBittorrent |
+| `aria.box.headpats.uk` | cold — AriaNg, plus `/jsonrpc` → aria2 RPC |
+| `sun.box.headpats.uk` | cold — Sunshine web UI |
+
+Adding one is a single `virtualHosts."<name>.box.headpats.uk"` block.
+
+**This routes through code**, so a code outage takes every one of these names
+with it. The direct `host:port` always keeps working and is the fallback —
+worth remembering when the thing you are trying to reach is the *reason* code is
+unreachable.
+
+Two things that bite when proxying:
+
+- **Browser-side API calls need proxying too.** Any UI that calls an API from
+  JavaScript (AriaNg) will be blocked as mixed content if the page is https and
+  the API is http. Proxy the API path on the same vhost.
+- **Origin checks.** Apps that validate `Origin`/`Host` reject the proxied name
+  until told about it — Sunshine needs it in `csrf_allowed_origins`, qBittorrent
+  needs `WebUI\HostHeaderValidation=false` (already set).
+
 ## Service Notes
 
 Beszel agents are applied globally by `modules/beszel.nix`. Each host needs its
@@ -143,10 +173,15 @@ run, qBittorrent uses a random temporary password logged to
 
 ### Web UI and streaming
 
-- qBittorrent: `http://cold:8092` (`lab.ports.qbittorrent`), LAN/tailnet only.
-- Sunshine pairing UI: `https://cold:47990` (`lab.ports.sunshine-web`) —
-  https, self-signed, accept the warning. Pair from Moonlight, then enter the PIN
-  there. Pairing state persists across redeploys.
+- qBittorrent: **`https://qbit.box.headpats.uk`** (direct:
+  `http://cold:8092`, `lab.ports.qbittorrent`).
+- Sunshine pairing UI: **`https://sun.box.headpats.uk`** (direct:
+  `https://cold:47990`, `lab.ports.sunshine-web` — self-signed, accept the
+  warning). Pair from Moonlight, then enter the PIN there. Pairing state persists
+  across redeploys. Moonlight itself does **not** use the proxy; it talks to cold
+  on the streaming ports directly.
+
+Both names are reverse-proxied by code — see "Named routes" below.
 
 Two Sunshine gotchas, both already handled in `hosts/cold/desktop.nix` but worth
 knowing when something looks broken:
@@ -298,9 +333,23 @@ destination, since `ia` otherwise writes to the current directory, which over ss
 is `/root`: the wrong filesystem entirely.)
 
 **aria2 + AriaNg** — for a bare URL, or a stubborn one. Web UI at
-`http://cold:6880`; on first visit set the RPC secret in its aria2 settings
-(AriaNg → Settings → RPC → Secret). The secret is at `lab.secrets.aria2` on cold,
-and `aria2-set-secret` reprints it.
+**`https://aria.box.headpats.uk`** (direct: `http://cold:6880`). On first visit,
+in AriaNg → Settings → RPC set:
+
+| Field | Value |
+|-------|-------|
+| Protocol | **HTTPS** |
+| Host | `aria.box.headpats.uk` |
+| Port | `443` |
+| Path | `/jsonrpc` |
+| Secret | from `lab.secrets.aria2` on cold (`aria2-set-secret` reprints it) |
+
+The RPC has to go through the proxy too, and that is not cosmetic: AriaNg calls
+the JSON-RPC **from the browser**, so a page served over https cannot call
+`http://cold:6800` — the browser blocks it as mixed content and the UI sits there
+"connected" but empty. code's Caddy therefore proxies `/jsonrpc` on the same
+vhost. Reaching AriaNg directly on `http://cold:6880` instead, point it at
+`http://cold:6800` with no path.
 
 aria2 is configured for how archive.org actually behaves: `continue=true`,
 `max-tries=0` (retry indefinitely rather than abandon a 40G item), 4 connections
