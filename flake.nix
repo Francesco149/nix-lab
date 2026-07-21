@@ -133,6 +133,28 @@
         ];
       }
 
+      # cold gained a Plasma desktop (hosts/cold/desktop.nix), so it is now an
+      # interactive host too. Deliberately NOT the wslop hm set: the niri/theme/
+      # default-apps modules force wayland backends and a gtk3 Qt theme, which
+      # fight a Plasma session. See hosts/cold/desktop.nix.
+      {
+        modules = [
+          ./modules/interactive.nix
+        ];
+
+        hmModules.root = [
+          ./modules/hm/common.nix
+        ];
+
+        hmModules.headpats = [
+          ./modules/hm/common.nix
+          ./modules/hm/fonts.nix
+          ./modules/hm/alacritty.nix
+        ];
+
+        hosts.cold = [ ];
+      }
+
       {
         modules = [
           ./modules/initrd-unlock.nix

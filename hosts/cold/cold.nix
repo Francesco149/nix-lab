@@ -10,7 +10,45 @@ in
 {
   imports = [
     ./backup.nix
+    ./desktop.nix
+    ./torrents.nix
   ];
+
+  # ── interactive user ─────────────────────────────────────────────────────
+  # cold used to be deploy-only. It now has a Plasma session (desktop.nix) that
+  # needs a real user to autologin as, and that same user is who you land on when
+  # you ssh in to drive the torrent stack.
+  users.users.headpats = {
+    isNormalUser = true;
+    description = "headpats";
+    shell = pkgs.fish;
+    extraGroups = [
+      "wheel"
+      "networkmanager"
+      "video" # kms/drm access for the session
+      "render" # vaapi encode for sunshine
+      "input" # uinput devices moonlight injects through
+      "audio"
+      "qbittorrent" # read/write the torrent inbox without sudo
+    ];
+    openssh.authorizedKeys.keys = lab.ssh.authorized-keys;
+  };
+
+  # ── keep root on bash ────────────────────────────────────────────────────
+  # modules/interactive.nix sets `users.defaultUserShell = pkgs.fish`, and root
+  # inherits it (nixpkgs declares root's shell as mkDefault defaultUserShell).
+  # On code and lame that is harmless. cold is different: it is the lab's backup
+  # TARGET, and sshd runs every non-interactive remote command through the login
+  # shell. root@cold is the receiving end of wslop's rsync push, and the `zfs`
+  # calls that create and snapshot datasets around it — a data path, not an
+  # operator convenience.
+  #
+  # Nothing in the repo would actually break today (every remote command is a
+  # simple one-liner, and the `backup` user already pins bash in
+  # modules/backup-target.nix), but the failure mode if something ever does is
+  # silently corrupted backups rather than a visible error. Not worth trading for
+  # a nicer root prompt: log in as headpats to get fish.
+  users.users.root.shell = pkgs.bash;
 
   # /tmp/stay (cold-unlock --stay) suppresses the auto-shutdown after backups.
   # /tmp lives on the rootfs, so without this a stay file outlives the manual
