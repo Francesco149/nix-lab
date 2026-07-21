@@ -40,16 +40,29 @@ in
   # the wrong device.
   boot.initrd.kernelModules = [ "amdgpu" ];
 
-  # Force the HDMI connector on. Without a display physically attached (or with
-  # one that is merely powered off) amdgpu reports the connector disconnected,
-  # KWin gets zero outputs and the session has nothing to render into — which
-  # looks exactly like "Moonlight connects then immediately drops". The trailing
-  # `e` forces the connector enabled regardless of what detection says, so the
-  # desktop exists whether or not anything is plugged in.
+  # Synthesise a 1080p display on HDMI-A-1.
   #
-  # HDMI-A-1 is the port that currently reads `connected` on this board; DP-1 and
-  # HDMI-A-2 are the other two. Change this if the cable moves.
-  boot.kernelParams = [ "video=HDMI-A-1:1920x1080@60e" ];
+  # Whatever is on cold's HDMI port reports `connected` but hands over NO EDID,
+  # so the kernel falls back to a generic mode list that tops out at 1366x768 —
+  # and that is what KWin, and therefore Moonlight, ends up streaming. A bare
+  # `video=HDMI-A-1:1920x1080@60e` does NOT fix it: the forced mode never makes
+  # it into the probed mode list (verified on the box — kscreen-doctor still
+  # reported 1366x768 as the only preferred mode).
+  #
+  # Feeding the connector a generated EDID does fix it, because now there is a
+  # real 1080p60 timing to prefer. `mode = "e"` additionally forces the connector
+  # enabled, so the session survives the display being unplugged or powered off
+  # — otherwise KWin loses its only output and the stream drops.
+  #
+  # The modeline is the standard CEA-861 1080p60 timing. Change HDMI-A-1 if the
+  # cable ever moves; DP-1 and HDMI-A-2 are the other two connectors.
+  hardware.display = {
+    edid.modelines."1920x1080_60" = "148.50 1920 2008 2052 2200 1080 1084 1089 1125 +hsync +vsync";
+    outputs."HDMI-A-1" = {
+      edid = "1920x1080_60.bin";
+      mode = "e";
+    };
+  };
 
   # ── session ──────────────────────────────────────────────────────────────
   services.displayManager = {
