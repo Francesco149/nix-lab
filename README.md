@@ -64,6 +64,10 @@ check-inputs
 
 Those helpers are fish functions from `modules/hm/fish/dev.fish`.
 
+Update/redeploy runbook: [docs/UPDATING.md](docs/UPDATING.md). Router port
+forwards and DNS overrides (the OPNsense box is not managed by this flake):
+[docs/OPNSENSE.md](docs/OPNSENSE.md).
+
 ## Development
 
 Enter the dev shell with direnv or:
