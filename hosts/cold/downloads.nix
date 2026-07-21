@@ -121,9 +121,28 @@ in
       # Resume, hard. This is the whole reason aria2 is here rather than wget:
       # archive.org stalls and drops large transfers routinely.
       continue = true;
-      max-tries = 0; # retry forever rather than abandoning a 40G item
       retry-wait = 30;
       max-concurrent-downloads = 3;
+
+      # ~10 minutes of persistence (20 x 30s), which covers archive.org going
+      # flaky mid-transfer while still letting a dead link surface as failed.
+      #
+      # NOT `max-tries=0` (infinite), which was the first setting tried here and
+      # is a trap: a URL that does not exist retries forever and appears in the
+      # UI as a download stuck at 0% with no error, indistinguishable from one
+      # that is merely slow.
+      max-tries = 20;
+
+      # Bail out fast when the server explicitly says the file is not there.
+      #
+      # Caveat worth knowing: this only catches a real 404. archive.org returns
+      # **503** for a nonexistent ITEM (verified), which aria2 rightly treats as
+      # a retryable server error — so a typo'd identifier still burns the full
+      # max-tries budget before failing. A bad *filename* within a real item does
+      # 404 and bails here. This is the main reason to reach for `ia-fetch` for
+      # archive.org items: it checks the item's metadata first and fails in
+      # seconds with "item does not exist".
+      max-file-not-found = 5;
 
       # archive.org rate-limits aggressively per connection. A handful of
       # connections helps; more than ~5 gets throttled or refused, and being
