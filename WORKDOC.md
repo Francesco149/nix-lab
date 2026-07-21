@@ -369,6 +369,36 @@ did not cause it (present identically in generation-49).
   check change needed.
 - If wslop should ever report to beszel, provision the secret instead of masking.
 
+## 2026-07-21 lab-wide update — scoped inline-snapshot workaround
+
+The periodic update advances Nixpkgs to `241313f` (2026-07-19), plus Home
+Manager, llm-agents, nixos-mailserver, and NixOS-WSL.
+
+- The current graph exposed an uncached `inline-snapshot 0.32.5`: three
+  documentation snapshots expect Black 25 formatting under Black 26.5.1, while
+  1,428 functional tests pass. `modules/nix.nix` therefore skips only
+  `tests/test_docs.py` through `pythonPackagesExtensions`; the rest of the test
+  suite remains enabled. Shigebot's package set does not inherit host overlays,
+  so `hosts/code/code.nix` replaces its yt-dlp dependency with the host package
+  to carry that same narrow workaround across the actual dependency boundary.
+- An archived `d407951` graph was evaluated and built while diagnosing this,
+  but rejected before any deployment: it would have downgraded 141 packages on
+  the already-newer wslop, including systemd, Python, Nix, OpenSSL, and Firefox.
+  It also changed all three llm-agents store paths away from Numtide's published
+  outputs and caused Codex to compile locally once. Do not repeat that pin.
+- Compatibility fixes from the updated inputs: use
+  `nixos-mailserver.nixosModules.default`, set wslop's `nixpkgs.hostPlatform`
+  explicitly, adopt Home Manager's nested fzf widget options, and rename Qt's
+  platform theme from `gtk` to `gtk3`.
+- The runbook now hard-gates Codex, claude-code, and opencode against Numtide
+  before building. The exact final outputs (Codex 0.144.6, claude-code 2.1.216,
+  opencode 1.18.4) all returned HTTP 200; no agent package was rebuilt in the
+  final graph.
+- `nix flake check --no-build` and all six final toplevel builds pass. Predeploy
+  diffs show forward updates on every host; the only removed unit trees are the
+  intentional lame ZFS auto-snapshot timers and mail's TLS-policy service,
+  replaced upstream by socket activation.
+
 ## Niri Desktop (wslop)
 
 Niri is wired as a nested compositor under WSLg on the `wslop` host. The

@@ -28,8 +28,19 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
 
 # Run a command on a host under bash via stdin (avoids quoting issues and the
-# fish login shells on code/lame). Returns the command's exit status.
-rcmd() { "${SSH[@]}" "root@$1" 'bash -s' <<<"$2"; }
+# fish login shells on code/lame). Use sudo instead of an SSH hairpin when the
+# runner is wslop itself. Returns the command's exit status.
+rcmd() {
+  if [ "$1" = local ]; then
+    if [ "$EUID" -eq 0 ]; then
+      bash -s <<<"$2"
+    else
+      sudo -n bash -s <<<"$2"
+    fi
+  else
+    "${SSH[@]}" "root@$1" 'bash -s' <<<"$2"
+  fi
+}
 
 # Resolve a value from lab.nix (single source of truth for addresses).
 labval() { nix eval --raw --impure --expr "(import $REPO/lib/lab.nix).$1" 2>/dev/null; }
@@ -38,19 +49,25 @@ labval() { nix eval --raw --impure --expr "(import $REPO/lib/lab.nix).$1" 2>/dev
 if command -v openssl >/dev/null 2>&1; then OPENSSL=(openssl); else OPENSSL=(nix run nixpkgs#openssl --); fi
 
 echo "resolving host addresses from lib/lab.nix ..."
+if [ "$(hostname)" = wslop ]; then
+  WSLOP_ENDPOINT=local
+else
+  WSLOP_ENDPOINT="$(labval tailnet.wslop)"
+fi
 declare -A ADDR=(
   [code]="$(labval lan.code)"
   [mail]="$(labval lan.mail)"
   [cold]="$(labval lan.cold)"
   [lame]="$(labval lan.lame)"
   [relay]="$(labval internet.relay)"
+  [wslop]="$WSLOP_ENDPOINT"
 )
-for h in code mail cold lame relay; do
+for h in code mail cold lame relay wslop; do
   [ -n "${ADDR[$h]:-}" ] || { echo "FATAL: could not resolve $h address from lab.nix"; exit 125; }
   printf '  %-6s %s\n' "$h" "${ADDR[$h]}"
 done
 
-if [ "$#" -gt 0 ]; then HOSTS=("$@"); else HOSTS=(code mail cold lame relay); fi
+if [ "$#" -gt 0 ]; then HOSTS=("$@"); else HOSTS=(code mail cold lame relay wslop); fi
 
 # ── result tracking ────────────────────────────────────────────────────────
 declare -a SUMMARY=()
@@ -97,7 +114,7 @@ common_checks() {
 }
 
 for h in "${HOSTS[@]}"; do
-  case " code mail cold lame relay " in *" $h "*) : ;; *) echo "unknown host: $h" >&2; continue ;; esac
+  case " code mail cold lame relay wslop " in *" $h "*) : ;; *) echo "unknown host: $h" >&2; continue ;; esac
   section "HOST: $h (${ADDR[$h]})"
   common_checks "$h"
 
@@ -147,6 +164,11 @@ for h in "${HOSTS[@]}"; do
       check lame "docker on zfs"    'docker info -f "{{.DockerRootDir}}" 2>/dev/null'                          '/lamedata/docker'
       check lame "root disk free"   'u=$(df --output=pcent / | tr -cd 0-9); [ "${u:-100}" -lt 90 ] && echo "ok ${u}%used" || echo "LOW ${u}%used"'  'ok'
       check lame "stay (kept up)"   'test -f /tmp/stay && echo present || echo absent'                        'present'
+      ;;
+    wslop)
+      check wslop "wsl guest"       'systemd-detect-virt'                                                    'wsl'
+      check wslop "sshd"            'systemctl is-active sshd'                                              'active'
+      check wslop "beszel masked"   'systemctl is-enabled beszel-agent 2>&1 || true'                         'masked'
       ;;
   esac
 done

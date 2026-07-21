@@ -17,7 +17,8 @@ for you (verbose, with a PASS/WARN/FAIL summary). Run it after every deploy.
   in every host's config. If a host rejects it (a stale generation), append it
   once via `code` (which can reach everyone) — see Gotchas.
 - Hosts: `code` (proxmox VM), `mail` (LAN), `relay` (RackNerd VPS), `cold`
-  (encrypted backup target, normally powered off), `lame` (encrypted, GPU box).
+  (encrypted backup target, normally powered off), `lame` (encrypted, GPU box),
+  and `wslop` (the local NixOS-WSL build/deploy box).
 
 ## 1. Update inputs
 
@@ -38,8 +39,28 @@ HEAD — only do that if you intend to deploy those app changes.
 Build each system and compare against what's deployed. Fix anything that fails
 to build (see step 3) before deploying anything.
 
+Before a host build, cache-gate the large packages from `llm-agents`. Do not
+accept a local Codex build just because the full host build has already started:
+
 ```sh
-for h in code mail relay cold lame; do
+miss=0
+for p in codex claude-code opencode; do
+  out=$(nix eval --raw --impure --expr \
+    "(builtins.getFlake (toString ./.)).inputs.llm-agents.packages.x86_64-linux.$p.outPath")
+  hash=${out#/nix/store/}; hash=${hash%%-*}
+  curl -sfI "https://cache.numtide.com/$hash.narinfo" >/dev/null \
+    && echo "HIT  $p $out" || { echo "MISS $p $out"; miss=1; }
+done
+test "$miss" -eq 0
+```
+
+If any gate misses — especially Codex — stop before the host build. Keep the
+previous `llm-agents` revision, or let that input use the Nixpkgs revision its
+cache was built against instead of forcing a mismatched root `nixpkgs`; then
+re-evaluate and diff. A duplicate input is cheaper than compiling Codex locally.
+
+```sh
+for h in code mail relay cold lame wslop; do
   nix build ".#nixosConfigurations.$h.config.system.build.toplevel" --no-link --print-out-paths
 done
 ```
@@ -73,6 +94,16 @@ The update will surface breakage to fix before deploying:
   or advance `nixpkgs` to a rev where the package is cached + builds, or — if you
   only need one input (e.g. a newer `claude-code` from `llm-agents`) — do a
   **surgical** `nix flake update llm-agents` and leave `nixpkgs` pinned.
+- **A toolchain bump can break another package's checks.** Read the first failing
+  derivation rather than only the cascade. For example, `inline-snapshot 0.32.5`
+  fails three documentation snapshot checks when built with Black 26.5.1 while
+  its functional suite still passes. Prefer a narrow, documented
+  `disabledTestPaths` override for stale generated snapshots; do not disable the
+  whole check phase. Input flakes can instantiate their own package sets without
+  the host overlays, so the full six-host build must prove the workaround reaches
+  every real dependency. If no narrow safe fix exists, compare archived channel
+  releases — and diff every host before accepting a pin, because an older pin can
+  be a large downgrade for an already-newer machine such as wslop.
 - Re-build the affected host until it succeeds.
 
 ## 4. Deploy
@@ -95,7 +126,7 @@ ssh root@<addr> systemctl reboot
 Use `switch-to-configuration switch` instead of `boot` (no reboot) when you want
 the change live without rebooting (see `cold` below).
 
-Per-host nuances (order: code → mail → lame → relay, then cold):
+Per-host nuances (order: code → mail → lame → relay, then cold and wslop):
 
 - **code** — VM. Reboot is safe; recover from the proxmox console if it doesn't
   return. Deploying it also activates the `cold-backup` orchestrator changes and
@@ -125,6 +156,11 @@ Per-host nuances (order: code → mail → lame → relay, then cold):
   from initrd. Never deploy/reboot cold while a backup is running. (A cold switch
   also lands the `timemachine-restic` push key on its `backup` user; the
   `gigavault/timemachine-restic` dataset + `restic init` are manual one-time steps.)
+- **wslop** — activate locally and last, after it has finished building and
+  pushing the other closures: `sudo nix-env -p /nix/var/nix/profiles/system
+  --set "$NEW" && sudo "$NEW/bin/switch-to-configuration" switch`. Do not reboot;
+  NixOS-WSL uses the Windows-provided kernel, and a full WSL shutdown must be
+  initiated from Windows if it is ever needed.
 
 ## 5. Keep cold / lame up; manage the nightly
 
@@ -162,6 +198,8 @@ Critical checks (also what the script asserts):
   `/run/cdi/nvidia-container-toolkit.json`). NOTE: `llama-vulkan`/`llama-embed` are
   intentionally **disabled** (7800XT freed for haruness harness dev — see WORKDOC.md);
   re-enable in `hosts/lame/llama.nix` to restore the shared llama endpoint.
+- wslop: virtualization reports `wsl`, sshd is active, and the intentionally
+  unprovisioned `beszel-agent` remains masked.
 
 Read the verbose output too — a scripted check can pass while something next to
 it quietly failed.
