@@ -175,6 +175,22 @@ for h in "${HOSTS[@]}"; do
       # even though the host is otherwise perfectly healthy.
       check cold "plasma session"   'systemctl is-active display-manager'                                     'active'
       check cold "sunshine"         'pgrep -x sunshine >/dev/null && echo running || echo NOT_RUNNING'        'running'
+
+      # Long-term archive (hosts/cold/archive.nix). sanoid's timer is what keeps
+      # the undo buffer alive; if it stops, deletions become unrecoverable
+      # silently — nothing else would notice.
+      check cold "archive dataset"  'zfs list -H -o name gigavault/archive'                                   'archive'
+      check cold "archive snapshots" 'systemctl is-enabled sanoid.timer 2>&1'                                 'enabled'
+
+      # Backup targets are readonly so they cannot be emptied by hand. Only the
+      # zfs-receive ones — wslop-backup (rsync) and timemachine-restic (restic
+      # over sftp) MUST stay writable or those backups break. See OPERATIONS.md.
+      check cold "backup ro (zfs-recv)" \
+        'for d in gigavault/lame-backup gigavault/proxmox-backup; do zfs get -H -o value readonly $d; done | sort -u' \
+        'on'
+      check cold "backup rw (rsync/restic)" \
+        'for d in gigavault/wslop-backup gigavault/timemachine-restic; do zfs get -H -o value readonly $d; done | sort -u' \
+        'off'
       ;;
     lame)
       check lame "gpu (nvidia)"     'nvidia-smi --query-gpu=name,driver_version --format=csv,noheader'        'NVIDIA'

@@ -200,6 +200,108 @@ non-interactive remote commands through the login shell, and `root@cold` is the
 receiving end of wslop's rsync push and the `zfs` calls around it. Log in as
 `headpats` for the interactive shell.
 
+## Archive (long-term storage on gigavault)
+
+`gigavault/archive` (`lab.archive`, config in `hosts/cold/archive.nix`) is for
+large files kept long term: written once, mostly read or copied elsewhere.
+Created with `recordsize=1M`, `compression=zstd` and `atime=off` — the last one
+matters because files get copied *out* of here constantly and atime would turn
+every read into a write.
+
+Provision once, after the pool is unlocked:
+
+```sh
+ssh root@cold archive-init
+```
+
+### Snapshots and what they cost
+
+sanoid snapshots it on a schedule (`lab.archive.retention`): **7 daily, 4 weekly,
+6 monthly**. The timer runs *hourly* and is `Persistent=true` — not to take
+hourly snapshots (that is off), but because cold is powered down most of the day
+and a once-daily timer would rarely coincide with it being awake.
+
+The cost model, since it is the surprising part:
+
+- Snapshotting data that never changes is **almost free**. Unchanged blocks are
+  shared, so idle snapshots add ~nothing.
+- Snapshots only start pinning space when you **delete**. Deleted blocks stay
+  referenced by every snapshot that predates the deletion.
+- So **deleting from the archive does not give space back immediately** — it
+  comes back as the snapshots age out, up to ~6 months later.
+
+That trade is deliberate: it is the undo buffer for a delete-to-free-space that
+turns out to be a mistake.
+
+### Recovering a deleted file
+
+No tooling needed — snapshots are browsable:
+
+```sh
+ls  /gigavault/archive/.zfs/snapshot/
+cp  /gigavault/archive/.zfs/snapshot/<snap>/path/to/file  /gigavault/archive/path/to/
+```
+
+### Disk-space emergency: really deleting things
+
+When you need the space *now* and are certain, `archive-reclaim` on cold reports
+what is pinned and can destroy it:
+
+```sh
+ssh -t root@cold archive-reclaim                  # report only (safe default)
+ssh -t root@cold archive-reclaim --older-than 30  # destroy snapshots >30 days old
+ssh -t root@cold archive-reclaim --all            # destroy every archive snapshot
+```
+
+Both destructive modes list what they will remove and require typing `YES`.
+**Destroying a snapshot permanently removes the ability to undo any deletion it
+covered** — the report mode tells you how much you would actually gain, so check
+that first: if it says `0B reclaimable`, deleting snapshots will not help and the
+space is being used by live files.
+
+The order to work through in an actual emergency:
+
+1. `archive-reclaim` — see whether snapshots are even the problem.
+2. Delete live files you no longer want, then `archive-reclaim --all` to make
+   that deletion effective immediately.
+3. `zpool list gigavault` to confirm the pool-level free space moved.
+
+## Backup datasets are read-only
+
+The zfs-receive targets on gigavault are `readonly=on`. This is purely a guard
+against a human mistake — mounted backup datasets look exactly like ordinary
+folders under `/gigavault`, and one of them was once emptied by hand on the
+assumption it was an old backup.
+
+| Dataset | readonly | Why |
+|---------|----------|-----|
+| `gigavault/lame-backup` | **on** | syncoid (`zfs receive`) |
+| `gigavault/proxmox-backup` | **on** | syncoid (`zfs receive`) |
+| `gigavault/q9650-backup` | **on** | legacy static win7/xp images, nothing writes it |
+| `gigavault/wslop-backup` | off | **rsync** — writes through the filesystem |
+| `gigavault/timemachine-restic` | off | **restic over sftp** — writes through the filesystem |
+
+**The distinction is the transport, not the intent.** `readonly` blocks writes
+through the POSIX layer but does not affect `zfs receive`, so syncoid replicates
+into a read-only dataset perfectly happily (verified: a full incremental run
+lands all seven `lame-backup` datasets with `readonly=on`). rsync and restic are
+ordinary filesystem writers, so setting `readonly` on their targets **would break
+those backups**. Do not "tidy up" by making them uniform.
+
+Property is inherited, so children need no separate setting. To make a legitimate
+manual change, flip it, do the work, flip it back:
+
+```sh
+zfs set readonly=off gigavault/lame-backup
+# ... surgery ...
+zfs set readonly=on  gigavault/lame-backup
+```
+
+Note that syncoid passes `zfs receive -F` (it forces `-F` unless
+`--no-rollback`), so a destination modified by hand is rolled back to the last
+common snapshot on the next run anyway — the readonly flag just stops the mistake
+happening in the first place.
+
 ## Cold Storage Backups
 
 The nightly cycle runs from `code` (`hosts/code/backup.nix`): it wakes and

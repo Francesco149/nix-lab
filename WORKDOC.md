@@ -555,6 +555,64 @@ Deploy state:
   uinput/firewall skeleton. If Wayland KMS capture misbehaves, the fallbacks are
   an X11 Plasma session or `xf86-video-dummy`.
 
+## 2026-07-21 cold: archive dataset + read-only backup targets
+
+Prompted by an incident: part of `gigavault/lame-backup/docker` was deleted by
+hand, on the assumption it was an old backup rather than lame's live syncoid
+destination. Recovered by `zfs rollback` to the 01:38 syncoid snapshot; the next
+incremental sent 4 KB for that dataset, which is the proof the restore was exact.
+
+- **It would have self-healed anyway.** syncoid hardcodes `-F` on receive
+  (`my $forcedrecv = "-F"`, cleared only by `--no-rollback`, which the lab does
+  not pass), so the next nightly run would have rolled the destination back
+  before applying the incremental. Nothing was ever going to be orphaned. An
+  earlier claim in this session that the lack of a `-F` on syncoid's *command
+  line* meant otherwise was wrong — it is internal.
+- Related: these datasets sit at non-zero `written` in normal operation —
+  merely mounting a received dataset dirties it — which is exactly why syncoid
+  defaults to `-F`.
+
+**`readonly=on` on the zfs-receive targets** (`lame-backup`, `proxmox-backup`,
+plus the legacy static `q9650-backup`). `readonly` gates the POSIX layer only,
+not `zfs receive`, so replication is unaffected — verified with a full syncoid
+run landing all seven `lame-backup` datasets while readonly.
+
+**`wslop-backup` and `timemachine-restic` are deliberately left writable.** They
+are fed by **rsync** and **restic-over-sftp**, ordinary filesystem writers that
+`readonly` would break. The split is by TRANSPORT, not by intent — anyone
+"tidying up" to make gigavault uniform breaks two backups. `lab-check.sh` now
+asserts both halves so the asymmetry cannot silently drift.
+
+**`gigavault/archive`** (`hosts/cold/archive.nix`, `lab.archive`) for long-term
+large-file storage: `recordsize=1M`, `compression=zstd`, `atime=off` (files are
+copied *out* constantly; atime would make every read a write and dirty
+snapshots). sanoid keeps 7 daily / 4 weekly / 6 monthly.
+
+- The sanoid timer is **hourly + `Persistent=true`**, which looks wrong for a
+  policy with `hourly=0`. It is about opportunity, not frequency: cold is powered
+  off most of the day, so a once-daily timer would rarely coincide with it being
+  awake. Hourly + persistent means a due daily/weekly/monthly snapshot gets taken
+  whenever the machine happens to be up.
+- `ConditionPathIsMountPoint` on `sanoid.service` — gigavault is encrypted, so
+  before `cold-unlock` the archive is unmounted and sanoid would otherwise log a
+  failure every hour.
+- Cost model, documented in OPERATIONS.md because it is the counter-intuitive
+  part: snapshots of never-changing data are ~free, but **deleting does not
+  return space** until the snapshots age out (up to ~6 months). `archive-reclaim`
+  is the emergency escape hatch — reports pinned space by default, `--all` /
+  `--older-than N` destroy after a typed `YES`.
+- Verified end to end: file → snapshot → delete → restore from
+  `.zfs/snapshot/`, and `archive-reclaim` reporting correctly.
+
+Deploy state: all live on cold, `lab-check.sh cold` = PASS 20 / WARN 0 / FAIL 0.
+
+Unrelated but noticed: `gigavault` root dropped ~24T (refer 24.7T → 696G) when
+`/gigavault/footage` was removed. **Intentional** (confirmed by the operator, old
+videos). Worth knowing that the pool root has **no snapshots at all**, so
+anything sitting directly in `/gigavault` — as opposed to in a child dataset —
+has no undo. That is an argument for putting anything worth keeping into
+`gigavault/archive`.
+
 ## Niri Desktop (wslop)
 
 Niri is wired as a nested compositor under WSLg on the `wslop` host. The
