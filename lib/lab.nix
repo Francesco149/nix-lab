@@ -295,6 +295,19 @@ rec {
   };
 
   ##################################################################################
+  # torrent inbox on cold (hosts/cold/torrents.nix)
+
+  torrents = {
+    # its own dataset so the inbox never shares quota, recordsize or snapshot
+    # policy with the backup datasets sitting on the same pool.
+    dataset = "gigavault/torrents";
+    root = "/gigavault/torrents";
+    incomplete = "${torrents.root}/incomplete";
+    complete = "${torrents.root}/complete";
+    watch = "${torrents.root}/watch";
+  };
+
+  ##################################################################################
 
   ssh.authorized-keys = [
     # workstation
@@ -358,11 +371,14 @@ rec {
   ports.llama-embed = 6080;
   ports.ingest = 8083;
 
-  # interactive GPU sandbox on lame: Sunshine streaming host → Moonlight. The
-  # container runs with --network host (so the host udevd's input-hotplug uevents
-  # reach its Xorg — that is what makes Moonlight mouse/kb work), so Docker does NOT
-  # publish these; the host firewall must. Values are the Sunshine default port table
-  # (base 47989). See haruness docs/interactive-sandbox.md.
+  # Sunshine streaming host → Moonlight. Used by TWO hosts, which is fine because
+  # they are separate machines: lame runs the containerised haruness GPU sandbox,
+  # cold runs a native Plasma desktop (hosts/cold/desktop.nix).
+  #
+  # On lame the container runs with --network host (so the host udevd's
+  # input-hotplug uevents reach its Xorg — that is what makes Moonlight mouse/kb
+  # work), so Docker does NOT publish these; the host firewall must. Values are the
+  # Sunshine default port table (base 47989). See haruness docs/interactive-sandbox.md.
   ports.sunshine-https = 47984;
   ports.sunshine-http = 47989;
   ports.sunshine-web = 47990; # web UI / pairing PIN
@@ -373,6 +389,16 @@ rec {
   ports-udp.sunshine-audio = 48000;
   ports-udp.sunshine-mic = 48002;
   ports-udp.mdns = 5353; # Moonlight host auto-discovery
+
+  # torrent stack on cold (hosts/cold/torrents.nix)
+  ports.qbittorrent = 8092; # web UI, LAN only
+
+  # BitTorrent peer port. This one is DELIBERATELY reachable from the internet:
+  # inbound peers are what make a swarm connect properly, so it is forwarded
+  # TCP+UDP on the opnsense box to lan.cold. Keep the two in sync — qBittorrent
+  # uses TCP for peers and UDP for uTP/DHT on the SAME number.
+  ports.torrent = 51413;
+  ports-udp.torrent = ports.torrent;
 
   tailnet.prefixes = [ "${tailnet.prefix}.0/10" ];
 
@@ -393,6 +419,13 @@ rec {
   lan.zone = "10.in-addr.arpa";
 
   secrets.dir = "/var/lib/secrets";
+
+  # qBittorrent web UI login, kept OUT of the repo. Holds the literal
+  # `@ByteArray(salt:hash)` PBKDF2 value qBittorrent writes for
+  # `WebUI\Password_PBKDF2`. Provision it with `qbittorrent-set-password` on cold
+  # (see docs/OPERATIONS.md); if the file is absent qBittorrent falls back to a
+  # random temporary password logged to its journal.
+  secrets.qbittorrent = "${secrets.dir}/qbittorrent-webui-password";
   headscale.db-path = "/var/lib/headscale/db.sqlite";
   headscale.noise.private-key-path = "/var/lib/headscale/noise_private.key";
   derp.urls = [ "https://controlplane.tailscale.com/derpmap/default" ];
