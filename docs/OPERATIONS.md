@@ -175,10 +175,10 @@ work but only connect to peers who can accept inbound, which is the usual cause
 of "connected to 3 peers on a healthy torrent". UPnP is deliberately off in the
 client so it cannot race the static rule.
 
-The port alias `pf_cold_torrent` already exists on the router; the NAT rule
-itself has to be created once in the GUI because OPNsense has no API for port
-forwards. Full procedure — including how to add/remove ports later without
-touching the GUI — is in [OPNSENSE.md](OPNSENSE.md).
+This is **done** — alias `pf_cold_torrent` plus a `firewall/d_nat` rule, both
+created through the OPNsense API and verified reaching cold from outside the
+network. Adding or removing ports later is an alias edit, no rule change:
+see [OPNSENSE.md](OPNSENSE.md).
 
 Nothing else is forwarded: the web UI and every Sunshine port stay LAN-side.
 
