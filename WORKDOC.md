@@ -398,6 +398,27 @@ Manager, llm-agents, nixos-mailserver, and NixOS-WSL.
   diffs show forward updates on every host; the only removed unit trees are the
   intentional lame ZFS auto-snapshot timers and mail's TLS-policy service,
   replaced upstream by socket activation.
+- Code's live activation exposed a separate storage failure: 285 rooted system
+  generations plus a 3.9 GiB journal had left no writable ext4 headroom.
+  PostgreSQL hit `ENOSPC` during its recovery checkpoint and mandb failed while
+  copying its cache. Archived journals were vacuumed to 1 GiB; generations
+  older than 30 days were unrooted (four rollback points remain), then the Nix
+  store was garbage-collected, freeing 76.6 GiB and leaving code at 52% used
+  with 91 GiB available. PostgreSQL recovered and accepted connections without
+  data repair. `lab-check.sh` now hard-fails every host below 5 GiB free or at
+  90% usage, and the runbook makes that a pre-copy gate.
+- Code, mail, relay, cold, and wslop are live on the `241313f` generation. Mail
+  and relay rebooted successfully; relay needed no VPS-console intervention and
+  its GRUB install, Headscale health endpoint, services, and certificate all
+  passed. Cold was live-switched without a reboot, both pools remain ONLINE,
+  and `/tmp/stay` remains present. Lame's new system profile is staged for boot
+  but intentionally not live: its NVIDIA driver changes from 595.80 to 595.84,
+  so it needs an authorized reboot/unlock rather than a mismatched live switch.
+  The six-host aggregate health check finished at PASS=51, WARN=0, FAIL=0; lame
+  remains healthy on the matching old kernel/userspace until that reboot.
+- Follow-up: decide whether code should get a scheduled Nix GC policy. This
+  update does not introduce automatic deletion behavior without an explicit
+  retention decision.
 
 ## Niri Desktop (wslop)
 

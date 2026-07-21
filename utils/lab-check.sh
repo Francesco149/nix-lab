@@ -111,6 +111,7 @@ common_checks() {
   check "$h" "system running"     'systemctl is-system-running || true'                  'running'
   check "$h" "no failed units"    'systemctl --failed --no-legend --plain | sed "s/.*/FAILED: &/"; systemctl --failed --quiet --no-legend --plain | grep -q . && echo HAS_FAILED || echo none' 'none'
   check "$h" "generation"         'readlink /run/current-system'                         '/nix/store/'
+  check "$h" "root disk headroom" 'read -r avail used <<<"$(df -B1 --output=avail,pcent / | tail -1)"; used=${used%\%}; if [ "${avail:-0}" -ge 5368709120 ] && [ "${used:-100}" -lt 90 ]; then echo "ok ${avail}B-free ${used}%used"; else echo "LOW ${avail:-0}B-free ${used:-100}%used"; exit 1; fi' 'ok'
 }
 
 for h in "${HOSTS[@]}"; do
@@ -162,7 +163,6 @@ for h in "${HOSTS[@]}"; do
       # haruness sweep once filled root to 100% (hosts/lame/lame.nix + disko.nix). If this
       # ever reads /var/lib/docker again the move regressed and root will refill.
       check lame "docker on zfs"    'docker info -f "{{.DockerRootDir}}" 2>/dev/null'                          '/lamedata/docker'
-      check lame "root disk free"   'u=$(df --output=pcent / | tr -cd 0-9); [ "${u:-100}" -lt 90 ] && echo "ok ${u}%used" || echo "LOW ${u}%used"'  'ok'
       check lame "stay (kept up)"   'test -f /tmp/stay && echo present || echo absent'                        'present'
       ;;
     wslop)

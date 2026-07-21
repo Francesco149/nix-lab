@@ -39,6 +39,16 @@ HEAD — only do that if you intend to deploy those app changes.
 Build each system and compare against what's deployed. Fix anything that fails
 to build (see step 3) before deploying anything.
 
+Run the health check before copying closures as well as after deployment:
+
+```sh
+./utils/lab-check.sh
+```
+
+Treat `root disk headroom` as a hard gate. It requires both 5 GiB free and less
+than 90% usage on every host; `dry-activate` cannot predict a database or cache
+hitting `ENOSPC` after the new closure is copied.
+
 Before a host build, cache-gate the large packages from `llm-agents`. Do not
 accept a local Codex build just because the full host build has already started:
 
@@ -104,6 +114,14 @@ The update will surface breakage to fix before deploying:
   every real dependency. If no narrow safe fix exists, compare archived channel
   releases — and diff every host before accepting a pin, because an older pin can
   be a large downgrade for an already-newer machine such as wslop.
+- **Too many rooted generations can fill a host during the closure copy.** Check
+  headroom before deployment. If it is low, first review
+  `nix-env -p /nix/var/nix/profiles/system --list-generations`; then retain a
+  useful rollback window and collect only the unrooted paths, for example:
+  `nix-env -p /nix/var/nix/profiles/system --delete-generations 30d` followed by
+  `nix-store --gc`. Do not remove the current/booted rollback roots merely to
+  make a deploy fit. Large archived journals are a secondary place to inspect
+  with `journalctl --disk-usage`.
 - Re-build the affected host until it succeeds.
 
 ## 4. Deploy
