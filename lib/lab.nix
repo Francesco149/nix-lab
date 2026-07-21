@@ -320,6 +320,20 @@ rec {
   };
 
   ##################################################################################
+  # download staging on cold (hosts/cold/downloads.nix)
+
+  # Where aria2 and the `ia` CLI drop things, pending manual sorting into
+  # `archive`. Deliberately its OWN dataset rather than a folder inside the
+  # archive: staging is churn — half-finished and abandoned downloads — and if it
+  # lived under `archive` every one of them would be captured by the archive's
+  # snapshot policy and pin space for months. The cost of the split is that
+  # promoting a file to the archive is a copy rather than a rename.
+  staging = {
+    dataset = "gigavault/staging";
+    root = "/gigavault/staging";
+  };
+
+  ##################################################################################
   # torrent inbox on cold (hosts/cold/torrents.nix)
 
   torrents = {
@@ -418,6 +432,11 @@ rec {
   # torrent stack on cold (hosts/cold/torrents.nix)
   ports.qbittorrent = 8092; # web UI, LAN only
 
+  # download manager on cold (hosts/cold/downloads.nix). Both LAN only — aria2
+  # fetches over plain HTTP(S), so nothing here needs to be reachable inbound.
+  ports.aria2-rpc = 6800; # json-rpc, what the web UI talks to
+  ports.aria2-web = 6880; # AriaNg static web UI
+
   # BitTorrent peer port. This one is DELIBERATELY reachable from the internet:
   # inbound peers are what make a swarm connect properly, so it is forwarded
   # TCP+UDP on the opnsense box to lan.cold. Keep the two in sync — qBittorrent
@@ -451,6 +470,11 @@ rec {
   # (see docs/OPERATIONS.md); if the file is absent qBittorrent falls back to a
   # random temporary password logged to its journal.
   secrets.qbittorrent = "${secrets.dir}/qbittorrent-webui-password";
+
+  # aria2's JSON-RPC secret. The nixos module refuses a literal (it would land
+  # world-readable in the store) and takes a file instead. Generate with
+  # `aria2-set-secret` on cold.
+  secrets.aria2 = "${secrets.dir}/aria2-rpc-secret";
   headscale.db-path = "/var/lib/headscale/db.sqlite";
   headscale.noise.private-key-path = "/var/lib/headscale/noise_private.key";
   derp.urls = [ "https://controlplane.tailscale.com/derpmap/default" ];

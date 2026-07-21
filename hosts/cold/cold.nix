@@ -13,6 +13,7 @@ in
     ./desktop.nix
     ./torrents.nix
     ./archive.nix
+    ./downloads.nix
   ];
 
   # ── interactive user ─────────────────────────────────────────────────────
