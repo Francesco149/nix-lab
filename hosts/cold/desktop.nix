@@ -18,6 +18,32 @@
 }:
 let
   inherit (config) lab;
+
+  # Sets the Sunshine web UI login without going through the web UI at all.
+  # Useful because the UI's own credential form is CSRF-checked against
+  # `csrf_allowed_origins` below, so a browser hitting the box by some URL we did
+  # not list gets "CSRF protection blocked request from origin" and cannot set a
+  # password. `--creds` writes straight to the state dir and always works.
+  #
+  # Caveat: Sunshine takes the credentials as argv, so they are briefly visible
+  # in the process list. That is a Sunshine limitation, not something we can wrap
+  # around.
+  sunshine-set-password = pkgs.writeShellScriptBin "sunshine-set-password" ''
+    set -eu
+    if [ "$(id -u)" != 0 ]; then echo "must run as root" >&2; exit 1; fi
+
+    printf 'Sunshine web UI username: '
+    read -r user
+    printf 'password: '
+    stty -echo; read -r pw; stty echo; printf '\n'
+    if [ -z "$user" ] || [ -z "$pw" ]; then echo "empty, aborting" >&2; exit 1; fi
+
+    ${pkgs.util-linux}/bin/runuser -u headpats -- \
+      ${config.services.sunshine.package}/bin/sunshine --creds "$user" "$pw"
+
+    systemctl --machine=headpats@.host --user restart sunshine.service 2>/dev/null || true
+    echo "done — web UI: https://${lab.lan.cold}:${toString lab.ports.sunshine-web}"
+  '';
 in
 {
   # ── GPU ──────────────────────────────────────────────────────────────────
@@ -145,6 +171,20 @@ in
       # pairing UI is unreachable and the host can never be paired. `lan` is the
       # narrowest value that still lets us reach it from the workstation.
       origin_web_ui_allowed = "lan";
+
+      # Reaching the UI is not enough: Sunshine separately CSRF-checks the Origin
+      # header on every POST, so without this you can load the page but every
+      # action fails — setting the username/password AND entering the pairing
+      # PIN. Observed as:
+      #   CSRF protection blocked request from origin: https://cold:47990
+      # Every URL you might open the UI by has to be listed; the browser sends
+      # whichever one is in the address bar.
+      csrf_allowed_origins = lib.concatStringsSep "," [
+        "https://cold:47990"
+        "https://cold.${lab.domains.internal}:47990"
+        "https://${lab.lan.cold}:47990"
+        "https://localhost:47990"
+      ];
     };
   };
 
@@ -152,6 +192,14 @@ in
   # can no longer change these. Pairing and credentials are NOT part of that file
   # — they live in the user's state dir — so pairing from Moonlight still works
   # and survives redeploys.
+
+  # DualSense (ds5) gamepad emulation goes through /dev/uhid, which ships as
+  # root:root 0600 — `hardware.uinput` only covers /dev/uinput, so ds5 stays
+  # disabled without this while mouse/keyboard work fine. Same group as uinput so
+  # there is one thing to be a member of.
+  services.udev.extraRules = ''
+    KERNEL=="uhid", GROUP="uinput", MODE="0660", OPTIONS+="static_node=uhid"
+  '';
 
   networking.firewall.allowedTCPPorts = with lab.ports; [
     sunshine-https
@@ -181,6 +229,8 @@ in
     # CPU is pinned, this is the first thing to check: Sunshine silently falls
     # back to software x264 when VAAPI init fails.
     libva-utils
+
+    sunshine-set-password
   ];
 
   # Plasma ships its own terminal/file manager, so we deliberately do NOT pull in

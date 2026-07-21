@@ -27,7 +27,13 @@ in
       "networkmanager"
       "video" # kms/drm access for the session
       "render" # vaapi encode for sunshine
-      "input" # uinput devices moonlight injects through
+      "input" # read existing input devices
+      # THE one that makes Moonlight's mouse/keyboard work. hardware.uinput
+      # (enabled by services.sunshine) ships /dev/uinput as root:uinput 0660, so
+      # without membership here Sunshine starts fine and streams fine but logs
+      # "Unable to create virtual mouse: Permission denied" — you get a picture
+      # you cannot click on. `input` is NOT a substitute; it is a different gid.
+      "uinput"
       "audio"
       "qbittorrent" # read/write the torrent inbox without sudo
     ];

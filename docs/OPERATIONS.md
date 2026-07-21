@@ -131,6 +131,7 @@ acts:
 ```sh
 ssh root@cold torrent-storage-init      # creates gigavault/torrents + subdirs
 ssh -t root@cold qbittorrent-set-password
+ssh -t root@cold sunshine-set-password  # Sunshine web UI login
 ```
 
 `torrent-storage-init` makes the dataset with `recordsize=1M`, `atime=off` and
@@ -147,6 +148,24 @@ run, qBittorrent uses a random temporary password logged to
   https, self-signed, accept the warning. Pair from Moonlight, then enter the PIN
   there. Pairing state persists across redeploys.
 
+Two Sunshine gotchas, both already handled in `hosts/cold/desktop.nix` but worth
+knowing when something looks broken:
+
+- **CSRF.** Sunshine checks the `Origin` header on every web UI POST against
+  `csrf_allowed_origins`. If you reach the box by a URL that is not in that list,
+  the page loads but *nothing works* — you cannot set a password and you cannot
+  submit a pairing PIN, with `CSRF protection blocked request from origin: ...`
+  in the log. Add the URL to that option. `sunshine-set-password` sidesteps the
+  UI entirely via `sunshine --creds` if you are locked out.
+- **Input needs the `uinput` group, not `input`.** Sunshine injects Moonlight's
+  mouse/keyboard through `/dev/uinput`, which ships `root:uinput 0660`. If the
+  session user is not in `uinput`, Sunshine starts and streams perfectly but logs
+  `Unable to create virtual mouse: Permission denied` — a picture you cannot
+  click on. DualSense gamepad emulation additionally needs `/dev/uhid`, which
+  `hardware.uinput` does not cover (there is a udev rule for it in
+  `desktop.nix`). **Group changes need a fresh session** — restart
+  `display-manager` and `user@1000.service`, or reboot.
+
 ### Router: the one manual step
 
 Peer connectivity depends on inbound connections, so `lab.ports.torrent`
@@ -155,6 +174,11 @@ UDP** — TCP carries peers, UDP carries µTP and DHT. Without it torrents still
 work but only connect to peers who can accept inbound, which is the usual cause
 of "connected to 3 peers on a healthy torrent". UPnP is deliberately off in the
 client so it cannot race the static rule.
+
+The port alias `pf_cold_torrent` already exists on the router; the NAT rule
+itself has to be created once in the GUI because OPNsense has no API for port
+forwards. Full procedure — including how to add/remove ports later without
+touching the GUI — is in [OPNSENSE.md](OPNSENSE.md).
 
 Nothing else is forwarded: the web UI and every Sunshine port stay LAN-side.
 
