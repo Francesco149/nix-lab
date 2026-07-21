@@ -103,6 +103,79 @@ Roundcube gotchas, if it is enabled again:
   environment to know the port.
 - `maxAttachmentSize` must be an integer.
 
+## Cold Desktop And Torrents
+
+`cold` is a backup box that also runs a KDE Plasma desktop you drive over
+Moonlight, plus a qBittorrent stack. Config: `hosts/cold/desktop.nix` and
+`hosts/cold/torrents.nix`.
+
+**The lifecycle is the thing to internalise.** `cold` is normally powered off and
+the nightly cycle powers it back down when it is done. Torrents therefore only
+make progress while the machine is up. To keep it awake:
+
+```sh
+ssh root@cold touch /tmp/stay          # or: ssh root@code cold-unlock --host cold --stay
+```
+
+`/tmp/stay` is tmpfs and `boot.tmp.cleanOnBoot` is on, so it does **not** survive
+a reboot — re-create it after every boot or the next backup cycle powers the box
+off mid-download. qBittorrent writes resume data on shutdown, so a session picks
+up where it left off; nothing is lost, it just stalls.
+
+### First-time provisioning
+
+Both steps need the pool unlocked (`cold-unlock --host cold --stay`), and neither
+happens automatically — creating storage and minting credentials are deliberate
+acts:
+
+```sh
+ssh root@cold torrent-storage-init      # creates gigavault/torrents + subdirs
+ssh -t root@cold qbittorrent-set-password
+```
+
+`torrent-storage-init` makes the dataset with `recordsize=1M`, `atime=off` and
+`compression=lz4` — tuned for large media read back sequentially while seeding.
+`qbittorrent-set-password` writes the PBKDF2 value to
+`lab.secrets.qbittorrent` (never the repo) and restarts the client. Until it is
+run, qBittorrent uses a random temporary password logged to
+`journalctl -u qbittorrent`.
+
+### Web UI and streaming
+
+- qBittorrent: `http://cold:8092` (`lab.ports.qbittorrent`), LAN/tailnet only.
+- Sunshine pairing UI: `https://cold:47990` (`lab.ports.sunshine-web`) —
+  https, self-signed, accept the warning. Pair from Moonlight, then enter the PIN
+  there. Pairing state persists across redeploys.
+
+### Router: the one manual step
+
+Peer connectivity depends on inbound connections, so `lab.ports.torrent`
+(51413) must be forwarded on the opnsense box to `lab.lan.cold`, **both TCP and
+UDP** — TCP carries peers, UDP carries µTP and DHT. Without it torrents still
+work but only connect to peers who can accept inbound, which is the usual cause
+of "connected to 3 peers on a healthy torrent". UPnP is deliberately off in the
+client so it cannot race the static rule.
+
+Nothing else is forwarded: the web UI and every Sunshine port stay LAN-side.
+
+### Why qBittorrent may be inactive
+
+`gigavault` is zfs-encrypted, so on a fresh boot the inbox is unmounted and the
+unit is *skipped* by `ConditionPathIsMountPoint` rather than started — otherwise
+it would write the profile and downloads onto the rootfs and have them shadowed
+the moment the pool mounted. A `qbittorrent-mount-watch` timer polls every two
+minutes and starts the client once the dataset appears, so unlocking the pool is
+all that is needed. `systemctl is-active qbittorrent` reading `inactive` on a
+locked pool is correct behaviour, not a fault.
+
+### Shells on cold
+
+`cold` now gets `modules/interactive.nix`, so `headpats` has fish, nvim (`e`) and
+tmux. **root is deliberately pinned to bash** (`hosts/cold/cold.nix`): sshd runs
+non-interactive remote commands through the login shell, and `root@cold` is the
+receiving end of wslop's rsync push and the `zfs` calls around it. Log in as
+`headpats` for the interactive shell.
+
 ## Cold Storage Backups
 
 The nightly cycle runs from `code` (`hosts/code/backup.nix`): it wakes and

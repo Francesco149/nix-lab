@@ -174,6 +174,16 @@ Per-host nuances (order: code → mail → lame → relay, then cold and wslop):
   from initrd. Never deploy/reboot cold while a backup is running. (A cold switch
   also lands the `timemachine-restic` push key on its `backup` user; the
   `gigavault/timemachine-restic` dataset + `restic init` are manual one-time steps.)
+  - **Exception — anything touching the desktop needs a reboot.** The Plasma/
+    Moonlight stack (`hosts/cold/desktop.nix`) depends on `boot.kernelParams`
+    (`video=HDMI-A-1:…e`, which forces the HDMI connector on so KWin has an
+    output with no monitor attached) and on amdgpu early-KMS in the initrd.
+    Neither applies on a live `switch` — the session will come up wrong or not
+    at all. After the reboot, unlock: `ssh root@code cold-unlock --host cold
+    --stay`. The `--stay` matters: without `/tmp/stay` the next nightly cycle
+    powers cold off, taking the desktop and any running torrents with it.
+  - After unlocking, `qbittorrent` starts on its own within ~2 minutes (the
+    `qbittorrent-mount-watch` timer waits for `gigavault/torrents` to mount).
 - **wslop** — activate locally and last, after it has finished building and
   pushing the other closures: `sudo nix-env -p /nix/var/nix/profiles/system
   --set "$NEW" && sudo "$NEW/bin/switch-to-configuration" switch`. Do not reboot;
@@ -255,7 +265,10 @@ Critical checks (also what the script asserts):
   Gotchas). Sanity-check the tailnet: `ssh root@relay headscale nodes list`.
 - cold: both zpools `ONLINE`, `gigavault/wslop-backup` present with a recent
   `@wslop-*` snapshot, `gigavault/timemachine-restic` present, `/tmp/stay` present
-  if it should stay up.
+  if it should stay up. Desktop/torrent stack: `gigavault/torrents` present and
+  mounted, `qbittorrent` active and answering on `lab.ports.qbittorrent`,
+  `display-manager` active, `sunshine` running. An *unmounted* inbox with an
+  inactive qBittorrent means the pool is still locked — unlock, don't debug.
 - lame: `nvidia-smi` works; interactive-GPU-sandbox prereqs present (uinput module +
   `/run/cdi/nvidia-container-toolkit.json`). NOTE: `llama-vulkan`/`llama-embed` are
   intentionally **disabled** (7800XT freed for haruness harness dev — see WORKDOC.md);

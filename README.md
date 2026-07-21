@@ -14,7 +14,7 @@ and flake-parts. In this checkout, `nut` is referenced as `/opt/src/nut`.
 | `code` | Interactive VM for reverse proxying, cache, service UIs, Dockge, Beszel hub, and backup orchestration. |
 | `mail` | Mailserver, Gmail fetch, and DMARC analyzer. |
 | `relay` | Public VPS for headscale, inbound SMTP/ACME stream proxying, and outbound mail relay. |
-| `cold` | Cold storage and ZFS backup target with remote unlock support. |
+| `cold` | Cold storage and ZFS backup target with remote unlock support. Also runs a Plasma desktop driven over Moonlight, and the torrent stack. |
 | `lame` | GPU inference host for local AI services. |
 
 `immich` also exists in the lab, but it is a Proxmox LXC managed outside this

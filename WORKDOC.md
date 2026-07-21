@@ -436,6 +436,86 @@ Manager, llm-agents, nixos-mailserver, and NixOS-WSL.
   update does not introduce automatic deletion behavior without an explicit
   retention decision.
 
+## 2026-07-21 cold: Plasma/Moonlight desktop + torrent stack
+
+`cold` stops being deploy-only. It gains a KDE Plasma desktop driven remotely
+over Moonlight, the standard interactive shell stack, and a qBittorrent stack
+with its inbox on a dedicated `gigavault` dataset. New files:
+`hosts/cold/desktop.nix`, `hosts/cold/torrents.nix`, `hosts/cold/hm/home.nix`.
+
+Hardware findings (probed on the box, they contradict what the config implies):
+
+- cold's CPU is a **Ryzen 5 5600G — an APU**, so there is a Vega iGPU with
+  `/dev/dri/renderD128` despite the host being built as a NAS. That means
+  **VAAPI hardware encode** for Sunshine rather than software x264, which
+  matters on a 12-thread box that also runs backups. `hardware-configuration.nix`
+  lists no video driver only because nixos-generate-config had no reason to.
+- `card1-HDMI-A-1` currently reads `connected`; DP-1 and HDMI-A-2 do not.
+
+Decisions:
+
+- **Session**: sddm (wayland) autologin as `headpats` → plasma6 →
+  `graphical-session.target` → sunshine's user unit (it is `partOf` that target,
+  so without an autologin session there is nothing to stream). Needs the new
+  `headpats` user on cold; the desktop is the only reason it exists.
+- **`video=HDMI-A-1:1920x1080@60e` kernel param.** Forces the connector on
+  regardless of detection. Without it, a display that is absent or merely powered
+  off leaves KWin with zero outputs and nothing to render into — which presents
+  as "Moonlight connects, then instantly drops". **Requires a reboot**; a live
+  `switch` does not apply it. `docs/UPDATING.md` now carries this as an explicit
+  exception to cold's usual switch-don't-reboot rule.
+- **Null audio sink** pinned at `priority.session=2000` so Sunshine always has a
+  capture target; the real sinks are HDMI (vanishes when the display sleeps) and
+  unused onboard analog.
+- **Deliberately NOT reusing wslop's hm set**: `theme.nix` sets
+  `qt.platformTheme = "gtk3"` and `default-apps.nix` forces wayland backends —
+  both fight a Plasma session. cold gets `common` + `fonts` + `alacritty` only.
+- **root stays on bash** (`users.users.root.shell = pkgs.bash`) even though
+  `interactive.nix` sets `defaultUserShell = fish`. An audit of every path that
+  SSHes into cold found nothing that breaks under fish today (the `backup` user
+  already pins bash; `utils/lab-check.sh` funnels through `bash -s`; deploy-rs
+  emits one flat command). But cold is the backup *target* — `root@cold` is the
+  receiving end of wslop's rsync push — and the failure mode there is silently
+  corrupted backups rather than a visible error. `headpats` gets fish.
+- **Torrent inbox gating.** `gigavault` is zfs-encrypted, so on a fresh boot
+  `/gigavault/torrents` is an empty dir on the rootfs. Starting qBittorrent then
+  would write the profile and downloads there and have them shadowed on mount —
+  the same bug class as lame's docker data-root. Guarded by
+  `ConditionPathIsMountPoint`.
+- A systemd **`.path` unit does not work** for this and was rejected: the inotify
+  watch lands on the unmounted `/gigavault`, and mounting over a directory
+  generates no event for the watcher underneath. Replaced with a 2-minute
+  `qbittorrent-mount-watch` timer that starts the unit once the mount appears
+  (a no-op while it is already running).
+- **qBittorrent config is rendered here, not via the module's `serverConfig`**,
+  because we need to own `ExecStartPre` to splice the web UI password in from
+  `lab.secrets.qbittorrent` at runtime (`+` prefix = runs as root outside the
+  sandbox, since the qbittorrent user cannot read the secrets dir). Note the
+  module's ExecStartPre **overwrites the config on every start**, so anything
+  changed in the web UI is lost on restart — settings belong in the nix file.
+- **Connectivity**: static forward instead of UPnP (UPnP would race the opnsense
+  rule and re-map to a port the forward does not target). DHT + PeX + LSD on,
+  encryption "prefer" not "require" (requiring it silently drops peers).
+
+Lifecycle (user's call, 2026-07-21): **unchanged.** cold stays a normally-off
+box; the operator touches `/tmp/stay` when they want it to keep downloading, and
+the existing orchestrator check honours it. The orchestrator was deliberately NOT
+modified. Consequence to remember: `/tmp/stay` is tmpfs + `cleanOnBoot`, so it
+must be re-created after every boot or the next nightly cycle powers cold off
+mid-download. qBittorrent resume data survives, so this stalls rather than loses.
+
+Deploy state:
+
+- [todo] Provision on the box (both need the pool unlocked, neither is automatic):
+  `torrent-storage-init` then `qbittorrent-set-password`.
+- [todo] Forward `lab.ports.torrent` (51413) **TCP+UDP** on opnsense to
+  `lab.lan.cold`. Nothing else is forwarded; web UI + Sunshine stay LAN-side.
+- [todo] Pair Moonlight against `https://cold:47990`.
+- Risk: the Plasma-on-Wayland + Sunshine KMS capture path is unproven on THIS
+  box — the lab's only prior Sunshine experience is lame's containerised Xorg
+  sandbox, which shares only the uinput/firewall skeleton. If capture fails,
+  the fallbacks are an X11 session or `xf86-video-dummy`.
+
 ## Niri Desktop (wslop)
 
 Niri is wired as a nested compositor under WSLg on the `wslop` host. The

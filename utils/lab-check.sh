@@ -151,6 +151,25 @@ for h in "${HOSTS[@]}"; do
       check cold "recent snapshot"  'zfs list -H -t snapshot -o name -s creation gigavault/wslop-backup | tail -1' '@wslop-'
       check cold "tm restic repo"   'zfs list -H -o name gigavault/timemachine-restic'                        'timemachine-restic'
       check cold "stay (kept up)"   'test -f /tmp/stay && echo present || echo absent'                        'present'
+
+      # Desktop + torrent stack (hosts/cold/{desktop,torrents}.nix).
+      #
+      # Order matters here. The inbox lives on gigavault, which is zfs-encrypted,
+      # so until cold-unlock loads the key the dataset is unmounted and
+      # qbittorrent is CORRECTLY inactive — its ConditionPathIsMountPoint skips
+      # it rather than letting it write the profile onto the rootfs. Checking the
+      # mount first means an inactive client reads as "pool still locked" instead
+      # of "service broken".
+      QBT_PORT="$(labval ports.qbittorrent)"
+      check cold "torrent dataset"  'zfs list -H -o name gigavault/torrents'                                  'torrents'
+      check cold "torrent inbox mounted" 'mountpoint -q /gigavault/torrents && echo mounted || echo UNMOUNTED' 'mounted'
+      check cold "qbittorrent"      'systemctl is-active qbittorrent'                                         'active'
+      check cold "qbittorrent web"  "curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:$QBT_PORT/ || echo FAILED" '200'
+      # The Plasma session is what Sunshine attaches to: sunshine's user unit is
+      # partOf graphical-session.target, so no autologin session => no stream,
+      # even though the host is otherwise perfectly healthy.
+      check cold "plasma session"   'systemctl is-active display-manager'                                     'active'
+      check cold "sunshine"         'pgrep -x sunshine >/dev/null && echo running || echo NOT_RUNNING'        'running'
       ;;
     lame)
       check lame "gpu (nvidia)"     'nvidia-smi --query-gpu=name,driver_version --format=csv,noheader'        'NVIDIA'
