@@ -89,6 +89,42 @@ in
       reverse_proxy localhost:${toString p.cache}
     '';
 
+    # ── cold's services ──────────────────────────────────────────────────
+    # Named routes so nothing has to be reached as http://cold:<port>. The
+    # direct host:port still works and is the fallback when code is down —
+    # these hosts all resolve to code, so a code outage takes the names with it.
+
+    virtualHosts."qbit.box.headpats.uk".extraConfig = ''
+      reverse_proxy ${lab.lan.cold}:${toString p.qbittorrent}
+    '';
+
+    # AriaNg is a static page that calls the aria2 JSON-RPC *from the browser*.
+    # Served over https, the browser refuses to call http://cold:6800 as mixed
+    # content, so the RPC is proxied through this same vhost and AriaNg is
+    # pointed at it (Settings -> RPC: https, host aria.box.headpats.uk, port 443,
+    # path /jsonrpc). Without this the UI loads and then cannot talk to aria2.
+    virtualHosts."aria.box.headpats.uk".extraConfig = ''
+      handle /jsonrpc* {
+        reverse_proxy ${lab.lan.cold}:${toString p.aria2-rpc}
+      }
+      handle {
+        reverse_proxy ${lab.lan.cold}:${toString p.aria2-web}
+      }
+    '';
+
+    # Sunshine's web UI only (pairing PIN, settings). Moonlight itself still
+    # talks straight to cold on the streaming ports — it does not use this.
+    # Self-signed cert on the backend, same as prox/sense above. The matching
+    # origin must also be in csrf_allowed_origins (hosts/cold/desktop.nix) or
+    # every POST from this URL is rejected.
+    virtualHosts."sun.box.headpats.uk".extraConfig = ''
+      reverse_proxy https://${lab.lan.cold}:${toString p.sunshine-web} {
+        transport http {
+          tls_insecure_skip_verify
+        }
+      }
+    '';
+
     # Plain-HTTP intercept for the らき☆マス launcher (gcal-emu, ./gcal-emu.nix). The
     # `http://` scheme keeps it on :80 with no HTTPS upgrade (the launcher is HTTP/1.0,
     # no TLS); only XP — pointed here by a hosts redirect — ever sends this Host.

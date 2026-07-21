@@ -184,6 +184,10 @@ in
         "https://cold.${lab.domains.internal}:47990"
         "https://${lab.lan.cold}:47990"
         "https://localhost:47990"
+        # Reached through code's caddy (hosts/code/caddy.nix). Note there is no
+        # :port here — the proxy terminates on 443, and the browser sends the
+        # origin it used, not the backend's.
+        "https://sun.${lab.domains.internal}"
       ];
     };
   };
