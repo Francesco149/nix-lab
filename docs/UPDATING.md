@@ -174,6 +174,10 @@ Per-host nuances (order: code → mail → lame → relay, then cold and wslop):
   from initrd. Never deploy/reboot cold while a backup is running. (A cold switch
   also lands the `timemachine-restic` push key on its `backup` user; the
   `gigavault/timemachine-restic` dataset + `restic init` are manual one-time steps.)
+  `cold-unlock` deliberately calls `zfs-mount-all`, not raw `zfs mount -a`, so
+  children of the read-only receive targets can mount; see the "Backup datasets
+  are read-only" section in OPERATIONS.md. Require the post-unlock
+  `backup ro mounted` health check to pass.
   - **Exception — anything touching the desktop needs a reboot.** The Plasma/
     Moonlight stack (`hosts/cold/desktop.nix`) depends on `boot.kernelParams`
     (`video=HDMI-A-1:…e`, which forces the HDMI connector on so KWin has an

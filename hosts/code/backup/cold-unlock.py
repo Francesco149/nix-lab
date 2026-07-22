@@ -194,7 +194,7 @@ def unlock_host(args, host, pools, meta):
             "-o", f"HostKeyAlias={host}",
             "-o", "BatchMode=yes",
             f"backup@{ip}",
-            "sudo zfs mount -a",
+            "sudo zfs-mount-all",
         ],
         check=True,
     )

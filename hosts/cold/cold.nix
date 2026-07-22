@@ -70,6 +70,7 @@ in
     "gigavault"
     "gaijin"
   ];
+  nut.zfs.arcMaxBytes = 8 * 1024 * 1024 * 1024;
 
   # ── SMART monitoring ─────────────────────────────────────────────────────
   services.smartd = {

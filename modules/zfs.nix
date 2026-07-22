@@ -16,13 +16,19 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ ];
     };
+
+    arcMaxBytes = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 1288490188;
+      description = "Maximum ZFS ARC size in bytes.";
+    };
   };
 
   config = {
     boot.supportedFilesystems = [ "zfs" ];
     boot.zfs.forceImportRoot = false;
     boot.zfs.extraPools = cfg.pools;
-    boot.kernelParams = [ "zfs.zfs_arc_max=1288490188" ];
+    boot.kernelParams = [ "zfs.zfs_arc_max=${toString cfg.arcMaxBytes}" ];
 
     services.zfs.autoScrub = {
       enable = true;

@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-07-15
+Last updated: 2026-07-22
 
 ## Project
 
@@ -625,6 +625,25 @@ videos). Worth knowing that the pool root has **no snapshots at all**, so
 anything sitting directly in `/gigavault` — as opposed to in a child dataset —
 has no undo. That is an argument for putting anything worth keeping into
 `gigavault/archive`.
+
+## 2026-07-22 cold: read-only mount recovery + ARC cap
+
+Recovered from the stale checkout on code and rebased onto the current cold
+desktop/archive/download configuration:
+
+- `modules/backup-target.nix` installs `zfs-mount-all` and uses it for both the
+  boot-time `zfs-mount` unit and the post-unlock path. A locally read-only,
+  mounted parent is made writable only while ZFS creates and mounts missing
+  child mountpoints, then restored immediately. This avoids leaving descendants
+  of `lame-backup` or `proxmox-backup` unmounted after a clean boot.
+- `cold-unlock` on code calls that helper. The old raw `zfs mount -a` sudo rule
+  remains temporarily for callers from an older code generation.
+- Cold overrides the shared 1.2 GiB ZFS ARC default with an 8 GiB cap. This is a
+  kernel parameter, so it becomes live only after cold reboots.
+- The runbook documents the changed unlock path; `lab-check.sh` now asserts the
+  receive-tree mounts and live ARC cap.
+
+Deploy state: code and cold pending build/deploy verification.
 
 ## Niri Desktop (wslop)
 

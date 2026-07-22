@@ -451,6 +451,16 @@ would break it**:
 Do not "tidy up" by making gigavault uniform. Only the two syncoid targets can
 be read-only.
 
+ZFS normally creates a child's mountpoint directory while mounting the child.
+That fails when the directory is missing inside a mounted read-only parent and
+can leave part of either receive tree unmounted after a clean boot. The backup
+target module therefore replaces the ordinary `zfs mount -a` path with
+`zfs-mount-all`: it briefly makes each mounted, locally read-only dataset
+writable while ZFS creates and mounts the descendants, restores `readonly=on`
+immediately, and retries the full mount. `cold-unlock` uses the same helper after
+loading the pool keys. Do not change it back to raw `zfs mount -a`;
+`lab-check.sh` verifies that every filesystem in both receive trees is mounted.
+
 Property is inherited, so children need no separate setting. To make a legitimate
 manual change, flip it, do the work, flip it back:
 

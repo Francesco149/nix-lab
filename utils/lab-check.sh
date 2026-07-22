@@ -199,9 +199,13 @@ for h in "${HOSTS[@]}"; do
       check cold "backup ro (zfs-recv)" \
         'for d in gigavault/lame-backup gigavault/proxmox-backup; do zfs get -H -o value readonly $d; done | sort -u' \
         'on'
+      check cold "backup ro mounted" \
+        'out="$(zfs list -H -r -t filesystem -o name,mounted gigavault/lame-backup gigavault/proxmox-backup)" || exit 1; bad="$(awk '\''$2 != "yes"'\'' <<<"$out")"; if [ -z "$bad" ]; then echo all-mounted; else printf "UNMOUNTED:\n%s\n" "$bad"; exit 1; fi' \
+        'all-mounted'
       check cold "backup rw (must stay writable)" \
         'for d in gigavault/wslop-backup gigavault/timemachine-restic gigavault/q9650-backup; do zfs get -H -o value readonly $d; done | sort -u' \
         'off'
+      check cold "zfs arc cap"       'cat /sys/module/zfs/parameters/zfs_arc_max'                              '8589934592'
       ;;
     lame)
       check lame "gpu (nvidia)"     'nvidia-smi --query-gpu=name,driver_version --format=csv,noheader'        'NVIDIA'
