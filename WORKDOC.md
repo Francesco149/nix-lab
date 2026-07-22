@@ -408,15 +408,15 @@ Manager, llm-agents, nixos-mailserver, and NixOS-WSL.
   with 91 GiB available. PostgreSQL recovered and accepted connections without
   data repair. `lab-check.sh` now hard-fails every host below 5 GiB free or at
   90% usage, and the runbook makes that a pre-copy gate.
-- Code, mail, relay, cold, and wslop are live on the `241313f` generation. Mail
-  and relay rebooted successfully; relay needed no VPS-console intervention and
-  its GRUB install, Headscale health endpoint, services, and certificate all
-  passed. Cold was live-switched without a reboot, both pools remain ONLINE,
-  and `/tmp/stay` remains present. Lame's new system profile is staged for boot
-  but intentionally not live: its NVIDIA driver changes from 595.80 to 595.84,
-  so it needs an authorized reboot/unlock rather than a mismatched live switch.
-  The six-host aggregate health check finished at PASS=51, WARN=0, FAIL=0; lame
-  remains healthy on the matching old kernel/userspace until that reboot.
+- Code, mail, relay, cold, and wslop went live on the `241313f` generation during
+  the update. Mail and relay rebooted successfully; relay needed no VPS-console
+  intervention and its GRUB install, Headscale health endpoint, services, and
+  certificate all passed. Cold was live-switched without a reboot, both pools
+  remained ONLINE, and `/tmp/stay` remained present. Lame's new system profile
+  was initially staged rather than activated because NVIDIA changed from 595.80
+  to 595.84 and required an authorized reboot/unlock. The six-host aggregate at
+  that point was PASS=51, WARN=0, FAIL=0. The 2026-07-22 stale-checkout recovery
+  below completed lame's reboot into the staged kernel/userspace generation.
 - Proxmox was updated afterward from PVE 9.1.7 to `proxmox-ve 9.2.0` /
   `pve-manager 9.2.4` (213 upgrades, five new packages, zero removals or holds).
   APT/dpkg are clean with no pending upgrades; PVE services, all storage and
@@ -644,7 +644,13 @@ desktop/archive/download configuration:
 - The runbook documents the changed unlock path; `lab-check.sh` now asserts the
   receive-tree mounts and live ARC cap.
 
-Deploy state: code and cold pending build/deploy verification.
+Deploy state: built, deployed, and rebooted on 2026-07-22. Code is booted on the
+current flake with the new unlock caller. Cold rebooted through initrd, unlocked
+through that caller, mounted both read-only receive trees completely, restored
+`/tmp/stay`, and reports `zfs_arc_max=8589934592`. Plasma/Sunshine came back;
+qBittorrent and aria2 started through their mount-watch timers 20 seconds after
+the pools mounted. Targeted checks: code PASS=9 and cold PASS=25, no warnings or
+failures.
 
 ## 2026-07-22 lame: disable the legacy AI stack
 
@@ -658,8 +664,12 @@ haruness. Open WebUI's OCI declaration used to enable Docker implicitly, so
 the harness runtime. `lab-check.sh` fails if any legacy AI unit or the
 `open-webui` container is active, and separately asserts Docker's ZFS data root.
 
-Deploy state: pending the already-required lame reboot into its staged July 2026
-kernel/NVIDIA generation, followed by unlock and health verification.
+Deploy state: built, deployed, rebooted, and unlocked on 2026-07-22. Lame is
+booted on the July 2026 generation with NVIDIA 595.84; the AI units/container are
+absent, Docker still uses `/lamedata/docker`, all five non-AI `slop-*` containers
+returned via `unless-stopped`, and `/tmp/stay` was restored. Targeted check:
+PASS=10, WARN=0, FAIL=0. The final six-host aggregate was PASS=67, WARN=0,
+FAIL=0.
 
 ## Niri Desktop (wslop)
 
