@@ -209,10 +209,13 @@ for h in "${HOSTS[@]}"; do
       ;;
     lame)
       check lame "gpu (nvidia)"     'nvidia-smi --query-gpu=name,driver_version --format=csv,noheader'        'NVIDIA'
-      # llama-vulkan/llama-embed are intentionally DISABLED on lame (7800XT freed for
-      # haruness harness dev — see hosts/lame/llama.nix + WORKDOC.md). Check the durable
-      # interactive-GPU-sandbox prereqs instead: the uinput module + the nvidia-container-
-      # toolkit CDI spec (host GPU shared into containers for Sunshine/Moonlight).
+      # The whole legacy lab AI stack is intentionally disabled on lame so both GPUs
+      # remain available to the interactive sandbox / haruness. The module files remain
+      # for deliberate reuse, but none of their units or Open WebUI may be running.
+      check lame "ai stack disabled" 'bad=""; for unit in docker-open-webui.service ingest.service ollama-proxy.service llama-vulkan.service llama-embed.service llama-video.service; do systemctl is-active --quiet "$unit" && bad="$bad $unit"; done; docker ps --format "{{.Names}}" | grep -qx open-webui && bad="$bad container:open-webui"; if [ -z "$bad" ]; then echo inactive; else echo "ACTIVE:$bad"; exit 1; fi' 'inactive'
+      # Check the durable interactive-GPU-sandbox prereqs: the uinput module + the
+      # nvidia-container-toolkit CDI spec (host GPU shared into containers for
+      # Sunshine/Moonlight).
       check lame "sandbox prereqs"  'lsmod | grep -q uinput && test -e /run/cdi/nvidia-container-toolkit.json && echo ok || echo MISSING'  'ok'
       # Docker's data-root lives on the lamedata ZFS pool, NOT the 98G LUKS root — a
       # haruness sweep once filled root to 100% (hosts/lame/lame.nix + disko.nix). If this

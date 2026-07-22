@@ -154,12 +154,13 @@ Per-host nuances (order: code → mail → lame → relay, then cold and wslop):
 - **lame** — root is LUKS-encrypted, so a **reboot drops it to initrd**. After
   `systemctl reboot`, unlock it: `ssh root@code cold-unlock --host lame`, then
   wait for full boot. Reboot is needed here so the new kernel matches the nvidia
-  module. Verify `nvidia-smi` and the `llama-*` services after. **Docker's
+  module. Verify `nvidia-smi`, the interactive sandbox prerequisites, and that
+  the deliberately disabled legacy AI stack remains inactive. **Docker's
   data-root lives on the `lamedata/docker` ZFS dataset** (not the 98G LUKS root,
   which a haruness sweep once filled to 100%); `docker.service` is ordered after
   `zfs.target` so it waits for that mount. After a reboot confirm `docker info`
   shows `Docker Root Dir: /lamedata/docker` and the images/containers survived
-  (`lab-check.sh` checks both — "docker on zfs" + "root disk free").
+  (`lab-check.sh` checks all of these invariants).
 - **relay** — RackNerd VPS, no encryption (GRUB on `/dev/vda`). It has bitten us
   on reboot before ("install corrupt"), recoverable only from the **RackNerd web
   console (VNC + power controls)** — have it open before you reboot. Push with

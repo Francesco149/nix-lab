@@ -1,10 +1,14 @@
 { config, pkgs, ... }:
 {
   imports = [
-    ./llama.nix
-    ./open-webui.nix
-    ./ollama-proxy.nix
-    ./ingest.nix
+    # Disabled as a set on 2026-07-22. Lame is currently the interactive GPU
+    # sandbox / haruness host, and the legacy lab AI stack only consumes those
+    # GPUs and keeps an unused Open WebUI container running. Keep the module
+    # paths visible here so re-enabling individual pieces remains deliberate.
+    # ./llama.nix
+    # ./open-webui.nix
+    # ./ollama-proxy.nix
+    # ./ingest.nix
   ];
 
   # ── ZFS, WoL, remote unlock ──────────────────────────────────────────────
@@ -57,7 +61,10 @@
   # overlay2 on ZFS is supported here (OpenZFS 2.4 / kernel 6.18). The `lamedata/docker`
   # dataset (hosts/lame/disko.nix) mounts at /lamedata/docker; docker is ordered after
   # zfs.target so it never writes to that path before the dataset is mounted (which
-  # would be shadowed on the next boot). See docs/UPDATING.md.
+  # would be shadowed on the next boot). Open WebUI's OCI-container declaration used
+  # to enable Docker implicitly; keep it explicit now that the AI modules are disabled.
+  # See docs/UPDATING.md.
+  virtualisation.docker.enable = true;
   virtualisation.docker.daemon.settings.data-root = "/lamedata/docker";
   systemd.services.docker = {
     after = [ "zfs.target" ];

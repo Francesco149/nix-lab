@@ -165,10 +165,10 @@ Follow-ups:
   `input_video`, or the C++ video helper) — user confirmed breaking it is fine.
 - [planned] Agentic-coding eval harness (`research/agentic-coding/`) to settle
   the model choice on coding quality; fold MTP on/off in (free dense speedup).
-- **Runtime state for next session:** `llama-vulkan` + `ollama-proxy` are
-  **stopped** to free the 7800XT for harness dev; `llama-embed` stays up on the
-  3080. `hosts/lame/llama.nix` is unchanged, so a lame reboot/redeploy restarts
-  them — re-stop (or comment out + deploy) if the 7800XT must stay free.
+- **Runtime state update (2026-07-22):** `hosts/lame/lame.nix` no longer imports
+  any of the four legacy AI modules (`llama`, Open WebUI, Ollama proxy, ingest),
+  so neither GPU is reclaimed after a reboot. The module files remain available
+  for a deliberate future re-enable.
 - A from-source video-enabled llama.cpp (mtmd-cli, bench, cli) is built under
   `lame:/tmp/llama.cpp/build-{vulkan,cuda}` and the APEX-MTP + dense-MTP GGUFs are
   downloaded in `/opt/ai-lab/models` — reusable next session (rebuild via the
@@ -204,7 +204,8 @@ Deploy state:
   reloaded the firewall — **dockerd untouched, the gpu-sandbox container +
   Moonlight session survived, no reboot.** `lab-check lame` = PASS 7/0/0.
 - Re-enable the lab's llama endpoint by dropping "vulkan" from llama.nix's
-  removeAttrs / flipping ollama-proxy's `enable` to true, then redeploy.
+  removeAttrs / flipping ollama-proxy's `enable` to true, restoring the relevant
+  imports in `hosts/lame/lame.nix`, then redeploy.
 - `utils/lab-check.sh` + `docs/UPDATING.md` updated: lame no longer asserts llama
   active; it checks the sandbox prereqs (uinput + nvidia-container-toolkit CDI).
 
@@ -644,6 +645,21 @@ desktop/archive/download configuration:
   receive-tree mounts and live ARC cap.
 
 Deploy state: code and cold pending build/deploy verification.
+
+## 2026-07-22 lame: disable the legacy AI stack
+
+Recovered from code's stale checkout and applied to the current lame config.
+`hosts/lame/lame.nix` keeps the four module paths as comments but imports none of
+them. This supersedes the earlier per-service toggles: the llama servers,
+Ollama proxy, ingest API, and Open WebUI container are all intentionally absent
+so lame's GPUs and Docker capacity stay available to the interactive sandbox and
+haruness. Open WebUI's OCI declaration used to enable Docker implicitly, so
+`lame.nix` now enables Docker explicitly; removing the AI stack must not remove
+the harness runtime. `lab-check.sh` fails if any legacy AI unit or the
+`open-webui` container is active, and separately asserts Docker's ZFS data root.
+
+Deploy state: pending the already-required lame reboot into its staged July 2026
+kernel/NVIDIA generation, followed by unlock and health verification.
 
 ## Niri Desktop (wslop)
 
