@@ -189,6 +189,23 @@ for h in "${HOSTS[@]}"; do
       check cold "aria2"            'systemctl is-active aria2'                                               'active'
       check cold "ariang web"       "curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:$ARIA_WEB/ || echo FAILED" '200'
 
+      # Read-only SMB views (hosts/cold/samba.nix). The services are deliberately
+      # mount-gated: serving the empty rootfs directories while gigavault is
+      # locked would make healthy shares look empty. Also assert the policy the
+      # shares exist for — local writers remain writable, but SMB never is.
+      check cold "samba services" \
+        'systemctl is-active --quiet samba-smbd samba-wsdd && echo active || { systemctl is-active samba-smbd samba-wsdd; exit 1; }' \
+        'active'
+      check cold "samba read only" \
+        'for s in archive staging torrents; do ro="$(testparm -s --section-name="$s" --parameter-name="read only" 2>/dev/null)" || exit 1; printf "%s=%s\n" "$s" "$ro"; [ "$ro" = Yes ] || exit 1; done; echo all-read-only' \
+        'all-read-only'
+      check cold "samba account" \
+        'pdbedit -L 2>/dev/null | cut -d: -f1 | grep -qx headpats && echo provisioned' \
+        'provisioned'
+      check cold "share sources locally writable" \
+        'for spec in headpats:/gigavault/archive headpats:/gigavault/staging aria2:/gigavault/staging headpats:/gigavault/torrents qbittorrent:/gigavault/torrents; do user="${spec%%:*}"; path="${spec#*:}"; runuser -u "$user" -- test -w "$path" || { echo "NOT_WRITABLE $user $path"; exit 1; }; done; echo writable' \
+        'writable'
+
       # Backup targets are readonly so they cannot be emptied by hand — but ONLY
       # the zfs-receive ones. Every other target is an ordinary filesystem
       # writer (rsync / restic-sftp / ssh "cat >") and readonly WOULD BREAK IT.

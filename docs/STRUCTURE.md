@@ -12,7 +12,7 @@ hosts/
   mail/                   mailserver, Gmail fetch, DMARC analyzer
   relay/                  VPS, headscale, public mail relay, stream proxy
   cold/                   cold storage, ZFS backup target, remote unlock,
-                          plasma/moonlight desktop, torrent stack
+                          plasma/moonlight desktop, torrent stack, read-only SMB
   lame/                   inference server, GPUs, local AI services
 modules/
   *.nix                   reusable NixOS modules
@@ -42,7 +42,7 @@ Current host entries:
 | `code` | Interactive VM, Caddy, cache, service UIs, backup orchestrator | Docker, interactive shell, local LAN, tailnet LAN route, grammar/lurk/shigebot modules, root HM |
 | `mail` | Mailserver and DMARC analyzer | nixos-mailserver, DMARC analyzer, local LAN, tailnet LAN |
 | `relay` | Public VPS relay and headscale | no extra modules; host file owns specifics |
-| `cold` | Cold storage, backup target, remote desktop, torrents | local LAN, tailnet LAN, initrd unlock, ZFS, backup target, interactive, plasma + sunshine, qbittorrent |
+| `cold` | Cold storage, backup target, remote desktop, torrents, read-only SMB | local LAN, tailnet LAN, initrd unlock, ZFS, backup target, interactive, plasma + sunshine, qbittorrent, Samba + WSD |
 | `lame` | GPU inference host | disko, interactive shell, local LAN, tailnet LAN, initrd unlock, ZFS, backup target, root HM |
 
 ## Documentation Boundaries

@@ -235,6 +235,67 @@ non-interactive remote commands through the login shell, and `root@cold` is the
 receiving end of wslop's rsync push and the `zfs` calls around it. Log in as
 `headpats` for the interactive shell.
 
+## SMB shares (read-only network views)
+
+`hosts/cold/samba.nix` exports the three operator-facing datasets as
+authenticated, read-only shares:
+
+| Share | Local path |
+| --- | --- |
+| `archive` | `lab.archive.root` (`/gigavault/archive`) |
+| `staging` | `lab.staging.root` (`/gigavault/staging`) |
+| `torrents` | `lab.torrents.root` (`/gigavault/torrents`) |
+
+The **SMB view** is read-only: remote clients cannot create, edit, rename or
+delete files. Samba does not set ZFS `readonly` or remove local write
+permissions, so local sessions and the aria2 / qBittorrent services on cold keep
+writing normally.
+
+In particular, `headpats` belongs to both the `aria2` and `qbittorrent` groups.
+The aria2 module keeps staging at `aria2:aria2 0775` with a group-writable umask;
+this avoids its activation-time tmpfiles rule silently undoing local access.
+
+Provision the sole SMB account once after deploying:
+
+```sh
+ssh -t root@cold samba-set-password
+```
+
+The username is `headpats`; this password belongs to Samba's persistent passdb
+and is independent of the Unix login. There is no guest fallback. That is
+intentional: current Windows versions reject insecure guest SMB by default, and
+authenticated SMB works without weakening client policy.
+
+Windows access uses ordinary UNC paths. WSD makes `COLD` appear under Explorer's
+**Network** view when Windows Network Discovery is enabled and the network is
+marked Private; the direct path is more deterministic:
+
+```text
+\\cold\archive
+\\cold\staging
+\\cold\torrents
+```
+
+Use `headpats` (or `COLD\headpats`) when prompted. If Windows cached a wrong
+credential, remove the `cold` entry from Credential Manager or disconnect the
+existing mapping before retrying. SMB1 and guest access stay disabled; Windows
+Vista or newer negotiates SMB2/3, while Windows XP is intentionally unsupported.
+
+Linux file managers can open `smb://cold/archive` (or
+`smb://cold.local/archive` through mDNS). Command-line equivalents:
+
+```sh
+smbclient //cold/archive -U headpats
+sudo mount -t cifs //cold/archive /mnt/archive \
+  -o username=headpats,vers=3.1.1,ro
+```
+
+Only direct SMB (TCP 445) and WSD are admitted, and only on cold's physical LAN
+interface. Nothing is forwarded at the router. On boot, `samba-smbd` and WSD are
+intentionally skipped while encrypted gigavault is locked; after all three
+datasets mount, `samba-mount-watch` starts them within two minutes. This prevents
+clients from seeing empty rootfs directories in place of the real shares.
+
 ## Archive (long-term storage on gigavault)
 
 `gigavault/archive` (`lab.archive`, config in `hosts/cold/archive.nix`) is for

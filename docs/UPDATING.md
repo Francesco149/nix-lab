@@ -189,6 +189,9 @@ Per-host nuances (order: code → mail → lame → relay, then cold and wslop):
     powers cold off, taking the desktop and any running torrents with it.
   - After unlocking, `qbittorrent` starts on its own within ~2 minutes (the
     `qbittorrent-mount-watch` timer waits for `gigavault/torrents` to mount).
+    The read-only SMB server and Windows WSD discovery follow the same rule:
+    `samba-mount-watch` starts them only after archive, staging and torrents are
+    all mounted, also within ~2 minutes.
 - **wslop** — activate locally and last, after it has finished building and
   pushing the other closures: `sudo nix-env -p /nix/var/nix/profiles/system
   --set "$NEW" && sudo "$NEW/bin/switch-to-configuration" switch`. Do not reboot;
@@ -272,8 +275,12 @@ Critical checks (also what the script asserts):
   `@wslop-*` snapshot, `gigavault/timemachine-restic` present, `/tmp/stay` present
   if it should stay up. Desktop/torrent stack: `gigavault/torrents` present and
   mounted, `qbittorrent` active and answering on `lab.ports.qbittorrent`,
-  `display-manager` active, `sunshine` running. An *unmounted* inbox with an
-  inactive qBittorrent means the pool is still locked — unlock, don't debug.
+  `display-manager` active, `sunshine` running. SMB: `samba-smbd` and
+  `samba-wsdd` active, all three exported shares still reported read-only, and
+  the `headpats` Samba account provisioned. The source paths must remain locally
+  writable to `headpats` and to the aria2/qBittorrent service users. An
+  *unmounted* inbox with inactive qBittorrent/Samba means the pool is still
+  locked — unlock, don't debug.
 - lame: `nvidia-smi` works; interactive-GPU-sandbox prereqs present (uinput module +
   `/run/cdi/nvidia-container-toolkit.json`). NOTE: `llama-vulkan`/`llama-embed` are
   intentionally **disabled** (7800XT freed for haruness harness dev — see WORKDOC.md);

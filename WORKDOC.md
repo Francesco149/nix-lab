@@ -671,6 +671,49 @@ returned via `unless-stopped`, and `/tmp/stay` was restored. Targeted check:
 PASS=10, WARN=0, FAIL=0. The final six-host aggregate was PASS=67, WARN=0,
 FAIL=0.
 
+## 2026-07-22 cold: read-only SMB shares
+
+`hosts/cold/samba.nix` exports `lab.archive.root`, `lab.staging.root` and
+`lab.torrents.root` as the `archive`, `staging` and `torrents` shares. The access
+boundary is deliberately Samba-only: every share has `read only = yes`, without
+setting ZFS `readonly` or removing local write access from cold's
+aria2/qBittorrent/operator workflows.
+
+Decisions:
+
+- Authenticated `headpats` access, no guest fallback. This matches current
+  Windows defaults instead of requiring insecure-guest policy changes; the
+  password lives only in Samba's persistent passdb and is set interactively with
+  `samba-set-password`.
+- SMB2+ on direct TCP 445 only. NetBIOS/SMB1, nmbd, winbindd and printer RPCs
+  are disabled. Samba and its firewall holes bind only to cold's physical LAN
+  interface; nothing is router-forwarded or exposed on tailscale.
+- Windows Explorer discovery uses `samba-wsdd`; Samba's Avahi registration
+  covers Linux mDNS clients. Direct `\\cold\<share>` / `smb://cold/<share>` paths
+  remain the deterministic fallback.
+- Both `samba-smbd` and WSD have mountpoint conditions for all three encrypted
+  datasets. `samba-mount-watch` starts them after unlock, avoiding an apparently
+  healthy server that actually exposes empty rootfs mountpoints.
+- The live local-write audit exposed pre-existing staging drift: the NixOS
+  aria2 module reset `staging-init`'s `aria2:users 0775` to `aria2:aria2 0770`
+  through tmpfiles on every activation. The declarations now agree on
+  `aria2:aria2 0775`, aria2 uses umask `0002`, and `headpats` belongs to the
+  `aria2` group. This preserves the intended local sorting workflow.
+- `lab-check.sh` asserts both services, every share's effective `read only`
+  value, the persistent Samba account, and local writer access for both the
+  operator and service users. `docs/UPDATING.md` carries the new post-unlock
+  invariant.
+
+Deploy state: built and live-switched on cold without a reboot. The three source
+datasets stayed mounted and ZFS `readonly=off`; `samba-smbd`, `samba-wsdd`, the
+mount-watch timer and both download services are active. A temporary random
+Samba credential verified authenticated listing plus `NT_STATUS_ACCESS_DENIED`
+for `mkdir` on every share, then both the credential and probes were removed.
+The targeted health check is PASS=28 / WARN=0 / FAIL=1: the sole expected failure
+is the deliberately unprovisioned permanent account. Run
+`ssh -t root@cold samba-set-password` to choose it; no password is placed in this
+repo.
+
 ## Niri Desktop (wslop)
 
 Niri is wired as a nested compositor under WSLg on the `wslop` host. The

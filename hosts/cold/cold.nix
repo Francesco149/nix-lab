@@ -14,6 +14,7 @@ in
     ./torrents.nix
     ./archive.nix
     ./downloads.nix
+    ./samba.nix
   ];
 
   # ── interactive user ─────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ in
       "uinput"
       "audio"
       "qbittorrent" # read/write the torrent inbox without sudo
+      "aria2" # read/write download staging without sudo
     ];
     openssh.authorizedKeys.keys = lab.ssh.authorized-keys;
   };

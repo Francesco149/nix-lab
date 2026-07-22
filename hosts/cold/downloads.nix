@@ -54,8 +54,9 @@ let
         ${s.dataset}
     fi
 
-    # aria2 writes as its own user; headpats needs to sort afterwards.
-    install -d -o aria2 -g users -m 0775 ${s.root}
+    # Match the NixOS aria2 module's stable owner/group. headpats belongs to the
+    # aria2 group so both the daemon and an interactive session can sort here.
+    install -d -o aria2 -g aria2 -m 0775 ${s.root}
     echo "staging ready at ${s.root}"
   '';
 
@@ -160,6 +161,12 @@ in
   services.aria2 = {
     enable = true;
     rpcSecretFile = lab.secrets.aria2;
+
+    # The module emits a tmpfiles rule for `settings.dir` on every activation.
+    # Its 0770 default used to undo staging-init's intended interactive access;
+    # keep the directory and newly downloaded content group-writable instead.
+    downloadDirPermission = "0775";
+    serviceUMask = "0002";
 
     # aria2 is HTTP-out only here; the BitTorrent side is qBittorrent's job
     # (hosts/cold/torrents.nix), which already owns the forwarded peer port. So
