@@ -4,7 +4,12 @@
     nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/main";
     disko.url = "github:nix-community/disko";
     llm-agents.url = "github:numtide/llm-agents.nix";
-    omp-nix.url = "github:yuxqiu/omp-nix";
+    # Vendored 2026-08-14: upstream omp-nix still wraps oh-my-pi 17.2.15,
+    # which lacks `images.describeForTextModels` (auto-describe pasted images
+    # for text-only models; landed in 17.3.x). Bump hosts/wslop/omp-nix/
+    # versions.json to a newer release, or revert to the github input once
+    # yuxqiu/omp-nix ships >= 17.3.
+    omp-nix.url = "path:./hosts/wslop/omp-nix";
     nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
 
     nut.url = "git+file:///opt/src/nut";

@@ -898,3 +898,22 @@ comparably. Default switched in `utils/vision` + `vision-openrouter.py` +
 omp (HM module + live config, vision role → openrouter/qwen/qwen3.7-flash).
 `:batch` models need the /api/beta/batches endpoint — a possible bulk
 offline path if the image corpus ever grows; not usable interactively.
+
+### 2026-08-14 — omp 17.3.2: pasted images auto-described via vision role
+
+Pasting an image path into omp showed "[image omitted: the active model
+does not support image input]" (deepseek is text-only). Root cause: installed
+omp-nix wrapped oh-my-pi 17.2.15, which predates `images.describeForTextModels`
+(landed in 17.3.x). Fixed by VENDORING omp-nix at `hosts/wslop/omp-nix/`
+(flake.nix/package.nix from yuxqiu/omp-nix + versions.json pinned to 17.3.2,
+hash sha256-aEnPZEbBBZzJop9HOiLDz5oX0XlzzKiFG5A+VkftqAQ=) and pointing the
+`omp-nix` flake input at it. Revert to the github input when yuxqiu/omp-nix
+ships >= 17.3. Future bumps: edit hosts/wslop/omp-nix/versions.json
+(prefetch hash via `nix store prefetch-file <release-url>`), then
+`nixos-rebuild switch --flake .#wslop`.
+
+Behavior now (verified one-shot): image attachment → saved under '/home/headpats/.omp/agent/sessions/--opt-src-nix-lab--/2026-08-13T19-50-20-694Z_019ffcac-f316-7000-8aab-704dbc7bf9ff/local' →
+vision role (openrouter qwen3.7-flash) describes it → `<image path=...>
+description</image>` injected into context. The earlier "long pause" on
+pasted images was the drvfs read + resize with no payoff; it now pays off
+with the description. `images.describeForTextModels` defaults true.
