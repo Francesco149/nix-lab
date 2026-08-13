@@ -10,7 +10,7 @@ timeout, 4xx/5xx) — caller falls back to the local lame model.
 """
 import base64, json, os, sys, urllib.request, urllib.error
 
-MODEL = os.environ.get("VISION_OR_MODEL", "qwen/qwen3.5-9b")
+MODEL = os.environ.get("VISION_OR_MODEL", "qwen/qwen3.7-flash")
 URL = "https://openrouter.ai/api/v1/chat/completions"
 TIMEOUT = 180
 

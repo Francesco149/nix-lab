@@ -876,3 +876,25 @@ service. Tore down the slop/comfyui docker stack (backups in
   when OR is down — that is by design (the switch/down protocol).
 - Long videos (`vision --video`) remain local-only (chunk+join needs the
   llama.cpp native-video path).
+
+### 2026-08-14 — OpenRouter vision cost bench: default now qwen3.7-flash
+
+Measured REAL per-request cost (usage tokens × price) on the eval images +
+a 6s clip (`utils/vision-bench.py`, runnable anytime). Tokenization varies
+wildly per model — qwen3.5-9b eats 5785 prompt tokens for a 980x1500 PNG vs
+qwen3.7-flash's 2530 and seed-1.6-flash's 1360 — so price-per-M alone lies.
+
+| model | $/M in | dense.png req cost | video (6s) tokens | verdict |
+|---|---|---|---|---|
+| qwen/qwen3.5-9b (old default) | 0.10 | $0.0006 | 5936 | baseline; heaviest tokenizer |
+| **qwen/qwen3.7-flash** (new default) | 0.03 | $0.0001 | 2215 | 6x cheaper, equal quality (3/3 stable transcriptions) |
+| qwen/qwen3.5-flash-02-23 | 0.07 | $0.0002 | 2215 | 3x cheaper, equal quality |
+| google/gemini-2.5-flash-lite | 0.10 | $0.0004 | 1583 | same price, fewer tokens |
+| bytedance-seed/seed-1.6-flash | 0.07 | $0.0002 | 7694 | video tokenization is pricey |
+| google/gemini-2.5-flash-lite:batch | 0.05 | — | — | **Batch-API-only** (404 on realtime); bulk jobs only |
+
+All five transcribe dense text verbatim and describe game/video content
+comparably. Default switched in `utils/vision` + `vision-openrouter.py` +
+omp (HM module + live config, vision role → openrouter/qwen/qwen3.7-flash).
+`:batch` models need the /api/beta/batches endpoint — a possible bulk
+offline path if the image corpus ever grows; not usable interactively.

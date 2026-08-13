@@ -18,5 +18,5 @@ modelRoles:
   plan: deepseek/deepseek-v4-flash
   commit: deepseek/deepseek-v4-flash
   task: deepseek/deepseek-v4-flash
-  vision: openrouter/qwen/qwen3.5-9b
+  vision: openrouter/qwen/qwen3.7-flash
 defaultThinkingLevel: high

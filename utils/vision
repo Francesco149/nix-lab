@@ -32,7 +32,7 @@ CODE="${VISION_CODE:-root@10.0.10.53}"
 ALIAS="${VISION_ALIAS:-qwen3.5-9b}"
 PORT=8080
 WAKE_TIMEOUT="${VISION_WAKE_TIMEOUT:-90}"
-OR_MODEL="${VISION_OR_MODEL:-qwen/qwen3.5-9b}"
+OR_MODEL="${VISION_OR_MODEL:-qwen/qwen3.7-flash}"
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 # API key lives OUTSIDE the repo, in omp's .env (same place as DEEPSEEK_API_KEY).

@@ -153,7 +153,7 @@ interactive coding harness later.
 ## Vision (OpenRouter default, local lame fallback) — protocol for agents
 
 `vision` (installed at `/usr/local/bin/vision`) sends images/videos to a
-vision model. **DEFAULT: OpenRouter `qwen/qwen3.5-9b`** (key in
+vision model. **DEFAULT: OpenRouter `qwen/qwen3.7-flash` (cheapest verified; see WORKDOC 2026-08-14 bench)** (key in
 `~/.omp/agent/.env` as `OPENROUTER_API_KEY` — never commit it). If OpenRouter
 fails (401 credit/expired key, 4xx/5xx, timeout), it **falls back to the
 local lame model** (qwen3.5-9b on the 7800XT, port 8080) via the state
