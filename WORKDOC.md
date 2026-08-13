@@ -785,3 +785,43 @@ module (supersedes the 2026-06-30 note).
   off the paid API (tiny role is deliberately unset); consider whether omp
   should join the shared HM set (like codex/claude-code/opencode in common.nix)
   if it proves itself beyond wslop.
+
+## 2026-08-13 local vision on lame — eval, omp wiring, gpu-switch
+
+Goal: give text-only agents (omp/DSV4-flash) real vision through a local VLM
+on the 7800XT; evaluate candidates on coding-adjacent visuals; make it a
+service. Tore down the slop/comfyui docker stack (backups in
+`/opt/ai-lab/slop-backup/` on lame; restore-able via `docker run` args there).
+
+- **Eval harness**: `research/local-vision/` — llama.cpp server loop over
+  `models.yaml` x `testcases.yaml` (game HUD screenshots from the kirby-tnt
+  BizHawk rig, dense text, highlighted code, web UI, diagram, 2 video clips).
+  Native `input_video` for Qwen-VL lineage, ffmpeg frame fallback otherwise;
+  HTML report per run. Runs: `run-full-20260813` (7 on-disk/new models; the
+  Qwen3-VL-8B + DeepSeek-OCR part-2 appended when downloads landed).
+- **Models**: on-disk pool was Qwen3.5/3.6 HauhauCS quants + Gemma-4 family
+  (all with mmproj); downloaded Qwen3.5-9B (newest native-vision family),
+  Qwen3-VL-8B, DeepSeek-OCR (dense-text specialist). DeepSeek-VL3 does not
+  exist; latest runnable DeepSeek vision is OCR-2. Qwen3-VL-30B-A3B only has
+  Q4_K_M (18.6G) — too big for 16GB, skipped.
+- **Pipeline gotchas (all in local-vision README)**: llama.cpp `input_video`
+  payload shape, ffprobe must stay in server PATH (mtmd helper), gemma-4
+  `enable_thinking:false` via chat_template_kwargs, SIGPIPE wrapper, 15.5 GB
+  VRAM ceiling (gemma-26B+F32-mmproj ran at 15.8 — flagged, results suspect).
+- **gpu-switch** (`hosts/lame/gpu-switch/` + `gpu-switch.nix`): preset
+  switcher for what each GPU runs; presets vision/code-qwen36/gemma26/embed/
+  idle; persists current preset, boot-restore unit; ports 8080 (7800XT) +
+  6080 (3080) firewalled. Module wired in lame.nix but **not yet deployed**
+  (`nixos-rebuild` pending eval so it doesn't kill running servers).
+- **omp wiring** (pending winner): `~/.omp/agent/models.yml` gets a
+  `lame-vision` provider (auth:none, openai-completions, model with
+  `input: [text, image]`); `config.yml` `modelRoles.vision` → it. Then
+  `inspect_image` works on any text-only session. NOTE: HM activation copies
+  config.yml/models.yml over symlinks on every switch — edit the HM module
+  (`hosts/wslop/hm/omp.nix`) instead of only the live files or the change
+  reverts.
+- **vision CLI**: `utils/vision` (installed /usr/local/bin) → ssh lame →
+  `gpu-switch` vision endpoint; usable from any repo/script, not just omp.
+- **Follow-ups**: deploy lame (gpu-switch.nix), pick winner + set omp vision
+  role, part-2 eval (qwen3vl-8b, deepseek-ocr), maybe swap gemma26 mmproj to
+  F16, publish report to llm-feed.
