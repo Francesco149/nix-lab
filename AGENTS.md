@@ -149,3 +149,25 @@ interactive coding harness later.
   if a tool seems absent, go through the flake instead of working around it.
 - Model picks + the native-video / local-VLM eval that informs them live in
   `research/video-understanding/`.
+
+## Vision (local VLM on lame) — protocol for agents
+
+`vision` (installed at `/usr/local/bin/vision`) sends images/videos to the
+local vision model on lame (qwen3.5-9b, 7800XT, port 8080). Full usage:
+`vision --help`. Every call is STATE-GATED — honor the protocol:
+
+- **`VISION_STATE=ok`** — vision is running; output follows.
+- **`VISION_STATE=switch`** (exit 3) — lame is up but vision is NOT running
+  (something else is on the GPU, or it's idle). **STOP and ask the human to
+  confirm** `ssh root@lame gpu-switch run vision` before switching — an
+  automatic switch would kill whatever is currently running there (thrash
+  guard). Do not retry in a loop.
+- **`VISION_STATE=down`** (exit 4) — lame unreachable even after an automatic
+  wake attempt (`cold-unlock --host lame --stay` via code, bounded timeout).
+  **Keep working WITHOUT vision** (OCR/a11y/read as usual) and tell the human
+  vision is down so they can wake lame manually if they want it.
+
+Probe cheaply with `vision --check` (never wakes the host). The same state
+machine backs omp's `inspect_image` (vision role → lame-vision provider);
+when inspect_image errors with a network/connection failure, the model should
+run the same switch/down protocol (check with `vision --check`).

@@ -851,3 +851,15 @@ service. Tore down the slop/comfyui docker stack (backups in
   DeepSeek-OCR(-2). Qwen3-VL-30B-A3B has no fitting quant for 16GB. Report
   server (lame:8099) is a manual `python3 -m http.server`, NOT a service —
   re-add the iptables rule after any firewall reload.
+
+### 2026-08-13 (final) — vision pipeline state protocol
+
+`vision` is now state-gated: `VISION_STATE=ok|switch|down` (exit 0/3/4).
+- ok → proceed; switch → model STOPS and asks the human before
+  `gpu-switch run vision` (thrash guard: something else may be on the GPU);
+  down → automatic wake via code's `cold-unlock --host lame --stay` with a
+  bounded timeout (VISION_WAKE_TIMEOUT, default 90s), on failure keep working
+  without vision and warn the human. `vision --check` is the passive probe.
+- Protocol documented in AGENTS.md (agents) + `vision --help` (CLI).
+- Verified: ok (healthy), switch (real gemma26 swap detected, refused to
+  switch), down (fake host: wake attempted, bounded ~timeout, rc=4).

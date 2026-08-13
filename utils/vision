@@ -1,61 +1,154 @@
 #!/usr/bin/env bash
 # vision — ask the local lame vision model what an image/video contains.
-# Works from wslop or any host that can ssh to lame.
+# Works from wslop or any host that can ssh to lame (and to code for wake).
 #
-#   vision <image-or-video> [prompt]    # single media item
-#   vision --video <file> [--chunk 30]  # long video: chunk + join summary
-#   vision -                            # read the media from stdin (binary)
-#   echo "..." | vision x.png           # prompt via stdin instead of argv
+#   vision --check                     # machine-readable state only
+#   vision <image-or-video> [prompt]   # single media item (gated on state)
+#   vision --video <file> [--chunk 30] # long video: chunk + join summary
+#   vision -                           # read the media from stdin (binary)
 #
-# Requires the `vision` gpu-switch preset running on lame:
-#   ssh root@lame gpu-switch run vision
+# State protocol (what callers/models must honor):
+#   VISION_STATE=ok     — vision model healthy on lame:8080; proceed.
+#   VISION_STATE=switch — lame is up but vision is NOT running (something
+#                         else is on the GPU, or it is idle). DO NOT switch
+#                         automatically: STOP and ask the human to confirm
+#                         `ssh root@lame gpu-switch run vision` (switching
+#                         would kill whatever is currently running).
+#   VISION_STATE=down   — lame unreachable, even after a cold-unlock attempt.
+#                         Keep going WITHOUT vision and tell the human vision
+#                         is down (it was attempted: cold-unlock --host lame).
+#
+# Exit codes: 0 = ok/used, 3 = switch-needed, 4 = down.
+#
+# Env knobs: VISION_LAME (default root@10.0.10.56), VISION_CODE (default
+# root@10.0.10.53), VISION_ALIAS (default qwen3.5-9b), VISION_WAKE_TIMEOUT (90),
+# VISION_ALIAS.
 set -euo pipefail
 
-LAME=root@10.0.10.56
+LAME="${VISION_LAME:-root@10.0.10.56}"
+CODE="${VISION_CODE:-root@10.0.10.53}"
+ALIAS="${VISION_ALIAS:-qwen3.5-9b}"
 PORT=8080
+WAKE_TIMEOUT="${VISION_WAKE_TIMEOUT:-90}"
 
-if [ "${1:-}" = "--video" ]; then
-  shift
-  FILE="${1:?usage: vision --video <file> [--chunk N]}"
-  shift || true
-  [ -f "$FILE" ] || { echo "vision: no such file: $FILE" >&2; exit 1; }
-  if ! ssh -o ConnectTimeout=5 "$LAME" "curl -sf http://127.0.0.1:$PORT/health >/dev/null 2>&1 && echo up || echo down" | grep -q up; then
-    echo "vision: lame vision server not running on :$PORT — start it with:" >&2
-    echo "  ssh $LAME gpu-switch run vision" >&2
-    exit 2
+lame_up() { ssh -o ConnectTimeout=6 -o BatchMode=yes "$LAME" true 2>/dev/null; }
+
+vision_alias() {
+  ssh -o ConnectTimeout=6 "$LAME" \
+    "curl -sf http://127.0.0.1:$PORT/v1/models 2>/dev/null | sed -n 's/.*\"id\":\"\([^\"]*\)\".*/\1/p' | head -1" 2>/dev/null || true
+}
+
+gpu_state() {
+  ssh -o ConnectTimeout=6 "$LAME" \
+    "/opt/ai-lab/gpu-switch/gpu-switch status 2>/dev/null | head -6" 2>/dev/null \
+    || echo "(cannot read gpu-switch status)"
+}
+
+# check_state prints one of: ok | switch | down
+check_state() {
+  if ! lame_up; then
+    echo "down"; return
   fi
-  scp -q -o ConnectTimeout=10 "$FILE" "$LAME:/tmp/vision-video.bin"
-  ssh "$LAME" "nix-shell -p python3 ffmpeg --run 'python3 /opt/ai-lab/gpu-switch/video-summarize.py /tmp/vision-video.bin $*'"
-  exit 0
-fi
+  if [ "$(vision_alias)" = "$ALIAS" ]; then
+    echo "ok"; return
+  fi
+  echo "switch"
+}
 
-SRC="${1:?usage: vision <image|video> [prompt] < input for prompt}"
-shift || true
-PROMPT="$*"
+wake_lame() {
+  local deadline=$((SECONDS + WAKE_TIMEOUT))
+  echo "vision: lame is down — waking it via code (cold-unlock --host lame --stay, timeout ${WAKE_TIMEOUT}s)..." >&2
+  timeout "$WAKE_TIMEOUT" ssh -o ConnectTimeout=6 "$CODE" "cold-unlock --host lame --stay" >&2 || true
+  # poll for ssh + (hopefully) the boot-restored vision service, within budget
+  while [ $SECONDS -lt $deadline ]; do
+    if lame_up; then
+      state="$(check_state)"
+      [ "$state" != "down" ] && return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
 
-if [ "$SRC" = "-" ]; then
-  TMP=$(mktemp --suffix=.bin)
-  cat > "$TMP"
-  SRC="$TMP"
-fi
+print_switch() {
+  echo "VISION_STATE=switch"
+  echo "vision: lame is up but the vision model is NOT running on :$PORT."
+  echo "What is on lame right now:"
+  gpu_state | sed 's/^/  /'
+  echo
+  echo "MODEL INSTRUCTION: do NOT switch lame to vision yourself — switching"
+  echo "would kill whatever is currently running there. STOP and ask the human"
+  echo "to confirm:  ssh root@lame gpu-switch run vision"
+}
 
-EXT="${SRC##*.}"
-[ -f "$SRC" ] || { echo "vision: no such file: $SRC" >&2; exit 1; }
+print_down() {
+  echo "VISION_STATE=down"
+  echo "vision: lame is unreachable even after a wake attempt"
+  echo "(cold-unlock --host lame --stay)."
+  echo
+  echo "MODEL INSTRUCTION: keep going WITHOUT vision, and tell the human that"
+  echo "vision is down (wake was attempted automatically and timed out)."
+}
 
-# server up?
-if ! ssh -o ConnectTimeout=5 "$LAME" "curl -sf http://127.0.0.1:$PORT/health >/dev/null 2>&1 && echo up || echo down" | grep -q up; then
-  echo "vision: lame vision server not running on :$PORT — start it with:" >&2
-  echo "  ssh $LAME gpu-switch run vision" >&2
-  exit 2
-fi
+cmd_check() {
+  case "$(check_state)" in
+    ok) echo "VISION_STATE=ok"; echo "vision: $ALIAS healthy on ${LAME#*@}:$PORT" ;;
+    switch) print_switch; exit 3 ;;
+    down) print_down; exit 4 ;;
+  esac
+}
 
-# ship media + ask
-echo "$EXT" | ssh "$LAME" "cat > /tmp/vision-ext" 2>/dev/null
-cat "$SRC" | ssh "$LAME" "base64 -w0 > /tmp/vision-b64"
-if [ -n "$PROMPT" ]; then
-  echo "$PROMPT" | ssh "$LAME" "cat > /tmp/vision-prompt"
-  ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py \"\$(cat /tmp/vision-prompt)\"' < /tmp/vision-b64"
-else
-  ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py' < /tmp/vision-b64"
-fi
-if [ -n "${TMP:-}" ]; then rm -f "$TMP"; fi
+cmd_use() { # media-args...
+  case "$(check_state)" in
+    ok) ;;
+    switch) print_switch; exit 3 ;;
+    down)
+      if ! wake_lame; then print_down; exit 4; fi
+      # woke up: re-check; if not vision, require human confirmation
+      case "$(check_state)" in
+        ok) ;;
+        switch) print_switch; exit 3 ;;
+        down) print_down; exit 4 ;;
+      esac
+      ;;
+  esac
+  # state is ok here — run the actual request
+  send_media "$@"
+}
+
+send_media() {
+  local media="$1"; shift || true
+  if [ "$media" = "--video" ]; then
+    local file="${1:?usage: vision --video <file> [--chunk N]}"
+    shift || true
+    [ -f "$file" ] || { echo "vision: no such file: $file" >&2; exit 1; }
+    scp -q -o ConnectTimeout=10 "$file" "$LAME:/tmp/vision-video.bin"
+    ssh "$LAME" "nix-shell -p python3 ffmpeg --run 'python3 /opt/ai-lab/gpu-switch/video-summarize.py /tmp/vision-video.bin $*'"
+    return
+  fi
+  local prompt="$*"
+  local src="$media"
+  local tmp=""
+  if [ "$src" = "-" ]; then
+    tmp=$(mktemp --suffix=.bin)
+    cat > "$tmp"
+    src="$tmp"
+  fi
+  [ -f "$src" ] || { echo "vision: no such file: $src" >&2; exit 1; }
+  local ext="${src##*.}"
+  echo "$ext" | ssh "$LAME" "cat > /tmp/vision-ext"
+  cat "$src" | ssh "$LAME" "base64 -w0 > /tmp/vision-b64"
+  if [ -n "$prompt" ]; then
+    echo "$prompt" | ssh "$LAME" "cat > /tmp/vision-prompt"
+    ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py \"\$(cat /tmp/vision-prompt)\"' < /tmp/vision-b64"
+  else
+    ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py' < /tmp/vision-b64"
+  fi
+  if [ -n "$tmp" ]; then rm -f "$tmp"; fi
+}
+
+case "${1:-}" in
+  --check) cmd_check ;;
+  -h|--help) sed -n '2,30p' "$0" ;;
+  *) cmd_use "$@" ;;
+esac

@@ -121,3 +121,14 @@ Long-video path (ingest-style): `video-summarize.py` chunks → timestamped
 per-chunk captions → one joined summary. Verified on a 122 s MinutePhysics
 clip (5 chunks, 93 s total, accurate joined summary). Wrapped as
 `vision --video <file>`.
+
+## State protocol (wake / switch guard)
+
+`utils/vision` gates every call: `VISION_STATE=ok|switch|down` (exit 0/3/4).
+On `down` it auto-wakes lame via code (`cold-unlock --host lame --stay`,
+bounded by `VISION_WAKE_TIMEOUT`); on `switch` (lame up, vision not running —
+something else on the GPU or idle) it refuses to switch automatically and
+instructs the caller to get human confirmation (`gpu-switch run vision`).
+`vision --check` probes passively. The same protocol is documented in the
+repo AGENTS.md for agent sessions and is what omp `inspect_image` failures
+should fall back to.
