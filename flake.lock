@@ -361,6 +361,26 @@
         "url": "file:///opt/src/nut"
       }
     },
+    "omp-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786584475,
+        "narHash": "sha256-sk6BauecMgDn+tR37A9U3eIG04cIvHCHT3r+XV1BsB0=",
+        "owner": "yuxqiu",
+        "repo": "omp-nix",
+        "rev": "29a0d9ddb25b23054ec50a80277e89c06c70d49a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "yuxqiu",
+        "repo": "omp-nix",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "deploy-rs": "deploy-rs",
@@ -373,6 +393,7 @@
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
         "nut": "nut",
+        "omp-nix": "omp-nix",
         "shigebot": "shigebot"
       }
     },

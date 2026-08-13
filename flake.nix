@@ -4,6 +4,7 @@
     nixos-mailserver.url = "gitlab:simple-nixos-mailserver/nixos-mailserver/main";
     disko.url = "github:nix-community/disko";
     llm-agents.url = "github:numtide/llm-agents.nix";
+    omp-nix.url = "github:yuxqiu/omp-nix";
     nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
 
     nut.url = "git+file:///opt/src/nut";
@@ -22,6 +23,7 @@
     shigebot.inputs.nixpkgs.follows = "nixpkgs";
     grammar-helper.inputs.nixpkgs.follows = "nixpkgs";
     llm-agents.inputs.nixpkgs.follows = "nixpkgs";
+    omp-nix.inputs.nixpkgs.follows = "nixpkgs";
     nixos-wsl.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-mailserver.inputs.flake-compat.follows = "deploy-rs/flake-compat";
@@ -37,6 +39,7 @@
       dmarc-analyzer,
       disko,
       llm-agents,
+      omp-nix,
       nixos-wsl,
       ...
     }@inputs:
@@ -125,6 +128,7 @@
           ./modules/hm/theme.nix
           ./modules/hm/default-apps.nix
           ./modules/hm/mpv.nix
+          ./hosts/wslop/hm/omp.nix
         ];
 
         hosts.wslop = [
