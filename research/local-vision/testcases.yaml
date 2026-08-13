@@ -1,0 +1,76 @@
+# Vision-eval test cases. kind: image | video. prompts are per-case.
+# DeepSeek-OCR ignores prompts (it emits OCR text only) — fine for text cases.
+
+cases:
+  - id: game-calibration
+    kind: image
+    path: assets/game/kirby-1.png
+    prompt: >-
+      You are looking at a screenshot of a Game Boy game (Kirby Tilt 'n' Tumble).
+      Describe the screen in detail: what is shown, any UI/HUD elements, any text
+      (quote it verbatim), and what state the game is in.
+
+  - id: game-dialog
+    kind: image
+    path: assets/game/kirby-2.png
+    prompt: >-
+      You are looking at a screenshot of a Game Boy game (Kirby Tilt 'n' Tumble).
+      Describe the screen in detail: what is shown, any UI/HUD elements, any text
+      (quote it verbatim), and what state the game is in.
+
+  - id: game-maze
+    kind: image
+    path: assets/game/kirby-3.png
+    prompt: >-
+      You are looking at a screenshot of a Game Boy game (Kirby Tilt 'n' Tumble).
+      Describe the screen in detail: what is shown, any UI/HUD elements (score,
+      lives, indicators), any text (quote it verbatim), and what is happening.
+
+  - id: dense-text
+    kind: image
+    path: assets/text/dense.png
+    prompt: >-
+      Transcribe ALL text in this image exactly as written, preserving line
+      breaks and approximate layout. Do not summarize or omit anything.
+
+  - id: code
+    kind: image
+    path: assets/text/code.png
+    prompt: >-
+      This is a screenshot of source code. Transcribe the code exactly as
+      written, preserving indentation and punctuation.
+
+  - id: ui-webapp
+    kind: image
+    path: assets/ui/webapp.png
+    prompt: >-
+      Describe this screenshot of a web application: overall layout, main UI
+      components, their visible state, and quote all visible text verbatim.
+
+  - id: ui-agent
+    kind: image
+    path: assets/ui/agent-old.png
+    prompt: >-
+      Describe this screenshot: overall layout, main UI components, their
+      visible state, and quote all visible text verbatim.
+
+  - id: diagram
+    kind: image
+    path: assets/diagram/flow.png
+    prompt: >-
+      Describe this diagram: what type of diagram it is, every labeled box/arrow,
+      and the relationships they show. Quote labels verbatim.
+
+  - id: video-game
+    kind: video
+    path: assets/clips/kirby-pan.mp4
+    prompt: >-
+      Watch this video clip and describe what happens over time from beginning
+      to end: motion, scene changes, and any text or UI elements visible.
+
+  - id: video-real
+    kind: video
+    path: assets/clips/real-clip.mp4
+    prompt: >-
+      Watch this video clip and describe what happens over time from beginning
+      to end: motion, scene changes, and any text that appears.

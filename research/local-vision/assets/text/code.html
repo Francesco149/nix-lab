@@ -1,0 +1,212 @@
+<!doctype html><html><head><meta charset=utf-8><style>
+body{background:#1e1e1e;color:#d4d4d4;font-family:'Cascadia Code','JetBrains Mono',Consolas,monospace;font-size:11px;margin:0}
+.l{display:flex;white-space:pre}
+.n{color:#555;min-width:44px;text-align:right;padding-right:12px;user-select:none}
+h1{font-family:sans-serif;font-size:14px;padding:8px 12px;margin:0;color:#aaa;background:#252526;border-bottom:1px solid #333}
+</style></head><body><h1>hosts/lame/llama.nix (Nix source)</h1><div class="l"><span class="n">   1</span><span class="t">{</span></div>
+<div class="l"><span class="n">   2</span><span class="t">  config,</span></div>
+<div class="l"><span class="n">   3</span><span class="t">  pkgs,</span></div>
+<div class="l"><span class="n">   4</span><span class="t">  lib,</span></div>
+<div class="l"><span class="n">   5</span><span class="t">  ...</span></div>
+<div class="l"><span class="n">   6</span><span class="t">}:</span></div>
+<div class="l"><span class="n">   7</span><span class="t"><span style="color:#61afef">let</span></span></div>
+<div class="l"><span class="n">   8</span><span class="t">  <span style="color:#61afef">inherit</span> (config) lab;</span></div>
+<div class="l"><span class="n">   9</span><span class="t">  model-dir = <span style="color:#e5c07b">&quot;/opt/ai-lab/models&quot;</span>;</span></div>
+<div class="l"><span class="n">  10</span><span class="t">  radv-icd = <span style="color:#e5c07b">&quot;${pkgs.mesa}/share/vulkan/icd.d/radeon_icd.x86_64.json&quot;</span>;</span></div>
+<div class="l"><span class="n">  11</span><span class="t"></span></div>
+<div class="l"><span class="n">  12</span><span class="t">  llama-cpp-cuda = pkgs.llama-cpp.override ({ cudaSupport = true; });</span></div>
+<div class="l"><span class="n">  13</span><span class="t">  llama-cpp-cuda-video = llama-cpp-cuda.overrideAttrs (old: <span style="color:#61afef">rec</span> {</span></div>
+<div class="l"><span class="n">  14</span><span class="t">    pname = <span style="color:#e5c07b">&quot;llama-video&quot;</span>;</span></div>
+<div class="l"><span class="n">  15</span><span class="t"></span></div>
+<div class="l"><span class="n">  16</span><span class="t">    # must be a valid integer literal <span style="color:#61afef">in</span> c++</span></div>
+<div class="l"><span class="n">  17</span><span class="t">    version = <span style="color:#e5c07b">&quot;0x&quot;</span> + (builtins.substring 0 8 src.rev);</span></div>
+<div class="l"><span class="n">  18</span><span class="t"></span></div>
+<div class="l"><span class="n">  19</span><span class="t">    src = pkgs.fetchFromGitHub {</span></div>
+<div class="l"><span class="n">  20</span><span class="t">      owner = <span style="color:#e5c07b">&quot;ggml-org&quot;</span>;</span></div>
+<div class="l"><span class="n">  21</span><span class="t">      repo = <span style="color:#e5c07b">&quot;llama.cpp&quot;</span>;</span></div>
+<div class="l"><span class="n">  22</span><span class="t">      rev = <span style="color:#e5c07b">&quot;0adede866ddb2e31992b3792eaea31d18ed89acf&quot;</span>;</span></div>
+<div class="l"><span class="n">  23</span><span class="t">      hash = <span style="color:#e5c07b">&quot;sha256-Z+n7ksjwcbJ1ROmVVtHkEvzIjWfigfWfn+fv5XpjRQ8=&quot;</span>;</span></div>
+<div class="l"><span class="n">  24</span><span class="t">    };</span></div>
+<div class="l"><span class="n">  25</span><span class="t"></span></div>
+<div class="l"><span class="n">  26</span><span class="t">    npmDepsHash = <span style="color:#e5c07b">&quot;sha256-RAFtsbBGBjteCt5yXhrmHL39rIDJMCFBETgzId2eRRk=&quot;</span>;</span></div>
+<div class="l"><span class="n">  27</span><span class="t"></span></div>
+<div class="l"><span class="n">  28</span><span class="t">    preConfigure = <span style="color:#e5c07b">&#x27;&#x27;</span></span></div>
+<div class="l"><span class="n">  29</span><span class="t">      prependToVar cmakeFlags <span style="color:#e5c07b">&quot;-DLLAMA_BUILD_COMMIT:STRING=${src.rev}&quot;</span></span></div>
+<div class="l"><span class="n">  30</span><span class="t">      pushd ${old.npmRoot}</span></div>
+<div class="l"><span class="n">  31</span><span class="t">      npm run build</span></div>
+<div class="l"><span class="n">  32</span><span class="t">      popd</span></div>
+<div class="l"><span class="n">  33</span><span class="t">    <span style="color:#e5c07b">&#x27;&#x27;</span>;</span></div>
+<div class="l"><span class="n">  34</span><span class="t"></span></div>
+<div class="l"><span class="n">  35</span><span class="t">    patches = [</span></div>
+<div class="l"><span class="n">  36</span><span class="t">      (pkgs.fetchpatch {</span></div>
+<div class="l"><span class="n">  37</span><span class="t">        url = <span style="color:#e5c07b">&quot;https://raw.githubusercontent.com/Cobdog/llama-video/27358360bebf4efa30d94513d1d9e4f2e55341cd/patches/video-support-20260424.patch&quot;</span>;</span></div>
+<div class="l"><span class="n">  38</span><span class="t">        hash = <span style="color:#e5c07b">&quot;sha256-C8QZR1SHQp95D3jQHfo2WS66PloYSirrUNeZGZhn4BI=&quot;</span>;</span></div>
+<div class="l"><span class="n">  39</span><span class="t">      })</span></div>
+<div class="l"><span class="n">  40</span><span class="t">    ];</span></div>
+<div class="l"><span class="n">  41</span><span class="t">    # drop any existing nixpkgs patches — they may not apply to this commit</span></div>
+<div class="l"><span class="n">  42</span><span class="t">    # <span style="color:#61afef">if</span> the build fails <span style="color:#61afef">with</span> patch errors, uncomment:</span></div>
+<div class="l"><span class="n">  43</span><span class="t">    # patches = [ ... ] (just the llama-video patch, no old.patches)</span></div>
+<div class="l"><span class="n">  44</span><span class="t">  });</span></div>
+<div class="l"><span class="n">  45</span><span class="t"></span></div>
+<div class="l"><span class="n">  46</span><span class="t">  mkLlamaService =</span></div>
+<div class="l"><span class="n">  47</span><span class="t">    {</span></div>
+<div class="l"><span class="n">  48</span><span class="t">      name,</span></div>
+<div class="l"><span class="n">  49</span><span class="t">      package,</span></div>
+<div class="l"><span class="n">  50</span><span class="t">      port,</span></div>
+<div class="l"><span class="n">  51</span><span class="t">      flags,</span></div>
+<div class="l"><span class="n">  52</span><span class="t">      environment ? { },</span></div>
+<div class="l"><span class="n">  53</span><span class="t">      after ? [ ],</span></div>
+<div class="l"><span class="n">  54</span><span class="t">    }:</span></div>
+<div class="l"><span class="n">  55</span><span class="t">    lib.nameValuePair <span style="color:#e5c07b">&quot;llama-${name}&quot;</span> {</span></div>
+<div class="l"><span class="n">  56</span><span class="t">      description = <span style="color:#e5c07b">&quot;llama.cpp ${name}&quot;</span>;</span></div>
+<div class="l"><span class="n">  57</span><span class="t">      after = [</span></div>
+<div class="l"><span class="n">  58</span><span class="t">        <span style="color:#e5c07b">&quot;network.target&quot;</span></span></div>
+<div class="l"><span class="n">  59</span><span class="t">        <span style="color:#e5c07b">&quot;zfs.target&quot;</span></span></div>
+<div class="l"><span class="n">  60</span><span class="t">      ]</span></div>
+<div class="l"><span class="n">  61</span><span class="t">      ++ after;</span></div>
+<div class="l"><span class="n">  62</span><span class="t">      wantedBy = [ <span style="color:#e5c07b">&quot;multi-user.target&quot;</span> ];</span></div>
+<div class="l"><span class="n">  63</span><span class="t">      environment = environment <span style="color:#7f9f7f">// {</span></span></div>
+<div class="l"><span class="n">  64</span><span class="t">        # hide 3080 from vulkan</span></div>
+<div class="l"><span class="n">  65</span><span class="t">        VK_ICD_FILENAMES = radv-icd;</span></div>
+<div class="l"><span class="n">  66</span><span class="t">      };</span></div>
+<div class="l"><span class="n">  67</span><span class="t">      serviceConfig = {</span></div>
+<div class="l"><span class="n">  68</span><span class="t">        Type = <span style="color:#e5c07b">&quot;idle&quot;</span>;</span></div>
+<div class="l"><span class="n">  69</span><span class="t">        KillSignal = <span style="color:#e5c07b">&quot;SIGINT&quot;</span>;</span></div>
+<div class="l"><span class="n">  70</span><span class="t">        Restart = <span style="color:#e5c07b">&quot;on-failure&quot;</span>;</span></div>
+<div class="l"><span class="n">  71</span><span class="t">        RestartSec = <span style="color:#e5c07b">&quot;300&quot;</span>;</span></div>
+<div class="l"><span class="n">  72</span><span class="t">        PrivateDevices = false;</span></div>
+<div class="l"><span class="n">  73</span><span class="t">        ExecStart = <span style="color:#e5c07b">&quot;${package}/bin/llama-server ${lib.escapeShellArgs flags}&quot;</span>;</span></div>
+<div class="l"><span class="n">  74</span><span class="t">      };</span></div>
+<div class="l"><span class="n">  75</span><span class="t">    };</span></div>
+<div class="l"><span class="n">  76</span><span class="t"></span></div>
+<div class="l"><span class="n">  77</span><span class="t">  instances = {</span></div>
+<div class="l"><span class="n">  78</span><span class="t">    vulkan = {</span></div>
+<div class="l"><span class="n">  79</span><span class="t">      package = pkgs.llama-cpp-vulkan;</span></div>
+<div class="l"><span class="n">  80</span><span class="t">      port = lab.ports.llama-vulkan;</span></div>
+<div class="l"><span class="n">  81</span><span class="t">      flags = [</span></div>
+<div class="l"><span class="n">  82</span><span class="t">        <span style="color:#e5c07b">&quot;--host&quot;</span></span></div>
+<div class="l"><span class="n">  83</span><span class="t">        <span style="color:#e5c07b">&quot;0.0.0.0&quot;</span></span></div>
+<div class="l"><span class="n">  84</span><span class="t">        <span style="color:#e5c07b">&quot;--port&quot;</span></span></div>
+<div class="l"><span class="n">  85</span><span class="t">        (toString lab.ports.llama-vulkan)</span></div>
+<div class="l"><span class="n">  86</span><span class="t"></span></div>
+<div class="l"><span class="n">  87</span><span class="t">        <span style="color:#e5c07b">&quot;-c&quot;</span></span></div>
+<div class="l"><span class="n">  88</span><span class="t">        <span style="color:#e5c07b">&quot;120000&quot;</span></span></div>
+<div class="l"><span class="n">  89</span><span class="t">        <span style="color:#e5c07b">&quot;-ngl&quot;</span></span></div>
+<div class="l"><span class="n">  90</span><span class="t">        <span style="color:#e5c07b">&quot;99&quot;</span></span></div>
+<div class="l"><span class="n">  91</span><span class="t">        <span style="color:#e5c07b">&quot;--n-cpu-moe&quot;</span></span></div>
+<div class="l"><span class="n">  92</span><span class="t">        <span style="color:#e5c07b">&quot;0&quot;</span></span></div>
+<div class="l"><span class="n">  93</span><span class="t">        <span style="color:#e5c07b">&quot;--kv-unified&quot;</span></span></div>
+<div class="l"><span class="n">  94</span><span class="t">        <span style="color:#e5c07b">&quot;--jinja&quot;</span></span></div>
+<div class="l"><span class="n">  95</span><span class="t"></span></div>
+<div class="l"><span class="n">  96</span><span class="t">        <span style="color:#e5c07b">&quot;--temperature&quot;</span></span></div>
+<div class="l"><span class="n">  97</span><span class="t">        <span style="color:#e5c07b">&quot;1.0&quot;</span></span></div>
+<div class="l"><span class="n">  98</span><span class="t">        <span style="color:#e5c07b">&quot;--top-p&quot;</span></span></div>
+<div class="l"><span class="n">  99</span><span class="t">        <span style="color:#e5c07b">&quot;0.95&quot;</span></span></div>
+<div class="l"><span class="n"> 100</span><span class="t">        <span style="color:#e5c07b">&quot;--top-k&quot;</span></span></div>
+<div class="l"><span class="n"> 101</span><span class="t">        <span style="color:#e5c07b">&quot;64&quot;</span></span></div>
+<div class="l"><span class="n"> 102</span><span class="t"></span></div>
+<div class="l"><span class="n"> 103</span><span class="t">        <span style="color:#e5c07b">&quot;--flash-attn&quot;</span></span></div>
+<div class="l"><span class="n"> 104</span><span class="t">        <span style="color:#e5c07b">&quot;on&quot;</span></span></div>
+<div class="l"><span class="n"> 105</span><span class="t">        <span style="color:#e5c07b">&quot;--cache-type-k&quot;</span></span></div>
+<div class="l"><span class="n"> 106</span><span class="t">        <span style="color:#e5c07b">&quot;q8_0&quot;</span></span></div>
+<div class="l"><span class="n"> 107</span><span class="t">        <span style="color:#e5c07b">&quot;--cache-type-v&quot;</span></span></div>
+<div class="l"><span class="n"> 108</span><span class="t">        <span style="color:#e5c07b">&quot;q8_0&quot;</span></span></div>
+<div class="l"><span class="n"> 109</span><span class="t"></span></div>
+<div class="l"><span class="n"> 110</span><span class="t">        <span style="color:#e5c07b">&quot;--parallel&quot;</span></span></div>
+<div class="l"><span class="n"> 111</span><span class="t">        <span style="color:#e5c07b">&quot;1&quot;</span></span></div>
+<div class="l"><span class="n"> 112</span><span class="t"></span></div>
+<div class="l"><span class="n"> 113</span><span class="t">        <span style="color:#e5c07b">&quot;-m&quot;</span></span></div>
+<div class="l"><span class="n"> 114</span><span class="t">        <span style="color:#e5c07b">&quot;${model-dir}/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Mini.gguf&quot;</span></span></div>
+<div class="l"><span class="n"> 115</span><span class="t">        <span style="color:#e5c07b">&quot;--mmproj&quot;</span></span></div>
+<div class="l"><span class="n"> 116</span><span class="t">        <span style="color:#e5c07b">&quot;${model-dir}/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-F32.gguf&quot;</span></span></div>
+<div class="l"><span class="n"> 117</span><span class="t">        <span style="color:#e5c07b">&quot;--chat-template-file&quot;</span></span></div>
+<div class="l"><span class="n"> 118</span><span class="t">        <span style="color:#e5c07b">&quot;/opt/ai-lab/templates/new-chat-template-gemma.jinja&quot;</span></span></div>
+<div class="l"><span class="n"> 119</span><span class="t">      ];</span></div>
+<div class="l"><span class="n"> 120</span><span class="t">    };</span></div>
+<div class="l"><span class="n"> 121</span><span class="t"></span></div>
+<div class="l"><span class="n"> 122</span><span class="t">    embed = {</span></div>
+<div class="l"><span class="n"> 123</span><span class="t">      package = llama-cpp-cuda;</span></div>
+<div class="l"><span class="n"> 124</span><span class="t">      port = lab.ports.llama-embed;</span></div>
+<div class="l"><span class="n"> 125</span><span class="t">      flags = [</span></div>
+<div class="l"><span class="n"> 126</span><span class="t">        <span style="color:#e5c07b">&quot;--host&quot;</span></span></div>
+<div class="l"><span class="n"> 127</span><span class="t">        <span style="color:#e5c07b">&quot;0.0.0.0&quot;</span></span></div>
+<div class="l"><span class="n"> 128</span><span class="t">        <span style="color:#e5c07b">&quot;--port&quot;</span></span></div>
+<div class="l"><span class="n"> 129</span><span class="t">        (toString lab.ports.llama-embed)</span></div>
+<div class="l"><span class="n"> 130</span><span class="t">        <span style="color:#e5c07b">&quot;--embedding&quot;</span></span></div>
+<div class="l"><span class="n"> 131</span><span class="t">        <span style="color:#e5c07b">&quot;--batch-size&quot;</span></span></div>
+<div class="l"><span class="n"> 132</span><span class="t">        <span style="color:#e5c07b">&quot;8192&quot;</span></span></div>
+<div class="l"><span class="n"> 133</span><span class="t">        <span style="color:#e5c07b">&quot;-m&quot;</span></span></div>
+<div class="l"><span class="n"> 134</span><span class="t">        <span style="color:#e5c07b">&quot;${model-dir}/nomic-ai/nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf&quot;</span></span></div>
+<div class="l"><span class="n"> 135</span><span class="t">      ];</span></div>
+<div class="l"><span class="n"> 136</span><span class="t">    };</span></div>
+<div class="l"><span class="n"> 137</span><span class="t"></span></div>
+<div class="l"><span class="n"> 138</span><span class="t">    video = {</span></div>
+<div class="l"><span class="n"> 139</span><span class="t">      package = llama-cpp-cuda-video;</span></div>
+<div class="l"><span class="n"> 140</span><span class="t">      port = lab.ports.llama-video;</span></div>
+<div class="l"><span class="n"> 141</span><span class="t">      flags = [</span></div>
+<div class="l"><span class="n"> 142</span><span class="t">        <span style="color:#e5c07b">&quot;--host&quot;</span></span></div>
+<div class="l"><span class="n"> 143</span><span class="t">        <span style="color:#e5c07b">&quot;0.0.0.0&quot;</span></span></div>
+<div class="l"><span class="n"> 144</span><span class="t">        <span style="color:#e5c07b">&quot;--port&quot;</span></span></div>
+<div class="l"><span class="n"> 145</span><span class="t">        (toString lab.ports.llama-video)</span></div>
+<div class="l"><span class="n"> 146</span><span class="t">        <span style="color:#e5c07b">&quot;-c&quot;</span></span></div>
+<div class="l"><span class="n"> 147</span><span class="t">        <span style="color:#e5c07b">&quot;64000&quot;</span></span></div>
+<div class="l"><span class="n"> 148</span><span class="t">        <span style="color:#e5c07b">&quot;-ngl&quot;</span></span></div>
+<div class="l"><span class="n"> 149</span><span class="t">        <span style="color:#e5c07b">&quot;99&quot;</span></span></div>
+<div class="l"><span class="n"> 150</span><span class="t">        <span style="color:#e5c07b">&quot;--n-cpu-moe&quot;</span></span></div>
+<div class="l"><span class="n"> 151</span><span class="t">        #<span style="color:#e5c07b">&quot;30&quot;</span> # <span style="color:#61afef">if</span> using Qwen3.5 35B A3B Q4_K_M</span></div>
+<div class="l"><span class="n"> 152</span><span class="t">        <span style="color:#e5c07b">&quot;33&quot;</span></span></div>
+<div class="l"><span class="n"> 153</span><span class="t">        <span style="color:#e5c07b">&quot;--jinja&quot;</span></span></div>
+<div class="l"><span class="n"> 154</span><span class="t">        <span style="color:#e5c07b">&quot;--no-mmap&quot;</span></span></div>
+<div class="l"><span class="n"> 155</span><span class="t">        <span style="color:#e5c07b">&quot;--kv-unified&quot;</span></span></div>
+<div class="l"><span class="n"> 156</span><span class="t">        <span style="color:#e5c07b">&quot;--flash-attn&quot;</span></span></div>
+<div class="l"><span class="n"> 157</span><span class="t">        <span style="color:#e5c07b">&quot;on&quot;</span></span></div>
+<div class="l"><span class="n"> 158</span><span class="t">        <span style="color:#e5c07b">&quot;--cache-type-k&quot;</span></span></div>
+<div class="l"><span class="n"> 159</span><span class="t">        <span style="color:#e5c07b">&quot;q4_0&quot;</span></span></div>
+<div class="l"><span class="n"> 160</span><span class="t">        <span style="color:#e5c07b">&quot;--cache-type-v&quot;</span></span></div>
+<div class="l"><span class="n"> 161</span><span class="t">        <span style="color:#e5c07b">&quot;q4_0&quot;</span></span></div>
+<div class="l"><span class="n"> 162</span><span class="t">        <span style="color:#e5c07b">&quot;--temperature&quot;</span></span></div>
+<div class="l"><span class="n"> 163</span><span class="t">        <span style="color:#e5c07b">&quot;1.0&quot;</span></span></div>
+<div class="l"><span class="n"> 164</span><span class="t">        <span style="color:#e5c07b">&quot;--top-p&quot;</span></span></div>
+<div class="l"><span class="n"> 165</span><span class="t">        <span style="color:#e5c07b">&quot;0.95&quot;</span></span></div>
+<div class="l"><span class="n"> 166</span><span class="t">        <span style="color:#e5c07b">&quot;--top-k&quot;</span></span></div>
+<div class="l"><span class="n"> 167</span><span class="t">        <span style="color:#e5c07b">&quot;20&quot;</span></span></div>
+<div class="l"><span class="n"> 168</span><span class="t">        <span style="color:#e5c07b">&quot;--cache-reuse&quot;</span></span></div>
+<div class="l"><span class="n"> 169</span><span class="t">        <span style="color:#e5c07b">&quot;0&quot;</span></span></div>
+<div class="l"><span class="n"> 170</span><span class="t">        <span style="color:#e5c07b">&quot;--reasoning&quot;</span></span></div>
+<div class="l"><span class="n"> 171</span><span class="t">        <span style="color:#e5c07b">&quot;off&quot;</span></span></div>
+<div class="l"><span class="n"> 172</span><span class="t">        <span style="color:#e5c07b">&quot;-m&quot;</span></span></div>
+<div class="l"><span class="n"> 173</span><span class="t">        <span style="color:#e5c07b">&quot;${model-dir}/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf&quot;</span></span></div>
+<div class="l"><span class="n"> 174</span><span class="t">        #<span style="color:#e5c07b">&quot;${model-dir}/HauhauCS/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf&quot;</span></span></div>
+<div class="l"><span class="n"> 175</span><span class="t">        <span style="color:#e5c07b">&quot;--mmproj&quot;</span></span></div>
+<div class="l"><span class="n"> 176</span><span class="t">        <span style="color:#e5c07b">&quot;${model-dir}/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf&quot;</span></span></div>
+<div class="l"><span class="n"> 177</span><span class="t">        #<span style="color:#e5c07b">&quot;${model-dir}/HauhauCS/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf&quot;</span></span></div>
+<div class="l"><span class="n"> 178</span><span class="t">      ];</span></div>
+<div class="l"><span class="n"> 179</span><span class="t">    };</span></div>
+<div class="l"><span class="n"> 180</span><span class="t">  };</span></div>
+<div class="l"><span class="n"> 181</span><span class="t"></span></div>
+<div class="l"><span class="n"> 182</span><span class="t"><span style="color:#61afef">in</span></span></div>
+<div class="l"><span class="n"> 183</span><span class="t">{</span></div>
+<div class="l"><span class="n"> 184</span><span class="t">  # `video` is temporarily disabled (2026-06-15): the updated nixpkgs llama-cpp</span></div>
+<div class="l"><span class="n"> 185</span><span class="t">  # moved its web UI to tools/ui, which the pinned April llama.cpp commit behind</span></div>
+<div class="l"><span class="n"> 186</span><span class="t">  # the Cobdog video patch lacks, so llama-cpp-cuda-video<span style="color:#e5c07b">&#x27;s npm-deps build fails</span></div>
+<div class="l"><span class="n"> 187</span><span class="t">  # (`pushd: tools/ui: No such file or directory`). Drop it from this removeAttrs</span></div>
+<div class="l"><span class="n"> 188</span><span class="t">  # once src.rev + the video patch are bumped to a commit matching the new</span></div>
+<div class="l"><span class="n"> 189</span><span class="t">  # layout. removeAttrs also keeps Nix from forcing (building) the broken derivation.</span></div>
+<div class="l"><span class="n"> 190</span><span class="t">  #</span></div>
+<div class="l"><span class="n"> 191</span><span class="t">  # `embed` is disabled (2026-06-15) to FREE THE 3080 for the interactive GPU</span></div>
+<div class="l"><span class="n"> 192</span><span class="t">  # sandbox (Godot/OpenGL over Sunshine; the 3080 is shared into containers via</span></div>
+<div class="l"><span class="n"> 193</span><span class="t">  # nvidia-container-toolkit — see hosts/lame/lame.nix). The lab isn&#x27;</span>t using</span></div>
+<div class="l"><span class="n"> 194</span><span class="t">  # embeddings right now. Re-enable by dropping <span style="color:#e5c07b">&quot;embed&quot;</span> here when the 3080 is wanted</span></div>
+<div class="l"><span class="n"> 195</span><span class="t">  # for embeddings again (note: open-webui RAG embeddings depend on this service).</span></div>
+<div class="l"><span class="n"> 196</span><span class="t">  #</span></div>
+<div class="l"><span class="n"> 197</span><span class="t">  # `vulkan` is disabled (2026-06-16) to FREE THE 7800XT for haruness harness dev,</span></div>
+<div class="l"><span class="n"> 198</span><span class="t">  # which spins up its own llama.cpp servers on that card (see ../../WORKDOC.md).</span></div>
+<div class="l"><span class="n"> 199</span><span class="t">  # With all three removed the llama stack is fully off on lame. Re-enable by</span></div>
+<div class="l"><span class="n"> 200</span><span class="t">  # dropping <span style="color:#e5c07b">&quot;vulkan&quot;</span> here when the lab wants its shared llama endpoint back.</span></div>
+<div class="l"><span class="n"> 201</span><span class="t">  systemd.services = lib.mapAttrs' (</span></div>
+<div class="l"><span class="n"> 202</span><span class="t">    name: cfg: mkLlamaService ({ <span style="color:#61afef">inherit</span> name; } <span style="color:#7f9f7f">// cfg)</span></span></div>
+<div class="l"><span class="n"> 203</span><span class="t">  ) (removeAttrs instances [ <span style="color:#e5c07b">&quot;video&quot;</span> <span style="color:#e5c07b">&quot;embed&quot;</span> <span style="color:#e5c07b">&quot;vulkan&quot;</span> ]);</span></div>
+<div class="l"><span class="n"> 204</span><span class="t">  networking.firewall.allowedTCPPorts = map (cfg: cfg.port) (</span></div>
+<div class="l"><span class="n"> 205</span><span class="t">    lib.attrValues (removeAttrs instances [ <span style="color:#e5c07b">&quot;video&quot;</span> <span style="color:#e5c07b">&quot;embed&quot;</span> <span style="color:#e5c07b">&quot;vulkan&quot;</span> ])</span></div>
+<div class="l"><span class="n"> 206</span><span class="t">  );</span></div>
+<div class="l"><span class="n"> 207</span><span class="t">}</span></div></body></html>

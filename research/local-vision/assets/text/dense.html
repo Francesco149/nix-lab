@@ -1,0 +1,226 @@
+<!doctype html><html><head><meta charset=utf-8><style>
+body{background:#1e1e1e;color:#d4d4d4;font-family:'Cascadia Code','JetBrains Mono',Consolas,monospace;font-size:11px;margin:0}
+.l{display:flex;white-space:pre}
+.n{color:#555;min-width:44px;text-align:right;padding-right:12px;user-select:none}
+.t{color:#d4d4d4;white-space:pre}
+h1{font-family:sans-serif;font-size:14px;padding:8px 12px;margin:0;color:#aaa;background:#252526;border-bottom:1px solid #333}
+</style></head><body><h1>WORKDOC.md — lab goals &amp; follow-ups (dense text)</h1><div class="l"><span class="n">   1</span><span class="t"># nix-lab Workdoc</span></div>
+<div class="l"><span class="n">   2</span><span class="t"></span></div>
+<div class="l"><span class="n">   3</span><span class="t">Last updated: 2026-08-13</span></div>
+<div class="l"><span class="n">   4</span><span class="t"></span></div>
+<div class="l"><span class="n">   5</span><span class="t">## Project</span></div>
+<div class="l"><span class="n">   6</span><span class="t"></span></div>
+<div class="l"><span class="n">   7</span><span class="t">Personal NixOS flake for homelab hosts, built on the local `nut` flake library.</span></div>
+<div class="l"><span class="n">   8</span><span class="t">The repo should stay easy for humans and coding agents to resume without</span></div>
+<div class="l"><span class="n">   9</span><span class="t">re-learning project conventions each session.</span></div>
+<div class="l"><span class="n">  10</span><span class="t"></span></div>
+<div class="l"><span class="n">  11</span><span class="t">## Current Goals</span></div>
+<div class="l"><span class="n">  12</span><span class="t"></span></div>
+<div class="l"><span class="n">  13</span><span class="t">- Keep `flake.nix` as the host/module wiring source of truth.</span></div>
+<div class="l"><span class="n">  14</span><span class="t">- Keep shared constants in `lib/lab.nix`.</span></div>
+<div class="l"><span class="n">  15</span><span class="t">- Provide a system-wide custom Neovim launcher named `e` for interactive hosts</span></div>
+<div class="l"><span class="n">  16</span><span class="t">  without changing the clean `neovim` package used by OpenVSCode.</span></div>
+<div class="l"><span class="n">  17</span><span class="t">- Keep interactive tool colors tied to `lib/lab.nix` without overriding the</span></div>
+<div class="l"><span class="n">  18</span><span class="t">  terminal background.</span></div>
+<div class="l"><span class="n">  19</span><span class="t"></span></div>
+<div class="l"><span class="n">  20</span><span class="t">## Scope Notes</span></div>
+<div class="l"><span class="n">  21</span><span class="t"></span></div>
+<div class="l"><span class="n">  22</span><span class="t">- `/opt/src/nix-lab` is editable.</span></div>
+<div class="l"><span class="n">  23</span><span class="t">- `/opt/src/nut` is reference-only unless explicitly requested.</span></div>
+<div class="l"><span class="n">  24</span><span class="t">- `interactive.nix` is currently included by `code` and `lame`.</span></div>
+<div class="l"><span class="n">  25</span><span class="t">- OpenVSCode should keep using system `neovim`; the custom editor should remain</span></div>
+<div class="l"><span class="n">  26</span><span class="t">  isolated behind the `e` launcher.</span></div>
+<div class="l"><span class="n">  27</span><span class="t">- System tmux defaults live in `modules/tmux.nix` and are applied through</span></div>
+<div class="l"><span class="n">  28</span><span class="t">  `interactive.nix`.</span></div>
+<div class="l"><span class="n">  29</span><span class="t"></span></div>
+<div class="l"><span class="n">  30</span><span class="t">## Findings</span></div>
+<div class="l"><span class="n">  31</span><span class="t"></span></div>
+<div class="l"><span class="n">  32</span><span class="t">- `nut.lib.mf` automatically imports host files and appends global and</span></div>
+<div class="l"><span class="n">  33</span><span class="t">  host-specific modules.</span></div>
+<div class="l"><span class="n">  34</span><span class="t">- `lab.colors` is available from NixOS modules through `config.lab.colors`.</span></div>
+<div class="l"><span class="n">  35</span><span class="t"></span></div>
+<div class="l"><span class="n">  36</span><span class="t">- Root `AGENTS.md` is the durable agent orientation file.</span></div>
+<div class="l"><span class="n">  37</span><span class="t">- Root `WORKDOC.md` is the durable cross-session task and decision log.</span></div>
+<div class="l"><span class="n">  38</span><span class="t"></span></div>
+<div class="l"><span class="n">  39</span><span class="t">## Tasks</span></div>
+<div class="l"><span class="n">  40</span><span class="t"></span></div>
+<div class="l"><span class="n">  41</span><span class="t">- [done] Build custom Neovim wrapper exposed as `e` from `interactive.nix`.</span></div>
+<div class="l"><span class="n">  42</span><span class="t">- [done] Keep custom editor config isolated from system-wide `nvim`.</span></div>
+<div class="l"><span class="n">  43</span><span class="t">- [done] Configure SSH clipboard through OSC52 while leaving local clipboard</span></div>
+<div class="l"><span class="n">  44</span><span class="t">  behavior available later.</span></div>
+<div class="l"><span class="n">  45</span><span class="t">- [done] Add conservative LSP, completion, formatting, and fuzzy-find defaults.</span></div>
+<div class="l"><span class="n">  46</span><span class="t">- [done] Add system tmux defaults for interactive hosts with mouse scrolling</span></div>
+<div class="l"><span class="n">  47</span><span class="t">  left to the terminal emulator.</span></div>
+<div class="l"><span class="n">  48</span><span class="t">- [todo] Consider generating docs from `lib/lab.nix` if the host inventory grows.</span></div>
+<div class="l"><span class="n">  49</span><span class="t"></span></div>
+<div class="l"><span class="n">  50</span><span class="t">## Wslop Cold Backup</span></div>
+<div class="l"><span class="n">  51</span><span class="t"></span></div>
+<div class="l"><span class="n">  52</span><span class="t">`wslop-backup` (hosts/wslop/backup.nix) backs up the WSL guest rootfs and a</span></div>
+<div class="l"><span class="n">  53</span><span class="t">curated list of windows work dirs to cold. Usage and design live in</span></div>
+<div class="l"><span class="n">  54</span><span class="t">docs/OPERATIONS.md.</span></div>
+<div class="l"><span class="n">  55</span><span class="t"></span></div>
+<div class="l"><span class="n">  56</span><span class="t">Decisions:</span></div>
+<div class="l"><span class="n">  57</span><span class="t"></span></div>
+<div class="l"><span class="n">  58</span><span class="t">- 2026-06-14 redesign: the windows side no longer mirrors whole `/mnt` drives</span></div>
+<div class="l"><span class="n">  59</span><span class="t">  (that pulled `Windows/`, `Program Files/`, the 414G WSL `ext4.vhdx` under</span></div>
+<div class="l"><span class="n">  60</span><span class="t">  AppData, and locked system files over slow 9p, and failed instantly on a</span></div>
+<div class="l"><span class="n">  61</span><span class="t">  missing `windows/&lt;drive&gt;` dest dir). It is now an explicit</span></div>
+<div class="l"><span class="n">  62</span><span class="t">  `backup.wslop.windows.{work,optional}` list of actual work dirs; capture/</span></div>
+<div class="l"><span class="n">  63</span><span class="t">  trace dirs drop image/video (`image-junk`), keeping only binary traces.</span></div>
+<div class="l"><span class="n">  64</span><span class="t">  rootfs is unchanged — it reads native ext4 `/` (not 9p) and is a cheap</span></div>
+<div class="l"><span class="n">  65</span><span class="t">  rsync incremental. Fixes shipped: `--mkpath` (the instant-failure bug),</span></div>
+<div class="l"><span class="n">  66</span><span class="t">  dataset `acltype=posixacl` (killed the `set_acl Operation not supported`</span></div>
+<div class="l"><span class="n">  67</span><span class="t">  spam on `/var/log/journal`), and skip wake/unlock when cold is already up.</span></div>
+<div class="l"><span class="n">  68</span><span class="t">- WSL2 NAT drops subnet-directed broadcasts (tested with a sniffer on code:</span></div>
+<div class="l"><span class="n">  69</span><span class="t">  unicast UDP arrives, broadcast never does), so wslop relays wake+unlock</span></div>
+<div class="l"><span class="n">  70</span><span class="t">  through `ssh root@code cold-unlock --host cold` instead of sending WoL.</span></div>
+<div class="l"><span class="n">  71</span><span class="t">- Push runs as root@cold: the interactive ssh keys are authorized everywhere</span></div>
+<div class="l"><span class="n">  72</span><span class="t">  already, cold ships rsync via NixOS defaultPackages, and root can create</span></div>
+<div class="l"><span class="n">  73</span><span class="t">  datasets/snapshots without `zfs allow` — so the manual command works without</span></div>
+<div class="l"><span class="n">  74</span><span class="t">  redeploying cold or code.</span></div>
+<div class="l"><span class="n">  75</span><span class="t">- Skipping the cold wake-up when nothing changed was considered and dropped:</span></div>
+<div class="l"><span class="n">  76</span><span class="t">  `code` is a VM on proxmox and always has new data, so the check would never</span></div>
+<div class="l"><span class="n">  77</span><span class="t">  skip anything.</span></div>
+<div class="l"><span class="n">  78</span><span class="t"></span></div>
+<div class="l"><span class="n">  79</span><span class="t">Deploy state:</span></div>
+<div class="l"><span class="n">  80</span><span class="t"></span></div>
+<div class="l"><span class="n">  81</span><span class="t">- [done] wslop side (command, known hosts, backup user + sudo rule) — only</span></div>
+<div class="l"><span class="n">  82</span><span class="t">  wslop may be redeployed at the moment. Deployed and smoke-tested 2026-06-10</span></div>
+<div class="l"><span class="n">  83</span><span class="t">  (wake, unlock, dataset auto-create, rsync, snapshot+prune, report, poweroff).</span></div>
+<div class="l"><span class="n">  84</span><span class="t">- [done] All of the above deployed 2026-06-15 (full lab update, see section</span></div>
+<div class="l"><span class="n">  85</span><span class="t">  below): code&#x27;s opportunistic wslop step + the orchestrator shutdown fix,</span></div>
+<div class="l"><span class="n">  86</span><span class="t">  cold&#x27;s `boot.tmp.cleanOnBoot`, and the cutestation/wslop-root key is now in</span></div>
+<div class="l"><span class="n">  87</span><span class="t">  every host&#x27;s deployed config (the runtime appends on cold/mail/relay are</span></div>
+<div class="l"><span class="n">  88</span><span class="t">  redundant).</span></div>
+<div class="l"><span class="n">  89</span><span class="t">- [done] Backup redesign deployed + verified 2026-06-15: a full run was clean</span></div>
+<div class="l"><span class="n">  90</span><span class="t">  (rootfs 6.3M files / 0 ACL errors, all windows work dirs, `--mkpath` created</span></div>
+<div class="l"><span class="n">  91</span><span class="t">  the `windows/&lt;name&gt;/` dests, snapshot `wslop-20260615-000430`).</span></div>
+<div class="l"><span class="n">  92</span><span class="t">- wslop stays out of the auto-unlock flow: bitlocker passphrase without TPM,</span></div>
+<div class="l"><span class="n">  93</span><span class="t">  and the machine is not guaranteed to be up during the backup window.</span></div>
+<div class="l"><span class="n">  94</span><span class="t"></span></div>
+<div class="l"><span class="n">  95</span><span class="t">## 2026-06-15 Lab Update + Robustness</span></div>
+<div class="l"><span class="n">  96</span><span class="t"></span></div>
+<div class="l"><span class="n">  97</span><span class="t">Full update of all hosts (nixpkgs a799d3e → 9ae611a; deployed gens were the</span></div>
+<div class="l"><span class="n">  98</span><span class="t">stale 26.05.20260430 — ~6 weeks behind; home-manager/mailserver/disko/</span></div>
+<div class="l"><span class="n">  99</span><span class="t">llm-agents/nixos-wsl bumped, deploy-rs already current). Built + `nvd diff`&#x27;d</span></div>
+<div class="l"><span class="n"> 100</span><span class="t">every host on wslop (the rd_host build box), then deployed from wslop with</span></div>
+<div class="l"><span class="n"> 101</span><span class="t">`nix copy [-s] --to` → `nix-env --set` → `switch-to-configuration boot` →</span></div>
+<div class="l"><span class="n"> 102</span><span class="t">reboot (avoiding deploy-rs hangs). Runbook now in `docs/UPDATING.md`; health</span></div>
+<div class="l"><span class="n"> 103</span><span class="t">check in `utils/lab-check.sh` (run after every deploy). All hosts `running` on</span></div>
+<div class="l"><span class="n"> 104</span><span class="t">9ae611a; final `lab-check.sh` = PASS=35/WARN=0/FAIL=0.</span></div>
+<div class="l"><span class="n"> 105</span><span class="t"></span></div>
+<div class="l"><span class="n"> 106</span><span class="t">- code/mail/lame/relay rebooted; **cold** used a live `switch` (encrypted +</span></div>
+<div class="l"><span class="n"> 107</span><span class="t">  must stay up; new kernel lands on its next power-cycle). lame&#x27;s reboot needed</span></div>
+<div class="l"><span class="n"> 108</span><span class="t">  `cold-unlock --host lame` (LUKS initrd).</span></div>
+<div class="l"><span class="n"> 109</span><span class="t">- Rot fixed: `caddy.withPlugins` hash (`hosts/code/caddy.nix`); **lurk-monitor</span></div>
+<div class="l"><span class="n"> 110</span><span class="t">  retired** (input + code module + caddy vhost + lab port) — also removed the</span></div>
+<div class="l"><span class="n"> 111</span><span class="t">  only `pkgs.system` deprecation (it came from lurk-monitor&#x27;s flake).</span></div>
+<div class="l"><span class="n"> 112</span><span class="t">- Orchestrator fix (`hosts/code/backup/cold-backup.py`): shutdown loop now</span></div>
+<div class="l"><span class="n"> 113</span><span class="t">  targets each woken host by its own ip + HostKeyAlias (it always hit cold with</span></div>
+<div class="l"><span class="n"> 114</span><span class="t">  no host=, bypassing cold&#x27;s `/tmp/stay` during lame&#x27;s iteration and never</span></div>
+<div class="l"><span class="n"> 115</span><span class="t">  reaching lame). Fail-safe added: unreachable host → don&#x27;t shut down.</span></div>
+<div class="l"><span class="n"> 116</span><span class="t">- lame: llama re-enabled (vulkan + embed active, GPU OK). The **`video`</span></div>
+<div class="l"><span class="n"> 117</span><span class="t">  instance is disabled** in `hosts/lame/llama.nix` — new nixpkgs llama-cpp moved</span></div>
+<div class="l"><span class="n"> 118</span><span class="t">  its web UI to `tools/ui`, incompatible with the pinned April commit the Cobdog</span></div>
+<div class="l"><span class="n"> 119</span><span class="t">  video patch needs. **[update 2026-06-15] Resolved differently:** upstream</span></div>
+<div class="l"><span class="n"> 120</span><span class="t">  llama.cpp now has *native* video (no Cobdog patch needed) — re-enable by</span></div>
+<div class="l"><span class="n"> 121</span><span class="t">  dropping the patch + April pin. See &quot;Video Understanding&quot; section below.</span></div>
+<div class="l"><span class="n"> 122</span><span class="t">- Deploy access: deploys push from wslop (rd_host). mail/relay had rejected</span></div>
+<div class="l"><span class="n"> 123</span><span class="t">  wslop&#x27;s root key (stale gens predating it); bootstrapped via code, now in</span></div>
+<div class="l"><span class="n"> 124</span><span class="t">  their deployed config.</span></div>
+<div class="l"><span class="n"> 125</span><span class="t">- relay headscale cert was **expired since 2026-05-27** (pre-existing, not this</span></div>
+<div class="l"><span class="n"> 126</span><span class="t">  update): HTTP-01 can&#x27;t run on relay (:80 is the mail stream-proxy). Switched</span></div>
+<div class="l"><span class="n"> 127</span><span class="t">  `hs.headpats.uk` to **DNS-01 (cloudflare)** — reused code&#x27;s CF token at</span></div>
+<div class="l"><span class="n"> 128</span><span class="t">  `/var/lib/secrets/acme-cloudflare` (`CLOUDFLARE_DNS_API_TOKEN`); cert reissued</span></div>
+<div class="l"><span class="n"> 129</span><span class="t">  (valid to Sep 2026), tailnet control plane recovered.</span></div>
+<div class="l"><span class="n"> 130</span><span class="t">- cold + lame pinned with `/tmp/stay` (helium drives — avoid power cycling).</span></div>
+<div class="l"><span class="n"> 131</span><span class="t">  Nightly timer re-armed; the fixed orchestrator respects the stays. `/tmp/stay`</span></div>
+<div class="l"><span class="n"> 132</span><span class="t">  is tmpfs — recreate after any reboot.</span></div>
+<div class="l"><span class="n"> 133</span><span class="t"></span></div>
+<div class="l"><span class="n"> 134</span><span class="t">## Video Understanding / Local VLM Eval (2026-06-15)</span></div>
+<div class="l"><span class="n"> 135</span><span class="t"></span></div>
+<div class="l"><span class="n"> 136</span><span class="t">Investigated replacing the broken `llama-video` (Cobdog patch) setup. **Upstream</span></div>
+<div class="l"><span class="n"> 137</span><span class="t">llama.cpp has native video since `8f83d6c` (2026-06-08)** — temporal-merge +</span></div>
+<div class="l"><span class="n"> 138</span><span class="t">M-RoPE + ffmpeg frame extraction + interleaved timestamps — matching/beating the</span></div>
+<div class="l"><span class="n"> 139</span><span class="t">patch, no patch needed. Proven on lame (7800XT/Vulkan) with the existing</span></div>
+<div class="l"><span class="n"> 140</span><span class="t">`Qwen3.6-35B-A3B` + mmproj: high-quality, temporally-ordered descriptions</span></div>
+<div class="l"><span class="n"> 141</span><span class="t">(user-confirmed ≥ llama-video). Full findings + reusable testbed live in</span></div>
+<div class="l"><span class="n"> 142</span><span class="t">`research/video-understanding/` (build/run scripts, perf matrix, model rec).</span></div>
+<div class="l"><span class="n"> 143</span><span class="t"></span></div>
+<div class="l"><span class="n"> 144</span><span class="t">Key results:</span></div>
+<div class="l"><span class="n"> 145</span><span class="t">- Native temporal video is **Qwen-VL-lineage only** (our Qwen3.6 models qualify).</span></div>
+<div class="l"><span class="n"> 146</span><span class="t">  nixpkgs `llama-cpp` b9503 predates video by 4 days → build from source for now</span></div>
+<div class="l"><span class="n"> 147</span><span class="t">  (`research/.../scripts/build-llama.sh`), or wait for nixpkgs ≥ ~b9510.</span></div>
+<div class="l"><span class="n"> 148</span><span class="t">- Perf (7800XT 16 G, fully on GPU): MoE quants that fit VRAM ≈ **120 t/s**;</span></div>
+<div class="l"><span class="n"> 149</span><span class="t">  dense-27B ≈ 31 t/s, **+MTP ≈ 54 t/s (1.74×)**; the offloaded `Q4_K_P` (current</span></div>
+<div class="l"><span class="n"> 150</span><span class="t">  prod config) only **14–25 t/s**. The 3080 (10 G) is VRAM-bound for 27–35 B →</span></div>
+<div class="l"><span class="n"> 151</span><span class="t">  the **7800XT is the better card** here.</span></div>
+<div class="l"><span class="n"> 152</span><span class="t">- Two real gotchas (documented): the helper&#x27;s **ffmpeg-feeder SIGPIPE bug**</span></div>
+<div class="l"><span class="n"> 153</span><span class="t">  (needs SIG_IGN; one-line upstream fix worth a PR) and the **video token budget**</span></div>
+<div class="l"><span class="n"> 154</span><span class="t">  (~1.3k tok/sec-of-video at full res → cap `--image-max-tokens`/fps for long clips).</span></div>
+<div class="l"><span class="n"> 155</span><span class="t">- **MTP + `--mmproj` works for video** (tested); mmproj is shareable across</span></div>
+<div class="l"><span class="n"> 156</span><span class="t">  Qwen3.6 finetunes of the same base.</span></div>
+<div class="l"><span class="n"> 157</span><span class="t"></span></div>
+<div class="l"><span class="n"> 158</span><span class="t">Follow-ups:</span></div>
+<div class="l"><span class="n"> 159</span><span class="t">- [todo] Re-enable the `video` instance in `hosts/lame/llama.nix` **natively**:</span></div>
+<div class="l"><span class="n"> 160</span><span class="t">  drop the Cobdog patch + April `src.rev` pin, put `pkgs.ffmpeg` in the service</span></div>
+<div class="l"><span class="n"> 161</span><span class="t">  PATH, carry the SIGPIPE fix until upstreamed. Pick the model/quant per the</span></div>
+<div class="l"><span class="n"> 162</span><span class="t">  `research/video-understanding/README.md` recommendation (A: APEX-MTP Mini</span></div>
+<div class="l"><span class="n"> 163</span><span class="t">  ~120 t/s, or B: dense-27B + MTP ~54 t/s) — both beat the offloaded `Q4_K_P`.</span></div>
+<div class="l"><span class="n"> 164</span><span class="t">- [todo] The `ingest` service can be rewritten to the new interface (OAI</span></div>
+<div class="l"><span class="n"> 165</span><span class="t">  `input_video`, or the C++ video helper) — user confirmed breaking it is fine.</span></div>
+<div class="l"><span class="n"> 166</span><span class="t">- [planned] Agentic-coding eval harness (`research/agentic-coding/`) to settle</span></div>
+<div class="l"><span class="n"> 167</span><span class="t">  the model choice on coding quality; fold MTP on/off in (free dense speedup).</span></div>
+<div class="l"><span class="n"> 168</span><span class="t">- **Runtime state update (2026-07-22):** `hosts/lame/lame.nix` no longer imports</span></div>
+<div class="l"><span class="n"> 169</span><span class="t">  any of the four legacy AI modules (`llama`, Open WebUI, Ollama proxy, ingest),</span></div>
+<div class="l"><span class="n"> 170</span><span class="t">  so neither GPU is reclaimed after a reboot. The module files remain available</span></div>
+<div class="l"><span class="n"> 171</span><span class="t">  for a deliberate future re-enable.</span></div>
+<div class="l"><span class="n"> 172</span><span class="t">- A from-source video-enabled llama.cpp (mtmd-cli, bench, cli) is built under</span></div>
+<div class="l"><span class="n"> 173</span><span class="t">  `lame:/tmp/llama.cpp/build-{vulkan,cuda}` and the APEX-MTP + dense-MTP GGUFs are</span></div>
+<div class="l"><span class="n"> 174</span><span class="t">  downloaded in `/opt/ai-lab/models` — reusable next session (rebuild via the</span></div>
+<div class="l"><span class="n"> 175</span><span class="t">  research scripts if `/tmp` was cleared).</span></div>
+<div class="l"><span class="n"> 176</span><span class="t"></span></div>
+<div class="l"><span class="n"> 177</span><span class="t">## 2026-06-16 Interactive GPU Sandbox — Moonlight input + firewall</span></div>
+<div class="l"><span class="n"> 178</span><span class="t"></span></div>
+<div class="l"><span class="n"> 179</span><span class="t">The haruness interactive GPU sandbox (lame 3080 → Sunshine/Moonlight) now has</span></div>
+<div class="l"><span class="n"> 180</span><span class="t">working mouse/keyboard. Root cause + fix live in haruness</span></div>
+<div class="l"><span class="n"> 181</span><span class="t">`docs/interactive-sandbox.md` (short version: run the container with</span></div>
+<div class="l"><span class="n"> 182</span><span class="t">`--network host` + the host&#x27;s udev DB so Xorg hotplugs Sunshine&#x27;s uinput devices</span></div>
+<div class="l"><span class="n"> 183</span><span class="t">— NOT the systemd/logind rewrite previously planned).</span></div>
+<div class="l"><span class="n"> 184</span><span class="t"></span></div>
+<div class="l"><span class="n"> 185</span><span class="t">nix-lab side (this repo):</span></div>
+<div class="l"><span class="n"> 186</span><span class="t">- `--network host` means Docker no longer publishes Sunshine&#x27;s ports, so the host</span></div>
+<div class="l"><span class="n"> 187</span><span class="t">  firewall must allow them. Added to `hosts/lame/lame.nix`</span></div>
+<div class="l"><span class="n"> 188</span><span class="t">  (`networking.firewall.allowed{TCP,UDP}Ports`) referencing new</span></div>
+<div class="l"><span class="n"> 189</span><span class="t">  `lab.ports.sunshine-*` / `lab.ports-udp.*` labels in `lib/lab.nix`. Ports: TCP</span></div>
+<div class="l"><span class="n"> 190</span><span class="t">  47984/47989/47990/48010, UDP 47998-48000/48002, + mDNS 5353.</span></div>
+<div class="l"><span class="n"> 191</span><span class="t">- Validated by host eval (`nix eval</span></div>
+<div class="l"><span class="n"> 192</span><span class="t">  .#nixosConfigurations.lame.config.networking.firewall.*`). Full `nix flake</span></div>
+<div class="l"><span class="n"> 193</span><span class="t">  check` still fails only on the known missing-local-inputs deploy-schema check</span></div>
+<div class="l"><span class="n"> 194</span><span class="t">  (pre-existing — see Niri &quot;Known issues&quot;).</span></div>
+<div class="l"><span class="n"> 195</span><span class="t"></span></div>
+<div class="l"><span class="n"> 196</span><span class="t">Deploy state:</span></div>
+<div class="l"><span class="n"> 197</span><span class="t">- [done] Committed (cc67b95 firewall ports; 645c976 disables llama+ollama-proxy)</span></div>
+<div class="l"><span class="n"> 198</span><span class="t">  AND deployed to lame via a live `switch` on 2026-06-16 (now survives reboots).</span></div>
+<div class="l"><span class="n"> 199</span><span class="t">  To stop the redeploy from restarting the manually-stopped `llama-vulkan`/</span></div>
+<div class="l"><span class="n"> 200</span><span class="t">  `ollama-proxy` (which would re-grab the 7800XT needed for harness dev), they</span></div>
+<div class="l"><span class="n"> 201</span><span class="t">  were first DISABLED in config (llama.nix removeAttrs += &quot;vulkan&quot;; ollama-proxy</span></div>
+<div class="l"><span class="n"> 202</span><span class="t">  wrapped in `lib.mkIf enable`, enable=false). The closure diff confirmed no</span></div>
+<div class="l"><span class="n"> 203</span><span class="t">  docker/nvidia/kernel change, so the switch only stopped those two units +</span></div>
+<div class="l"><span class="n"> 204</span><span class="t">  reloaded the firewall — **dockerd untouched, the gpu-sandbox container +</span></div>
+<div class="l"><span class="n"> 205</span><span class="t">  Moonlight session survived, no reboot.** `lab-check lame` = PASS 7/0/0.</span></div>
+<div class="l"><span class="n"> 206</span><span class="t">- Re-enable the lab&#x27;s llama endpoint by dropping &quot;vulkan&quot; from llama.nix&#x27;s</span></div>
+<div class="l"><span class="n"> 207</span><span class="t">  removeAttrs / flipping ollama-proxy&#x27;s `enable` to true, restoring the relevant</span></div>
+<div class="l"><span class="n"> 208</span><span class="t">  imports in `hosts/lame/lame.nix`, then redeploy.</span></div>
+<div class="l"><span class="n"> 209</span><span class="t">- `utils/lab-check.sh` + `docs/UPDATING.md` updated: lame no longer asserts llama</span></div>
+<div class="l"><span class="n"> 210</span><span class="t">  active; it checks the sandbox prereqs (uinput + nvidia-container-toolkit CDI).</span></div>
+<div class="l"><span class="n"> 211</span><span class="t"></span></div>
+<div class="l"><span class="n"> 212</span><span class="t">## 2026-06-17 Docker data-root → ZFS pool (lame root disk pressure)</span></div>
+<div class="l"><span class="n"> 213</span><span class="t"></span></div>
+<div class="l"><span class="n"> 214</span><span class="t">lame&#x27;s 98G LUKS **root filled to 100%** during a haruness sweep (the harness builds</span></div>
+<div class="l"><span class="n"> 215</span><span class="t">+ runs on lame). Breakdown was `/nix/store` 64G, docker 14G in `/var`, plus the</span></div>
+<div class="l"><span class="n"> 216</span><span class="t">non-haruness `llmtoy-zig` (12G) and the `open-webui` image (6.7G). Fixed:</span></div>
+<div class="l"><span class="n"> 217</span><span class="t"></span></div>
+<div class="l"><span class="n"> 218</span><span class="t">- **Docker moved off root onto the `lamedata` ZFS pool** (hundreds of GB free).</span></div>
+<div class="l"><span class="n"> 219</span><span class="t">  `hosts/lame/disko.nix` declares a `lamedata/docker` dataset (mountpoint</span></div>
+<div class="l"><span class="n"> 220</span><span class="t">  `/lamedata/docker`); `hosts/lame/lame.nix` sets</span></div></body></html>

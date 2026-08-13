@@ -1,0 +1,68 @@
+# Vision-eval model manifest — one entry per llama.cpp server config.
+# family: qwen25vl|qwen3vl|qwen35|gemma|ocr  (drives video path + prompt hints)
+# video:  native = llama.cpp temporal video (Qwen-VL lineage); frames = ffmpeg fallback
+# Run order = list order (roughly slowest/biggest later; edit to taste).
+
+models:
+  - id: gemma4-12b-q4km
+    label: "Gemma 4 12B Q4_K_M (on-disk)"
+    gguf: /opt/ai-lab/models/unsloth/gemma-4-12b-it-GGUF/gemma-4-12b-it-Q4_K_M.gguf
+    mmproj: /opt/ai-lab/models/unsloth/gemma-4-12b-it-GGUF/mmproj-F16.gguf
+    family: gemma
+    video: frames
+
+  - id: qwen3vl-8b
+    label: "Qwen3-VL 8B Q4_K_M (downloaded)"
+    gguf: /opt/ai-lab/models/Qwen/Qwen3-VL-8B-Instruct-GGUF/Qwen3VL-8B-Instruct-Q4_K_M.gguf
+    mmproj: /opt/ai-lab/models/Qwen/Qwen3-VL-8B-Instruct-GGUF/mmproj-Qwen3VL-8B-Instruct-Q8_0.gguf
+    family: qwen3vl
+    video: native
+
+  - id: qwen3.5-9b
+    label: "Qwen3.5 9B Q4_K_M (newest, downloaded)"
+    gguf: /opt/ai-lab/models/unsloth/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf
+    mmproj: /opt/ai-lab/models/unsloth/Qwen3.5-9B-GGUF/mmproj-F16.gguf
+    family: qwen35
+    video: native
+
+  - id: deepseek-ocr
+    label: "DeepSeek-OCR Q8_0 (specialist)"
+    gguf: /opt/ai-lab/models/ggml-org/DeepSeek-OCR-GGUF/DeepSeek-OCR-Q8_0.gguf
+    mmproj: /opt/ai-lab/models/ggml-org/DeepSeek-OCR-GGUF/mmproj-DeepSeek-OCR-Q8_0.gguf
+    family: ocr
+    video: frames
+
+  - id: gemma4-26b-a4b-q3km
+    label: "Gemma 4 26B-A4B Q3_K_M (on-disk)"
+    gguf: /opt/ai-lab/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q3_K_M.gguf
+    mmproj: /opt/ai-lab/models/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-F32.gguf
+    family: gemma
+    video: frames
+
+  - id: qwen3.6-27b-iq2m
+    label: "Qwen3.6 27B IQ2_M (on-disk, dense)"
+    gguf: /opt/ai-lab/models/HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Balanced/Qwen3.6-27B-Uncensored-HauhauCS-Balanced-IQ2_M.gguf
+    mmproj: /opt/ai-lab/models/HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Balanced/mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Balanced-f16.gguf
+    family: qwen36
+    video: native
+
+  - id: qwen3.6-35b-a3b-iq2m
+    label: "Qwen3.6 35B-A3B IQ2_M (on-disk, MoE)"
+    gguf: /opt/ai-lab/models/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ2_M.gguf
+    mmproj: /opt/ai-lab/models/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
+    family: qwen36
+    video: native
+
+  - id: qwen3.5-35b-a3b-iq2m
+    label: "Qwen3.5 35B-A3B IQ2_M (on-disk, MoE)"
+    gguf: /opt/ai-lab/models/HauhauCS/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ2_M.gguf
+    mmproj: /opt/ai-lab/models/HauhauCS/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
+    family: qwen35
+    video: native
+
+  - id: gemma4-31b-iq2m
+    label: "Gemma 4 31B IQ2_M (on-disk)"
+    gguf: /opt/ai-lab/models/unsloth/gemma-4-31B-it-GGUF/gemma-4-31B-it-UD-IQ2_M.gguf
+    mmproj: /opt/ai-lab/models/unsloth/gemma-4-31B-it-GGUF/mmproj-F16.gguf
+    family: gemma
+    video: frames
