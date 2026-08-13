@@ -175,3 +175,8 @@ protocol.
 
 Probe cheaply with `vision --check` (never wakes the host). Long videos use
 `vision --video` (local chunk+join pipeline; OpenRouter has no chunk mode).
+
+Pasted images in omp: when the active model is text-only, omp replaces the
+attachment with `<image path="local://…">description</image>` (vision model
+output). That description IS the image content — do NOT re-inspect the
+local:// path with inspect_image unless a specific detail is missing.

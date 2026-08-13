@@ -30,6 +30,8 @@ in
     run chmod 600 "$HOME/.omp/agent/config.yml"
     run cp -fT ${ompModelsYml} "$HOME/.omp/agent/models.yml"
     run chmod 600 "$HOME/.omp/agent/models.yml"
+    run cp -fT ${./APPEND_SYSTEM.md} "$HOME/.omp/agent/APPEND_SYSTEM.md"
+    run chmod 600 "$HOME/.omp/agent/APPEND_SYSTEM.md"
   '';
 
   # gotcha comment that travels with the files. API key lives OUTSIDE nix in
