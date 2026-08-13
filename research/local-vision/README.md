@@ -85,6 +85,39 @@ Text-only models (DSV4-flash etc.) get vision one of these ways:
    `gpu-switch run vision`) that any tool/repo can POST images to; the
    one-shot `vision` CLI wraps it for scripts and non-omp contexts.
 
-## Results
+## Results (run full-20260813, 7800XT, llama.cpp 6e9007a, temp 0.2)
 
-See `results/` (each `run-*` has `results.json` + `report.html`).
+9 models × 10 cases (7 images, 2 clips, 1 long-video chunk test). Full matrix:
+`results/run-full-20260813/results.json` (regenerate the HTML page with
+`scripts/mkreport.py`; live copy served at http://10.0.10.56:8099/report.html).
+
+**Winner: Qwen3.5-9B Q4_K_M** — the vision service model (`gpu-switch run vision`,
+omp `modelRoles.vision`). Newest native-vision family, ~6 GB → huge VRAM headroom,
+fast (8–20 s/case), the most accurate dense-text/code transcription, and clean
+native temporal video. Runner-ups: Qwen3.6/3.5-35B-A3B IQ2_M (equal image
+quality, faster per-token, but IQ2 quant caps their ceiling and they eat the
+whole card); Qwen3-VL-8B (fine, occasionally weaker game/HUD reasoning).
+
+| model | image | dense text / code | video | notes |
+|---|---|---|---|---|
+| **qwen3.5-9b** ✅ | excellent | excellent (verbatim) | native, good | winner |
+| qwen3.6-35b-a3b iq2m | excellent | excellent | native, good | IQ2 ceiling |
+| qwen3.5-35b-a3b iq2m | excellent | excellent | native, good | IQ2 ceiling |
+| qwen3.6-27b iq2m | excellent | excellent | native, good | slowest (dense 27B) |
+| qwen3vl-8b | good | good | native, good | mis-guessed game on 1 shot |
+| gemma4-26b-a4b q3km | good | weak (garbled lines) | frames | >15.5 GB VRAM with F32 mmproj |
+| gemma4-12b q4km | good | **hallucinates** code | frames | unreliable for text |
+| gemma4-31b iq2m | good | garbled | frames (per-frame refusal) | weakest gemma |
+| deepseek-ocr q8 | OCR-only | flaky on large images | none | specialist only; not a chat model |
+
+Pipeline gotchas baked into the harness: llama.cpp `input_video` payload shape
+(`input_video: {data}`), ffprobe must stay in the server PATH, gemma-4
+`chat_template_kwargs.enable_thinking:false`, SIGPIPE wrapper, VRAM ceiling
+~15.5 GB, gemma 26B/31B mmproj crashes on multi-image batches (frames sent
+sequentially), xet-backed HF repos need `hf download` (aria2 double-write
+corrupted a file silently — verify sha256).
+
+Long-video path (ingest-style): `video-summarize.py` chunks → timestamped
+per-chunk captions → one joined summary. Verified on a 122 s MinutePhysics
+clip (5 chunks, 93 s total, accurate joined summary). Wrapped as
+`vision --video <file>`.

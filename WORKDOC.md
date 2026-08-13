@@ -825,3 +825,29 @@ service. Tore down the slop/comfyui docker stack (backups in
 - **Follow-ups**: deploy lame (gpu-switch.nix), pick winner + set omp vision
   role, part-2 eval (qwen3vl-8b, deepseek-ocr), maybe swap gemma26 mmproj to
   F16, publish report to llm-feed.
+
+### 2026-08-13 (later) — vision eval complete, service live
+
+- **Winner: qwen3.5-9b Q4_K_M** (9 models × 10 cases, 90/90 clean).
+  Matrix + outputs: `research/local-vision/results/run-full-20260813/`
+  (live page: http://10.0.10.56:8099/report.html; pushed montage to llm-feed).
+  Runners-up: Qwen3.6/3.5-35B-A3B IQ2_M (equal image quality, IQ2 ceiling).
+  gemma-4 family weak on text transcription (12B hallucinates code); 26B/31B
+  mmproj crashes on multi-image batches in llama.cpp 6e9007a (frames sent
+  sequentially in the harness). deepseek-ocr flaky on large images — specialist
+  only. qwen3vl-8b initial garbage was a CORRUPTED download (double-aria2);
+  `hf download` + sha256-verify fixed it.
+- **Live on lame**: `gpu-switch run vision` → qwen3.5-9b + mmproj on 7800XT
+  port 8080 (boot-restore unit + firewall via `hosts/lame/gpu-switch.nix`,
+  DEPLOYED). Switcheroo presets: vision / code-qwen36 / gemma26 / embed / idle.
+- **omp wired**: `lame-vision` provider (auth:none → 10.0.10.56:8080) +
+  `modelRoles.vision` in `hosts/wslop/hm/omp-{config,models}.yml` AND live
+  `~/.omp/agent/*.yml`; `omp models` lists it with image input. Next omp
+  session's `inspect_image` uses it automatically.
+- **vision CLI**: `/usr/local/bin/vision <img|video> [prompt]` and
+  `vision --video <file>` (ingest-style chunk→caption→join, verified on a
+  122s MinutePhysics clip: 5 chunks / 93s / accurate joined summary).
+- **Notes**: DeepSeek-VL3 does not exist; newest runnable DeepSeek vision is
+  DeepSeek-OCR(-2). Qwen3-VL-30B-A3B has no fitting quant for 16GB. Report
+  server (lame:8099) is a manual `python3 -m http.server`, NOT a service —
+  re-add the iptables rule after any firewall reload.

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/run/current-system/sw/bin/bash
 # gpu-switch — switcheroo for what each GPU on lame runs.
 #
 #   gpu-switch list                # presets + current + GPU state
@@ -12,6 +12,9 @@
 # Models live under /opt/ai-lab/models. Runtime deps (ffmpeg for video, the
 # Vulkan llama-server build) are resolved from the nix store.
 set -euo pipefail
+
+# systemd runs units with a minimal PATH; NixOS keeps tools in the system profile.
+export PATH="/run/current-system/sw/bin:$PATH"
 
 DIR=/opt/ai-lab/gpu-switch
 CURRENT="$DIR/current"

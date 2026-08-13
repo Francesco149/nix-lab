@@ -18,4 +18,5 @@ modelRoles:
   plan: deepseek/deepseek-v4-flash
   commit: deepseek/deepseek-v4-flash
   task: deepseek/deepseek-v4-flash
+  vision: lame-vision/qwen3.5-9b
 defaultThinkingLevel: high

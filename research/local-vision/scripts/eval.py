@@ -21,8 +21,8 @@ PORT = 8095
 BASE = f"http://127.0.0.1:{PORT}/v1"
 
 NATIVE_VIDEO_FAMILIES = {"qwen25vl", "qwen3vl", "qwen35", "qwen36"}
-FRAME_FPS = 1.5
-MAX_FRAMES = 12
+FRAME_FPS = float(os.environ.get("VISION_FRAME_FPS", "1.5"))
+MAX_FRAMES = int(os.environ.get("VISION_MAX_FRAMES", "12"))
 
 
 def log(msg):
@@ -52,12 +52,12 @@ def data_url(path):
 
 
 def extract_frames(video, workdir):
-    """ffmpeg → jpg frames; returns list of paths."""
+    """ffmpeg → downscaled jpg frames; returns list of paths."""
     os.makedirs(workdir, exist_ok=True)
     pat = os.path.join(workdir, "fr-%02d.jpg")
     subprocess.run(
         ["ffmpeg", "-y", "-v", "error", "-i", video, "-vf",
-         f"fps={FRAME_FPS},scale=512:-1", pat],
+         f"fps={FRAME_FPS},scale=384:-1", pat],
         check=True,
     )
     frames = sorted(f for f in os.listdir(workdir) if f.endswith(".jpg"))
@@ -83,19 +83,29 @@ def build_content(case, model, workdir):
 
 
 def run_case(model, case, workdir):
+    # gemma-4 26B/31B mmproj crashes on multi-image batches in this llama.cpp
+    # build (clip_image_batch_encode buffer mismatch) — send frames one by one.
+    if model.get("family") == "gemma" and case["kind"] == "video":
+        frames = extract_frames(os.path.join(ROOT, case["path"]), workdir)
+        parts = []
+        t_all = time.time()
+        for i, f in enumerate(frames):
+            content = [{"type": "image_url", "image_url": {"url": data_url(f)}},
+                       {"type": "text", "text": f"Frame {i+1}/{len(frames)} of a video clip. {case['prompt']}"}]
+            payload = base_payload(model, content)
+            t0 = time.time()
+            resp = http_json(f"{BASE}/chat/completions", payload)
+            dt = time.time() - t0
+            text = (resp["choices"][0]["message"].get("content") or "").strip()
+            parts.append(f"--- frame {i+1}/{len(frames)} ---\n{text}")
+        return {
+            "model": model["id"], "case": case["id"], "kind": case["kind"],
+            "output": "\n\n".join(parts),
+            "elapsed_s": round(time.time() - t_all, 1),
+            "prompt_tokens": None, "completion_tokens": None, "error": None,
+        }
     content = build_content(case, model, workdir)
-    payload = {
-        "model": model["id"],
-        "messages": [{"role": "user", "content": content}],
-        "max_tokens": 900,
-        "temperature": 0.2,
-        "top_p": 0.9,
-        "stream": False,
-    }
-    # Direct answers for eval: disable thinking channels where the template
-    # supports it (gemma-4, qwen3.5/3.6, qwen3-vl). OCR ignores kwargs.
-    if model.get("family") != "ocr":
-        payload["chat_template_kwargs"] = {"enable_thinking": False}
+    payload = base_payload(model, content)
     t0 = time.time()
     resp = http_json(f"{BASE}/chat/completions", payload)
     dt = time.time() - t0
@@ -112,6 +122,22 @@ def run_case(model, case, workdir):
         "completion_tokens": usage.get("completion_tokens"),
         "error": None,
     }
+
+
+def base_payload(model, content):
+    payload = {
+        "model": model["id"],
+        "messages": [{"role": "user", "content": content}],
+        "max_tokens": 900,
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "stream": False,
+    }
+    # Direct answers for eval: disable thinking channels where the template
+    # supports it (gemma-4, qwen3.5/3.6, qwen3-vl). OCR ignores kwargs.
+    if model.get("family") != "ocr":
+        payload["chat_template_kwargs"] = {"enable_thinking": False}
+    return payload
 
 
 def vram_used():
@@ -143,6 +169,10 @@ def main():
     outdir = os.path.join(ROOT, "results", f"run-{args.run}")
     os.makedirs(outdir, exist_ok=True)
     results = []
+    if os.path.exists(os.path.join(outdir, "results.json")):
+        results = json.load(open(os.path.join(outdir, "results.json")))
+        log(f"resuming: {len(results)} existing results")
+    done = {(r["model"], r["case"]) for r in results if not r.get("error")}
 
     ready = []
     for m in models:
@@ -158,6 +188,9 @@ def main():
         vram = vram_used()
         log(f"vram used: {vram/1e9:.2f} GB")
         for case in cases:
+            if (model["id"], case["id"]) in done:
+                log(f"  {case['id']}: cached, skip")
+                continue
             workdir = os.path.join(outdir, "frames", f"{model['id']}-{case['id']}")
             rec = {"model": model["id"], "case": case["id"], "kind": case["kind"],
                    "label": model["label"], "prompt": case["prompt"],

@@ -48,7 +48,12 @@ CFG="$("$HERE"/../scripts/model-cfg.py "$MODEL_ID")"
 eval "$CFG"   # sets GGUF, MMPROJ, FAMILY, LABEL
 
 VRAM_CEIL=$((15 * 1024 * 1024 * 1024))
-used=$(cat /sys/class/drm/card0/device/mem_info_vram_used 2>/dev/null || echo 0)
+# wait for the 7800XT to drain (a crashed server leaves VRAM allocated)
+for _ in $(seq 1 90); do
+  used=$(cat /sys/class/drm/card0/device/mem_info_vram_used 2>/dev/null || echo 0)
+  [ "$used" -lt $((2 * 1024 * 1024 * 1024)) ] && break
+  sleep 1
+done
 if [ "$used" -gt "$VRAM_CEIL" ]; then
   echo "ERROR: 7800XT busy (${used} bytes used); free it first" >&2; exit 3
 fi

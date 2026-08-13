@@ -8,6 +8,7 @@ scripts, and results.
 | Workstream | Status | What |
 |---|---|---|
 | [`video-understanding/`](video-understanding/) | active (2026-06-15) | native video on llama.cpp: build/run recipe, perf matrix (7800XT vs 3080), model selection |
+| [`local-vision/`](local-vision/) | active (2026-08-13) | vision for text-only agents: 9-model eval (images+clips), reusable harness, omp `modelRoles.vision` wiring, chunk+join long-video pipeline |
 | `agentic-coding/` | planned | custom harness to iteratively tune local models and score them on coding tasks |
 
 ## Conventions

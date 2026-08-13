@@ -35,7 +35,7 @@ models:
   - id: gemma4-26b-a4b-q3km
     label: "Gemma 4 26B-A4B Q3_K_M (on-disk)"
     gguf: /opt/ai-lab/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q3_K_M.gguf
-    mmproj: /opt/ai-lab/models/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-F32.gguf
+    mmproj: /opt/ai-lab/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
     family: gemma
     video: frames
 
