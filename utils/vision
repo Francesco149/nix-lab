@@ -1,28 +1,30 @@
 #!/usr/bin/env bash
-# vision — ask the local lame vision model what an image/video contains.
-# Works from wslop or any host that can ssh to lame (and to code for wake).
+# vision — ask a vision model what an image/video contains.
+# DEFAULT: OpenRouter qwen/qwen3.5-9b (needs OPENROUTER_API_KEY in
+# ~/.omp/agent/.env). FALLBACK: the local lame model (7800XT) — with the
+# wake/confirm protocol below.
 #
-#   vision --check                     # machine-readable state only
-#   vision <image-or-video> [prompt]   # single media item (gated on state)
-#   vision --video <file> [--chunk 30] # long video: chunk + join summary
+#   vision --check                     # state probe (passive, no wake)
+#   vision <image-or-video> [prompt]   # single media item
+#   vision --video <file> [--chunk 30] # long video: local chunk+join
 #   vision -                           # read the media from stdin (binary)
 #
-# State protocol (what callers/models must honor):
-#   VISION_STATE=ok     — vision model healthy on lame:8080; proceed.
+# Fallback state protocol (when OpenRouter fails and we go local):
+#   VISION_STATE=ok     — local vision model healthy on lame:8080; proceed.
 #   VISION_STATE=switch — lame is up but vision is NOT running (something
 #                         else is on the GPU, or it is idle). DO NOT switch
 #                         automatically: STOP and ask the human to confirm
 #                         `ssh root@lame gpu-switch run vision` (switching
-#                         would kill whatever is currently running).
+#                         would kill whatever is currently running there).
 #   VISION_STATE=down   — lame unreachable, even after a cold-unlock attempt.
 #                         Keep going WITHOUT vision and tell the human vision
-#                         is down (it was attempted: cold-unlock --host lame).
+#                         is down (wake was attempted: cold-unlock --host lame).
 #
-# Exit codes: 0 = ok/used, 3 = switch-needed, 4 = down.
+# Exit codes: 0 = answered (OR or local), 3 = switch-needed, 4 = down.
 #
-# Env knobs: VISION_LAME (default root@10.0.10.56), VISION_CODE (default
-# root@10.0.10.53), VISION_ALIAS (default qwen3.5-9b), VISION_WAKE_TIMEOUT (90),
-# VISION_ALIAS.
+# Env knobs: VISION_LAME (root@10.0.10.56), VISION_CODE (root@10.0.10.53),
+# VISION_ALIAS (qwen3.5-9b), VISION_WAKE_TIMEOUT (90), VISION_OR_MODEL,
+# OPENROUTER_API_KEY.
 set -euo pipefail
 
 LAME="${VISION_LAME:-root@10.0.10.56}"
@@ -30,6 +32,16 @@ CODE="${VISION_CODE:-root@10.0.10.53}"
 ALIAS="${VISION_ALIAS:-qwen3.5-9b}"
 PORT=8080
 WAKE_TIMEOUT="${VISION_WAKE_TIMEOUT:-90}"
+OR_MODEL="${VISION_OR_MODEL:-qwen/qwen3.5-9b}"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
+# API key lives OUTSIDE the repo, in omp's .env (same place as DEEPSEEK_API_KEY).
+# An explicitly exported OPENROUTER_API_KEY wins over the file.
+if [ -f "$HOME/.omp/agent/.env" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
+  set -a; . "$HOME/.omp/agent/.env"; set +a
+fi
+
+PYRUN() { nix shell nixpkgs#python3 --command python3 "$@"; }
 
 lame_up() { ssh -o ConnectTimeout=6 -o BatchMode=yes "$LAME" true 2>/dev/null; }
 
@@ -44,14 +56,9 @@ gpu_state() {
     || echo "(cannot read gpu-switch status)"
 }
 
-# check_state prints one of: ok | switch | down
-check_state() {
-  if ! lame_up; then
-    echo "down"; return
-  fi
-  if [ "$(vision_alias)" = "$ALIAS" ]; then
-    echo "ok"; return
-  fi
+check_state() { # ok | switch | down
+  if ! lame_up; then echo "down"; return; fi
+  if [ "$(vision_alias)" = "$ALIAS" ]; then echo "ok"; return; fi
   echo "switch"
 }
 
@@ -59,7 +66,6 @@ wake_lame() {
   local deadline=$((SECONDS + WAKE_TIMEOUT))
   echo "vision: lame is down — waking it via code (cold-unlock --host lame --stay, timeout ${WAKE_TIMEOUT}s)..." >&2
   timeout "$WAKE_TIMEOUT" ssh -o ConnectTimeout=6 "$CODE" "cold-unlock --host lame --stay" >&2 || true
-  # poll for ssh + (hopefully) the boot-restored vision service, within budget
   while [ $SECONDS -lt $deadline ]; do
     if lame_up; then
       state="$(check_state)"
@@ -90,35 +96,40 @@ print_down() {
   echo "vision is down (wake was attempted automatically and timed out)."
 }
 
-cmd_check() {
-  case "$(check_state)" in
-    ok) echo "VISION_STATE=ok"; echo "vision: $ALIAS healthy on ${LAME#*@}:$PORT" ;;
-    switch) print_switch; exit 3 ;;
-    down) print_down; exit 4 ;;
-  esac
+or_ok() {
+  [ -n "${OPENROUTER_API_KEY:-}" ]
 }
 
-cmd_use() { # media-args...
-  case "$(check_state)" in
-    ok) ;;
-    switch) print_switch; exit 3 ;;
-    down)
-      if ! wake_lame; then print_down; exit 4; fi
-      # woke up: re-check; if not vision, require human confirmation
-      case "$(check_state)" in
-        ok) ;;
-        switch) print_switch; exit 3 ;;
-        down) print_down; exit 4 ;;
-      esac
-      ;;
-  esac
-  # state is ok here — run the actual request
-  send_media "$@"
-}
-
-send_media() {
+# stage media: returns via /tmp/vision-ext + /tmp/vision-b64 + /tmp/vision-prompt
+stage_media() { # media prompt...
   local media="$1"; shift || true
+  local prompt="$*"
+  local src="$media" tmp=""
+  if [ "$src" = "-" ]; then
+    tmp=$(mktemp --suffix=.bin); cat > "$tmp"; src="$tmp"
+  fi
+  [ -f "$src" ] || { echo "vision: no such file: $src" >&2; exit 1; }
+  echo "${src##*.}" > /tmp/vision-ext
+  base64 -w0 < "$src" > /tmp/vision-b64
+  echo "$prompt" > /tmp/vision-prompt
+  if [ -n "$tmp" ]; then rm -f "$tmp"; fi
+}
+
+send_openrouter() { # media prompt...
+  if ! or_ok; then
+    echo "vision: OPENROUTER_API_KEY not set — using local model" >&2
+    return 1
+  fi
+  stage_media "$@"
+  echo "vision: openrouter ($OR_MODEL)..." >&2
+  OPENROUTER_API_KEY="$OPENROUTER_API_KEY" VISION_OR_MODEL="$OR_MODEL" PYRUN "$HERE/vision-openrouter.py" "$2" < /tmp/vision-b64
+}
+
+send_local() { # media prompt... (state must be ok)
+  local media="$1"; shift || true
+  local prompt="$*"
   if [ "$media" = "--video" ]; then
+    # long-video chunk+join: local pipeline only
     local file="${1:?usage: vision --video <file> [--chunk N]}"
     shift || true
     [ -f "$file" ] || { echo "vision: no such file: $file" >&2; exit 1; }
@@ -126,29 +137,56 @@ send_media() {
     ssh "$LAME" "nix-shell -p python3 ffmpeg --run 'python3 /opt/ai-lab/gpu-switch/video-summarize.py /tmp/vision-video.bin $*'"
     return
   fi
-  local prompt="$*"
-  local src="$media"
-  local tmp=""
-  if [ "$src" = "-" ]; then
-    tmp=$(mktemp --suffix=.bin)
-    cat > "$tmp"
-    src="$tmp"
+  stage_media "$media" "$prompt"
+  cat /tmp/vision-b64 | ssh "$LAME" "cat > /tmp/vision-b64"
+  echo "$(cat /tmp/vision-ext)" | ssh "$LAME" "cat > /tmp/vision-ext"
+  echo "$(cat /tmp/vision-prompt)" | ssh "$LAME" "cat > /tmp/vision-prompt"
+  ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py \"\$(cat /tmp/vision-prompt)\"' < /tmp/vision-b64"
+}
+
+local_gate() { # runs the fallback state machine; exits if not ok
+  case "$(check_state)" in
+    ok) return 0 ;;
+    switch) print_switch; exit 3 ;;
+    down)
+      if ! wake_lame; then print_down; exit 4; fi
+      case "$(check_state)" in
+        ok) return 0 ;;
+        switch) print_switch; exit 3 ;;
+        down) print_down; exit 4 ;;
+      esac
+      ;;
+  esac
+}
+
+cmd_use() { # media prompt...
+  # long-video chunk+join: local pipeline only (OpenRouter has no chunk mode)
+  if [ "${1:-}" = "--video" ]; then
+    local_gate
+    send_local "$@"
+    return
   fi
-  [ -f "$src" ] || { echo "vision: no such file: $src" >&2; exit 1; }
-  local ext="${src##*.}"
-  echo "$ext" | ssh "$LAME" "cat > /tmp/vision-ext"
-  cat "$src" | ssh "$LAME" "base64 -w0 > /tmp/vision-b64"
-  if [ -n "$prompt" ]; then
-    echo "$prompt" | ssh "$LAME" "cat > /tmp/vision-prompt"
-    ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py \"\$(cat /tmp/vision-prompt)\"' < /tmp/vision-b64"
-  else
-    ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py' < /tmp/vision-b64"
+  # default: OpenRouter; on ANY failure fall back to the local model
+  if send_openrouter "$@"; then
+    echo "vision: answered via openrouter" >&2
+    return 0
   fi
-  if [ -n "$tmp" ]; then rm -f "$tmp"; fi
+  echo "vision: OpenRouter failed (see above) — falling back to local lame model" >&2
+  local_gate
+  send_local "$@"
+}
+
+cmd_check() {
+  echo "openrouter: $([ -n "${OPENROUTER_API_KEY:-}" ] && echo "key set ($OR_MODEL)" || echo "NO KEY — local only")"
+  case "$(check_state)" in
+    ok) echo "VISION_STATE=ok"; echo "local: $ALIAS healthy on ${LAME#*@}:$PORT" ;;
+    switch) print_switch; exit 3 ;;
+    down) print_down; exit 4 ;;
+  esac
 }
 
 case "${1:-}" in
   --check) cmd_check ;;
-  -h|--help) sed -n '2,30p' "$0" ;;
+  -h|--help) sed -n '2,40p' "$0" ;;
   *) cmd_use "$@" ;;
 esac

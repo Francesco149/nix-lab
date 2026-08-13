@@ -863,3 +863,16 @@ service. Tore down the slop/comfyui docker stack (backups in
 - Protocol documented in AGENTS.md (agents) + `vision --help` (CLI).
 - Verified: ok (healthy), switch (real gemma26 swap detected, refused to
   switch), down (fake host: wake attempted, bounded ~timeout, rc=4).
+
+### 2026-08-14 — OpenRouter default vision, lame powered down
+
+- `vision` CLI now tries **OpenRouter qwen/qwen3.5-9b** FIRST (key:
+  `OPENROUTER_API_KEY` in `~/.omp/agent/.env`, NOT in the repo), falls back
+  to the local lame model on ANY OR failure (401/4xx/5xx/timeout — both
+  verified). omp `modelRoles.vision` → `openrouter/qwen/qwen3.5-9b`
+  (HM module + live config; lame-vision provider kept as fallback).
+- Per request, **lame has been powered off** after OR verification. Local
+  fallback will auto-wake it via code (`cold-unlock --host lame --stay`)
+  when OR is down — that is by design (the switch/down protocol).
+- Long videos (`vision --video`) remain local-only (chunk+join needs the
+  llama.cpp native-video path).

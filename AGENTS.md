@@ -150,24 +150,28 @@ interactive coding harness later.
 - Model picks + the native-video / local-VLM eval that informs them live in
   `research/video-understanding/`.
 
-## Vision (local VLM on lame) — protocol for agents
+## Vision (OpenRouter default, local lame fallback) — protocol for agents
 
-`vision` (installed at `/usr/local/bin/vision`) sends images/videos to the
-local vision model on lame (qwen3.5-9b, 7800XT, port 8080). Full usage:
-`vision --help`. Every call is STATE-GATED — honor the protocol:
+`vision` (installed at `/usr/local/bin/vision`) sends images/videos to a
+vision model. **DEFAULT: OpenRouter `qwen/qwen3.5-9b`** (key in
+`~/.omp/agent/.env` as `OPENROUTER_API_KEY` — never commit it). If OpenRouter
+fails (401 credit/expired key, 4xx/5xx, timeout), it **falls back to the
+local lame model** (qwen3.5-9b on the 7800XT, port 8080) via the state
+protocol below. omp's `inspect_image` uses the same default (vision role →
+openrouter provider); when it errors, run `vision --check` and follow the
+protocol.
 
-- **`VISION_STATE=ok`** — vision is running; output follows.
-- **`VISION_STATE=switch`** (exit 3) — lame is up but vision is NOT running
-  (something else is on the GPU, or it's idle). **STOP and ask the human to
-  confirm** `ssh root@lame gpu-switch run vision` before switching — an
-  automatic switch would kill whatever is currently running there (thrash
-  guard). Do not retry in a loop.
-- **`VISION_STATE=down`** (exit 4) — lame unreachable even after an automatic
-  wake attempt (`cold-unlock --host lame --stay` via code, bounded timeout).
-  **Keep working WITHOUT vision** (OCR/a11y/read as usual) and tell the human
-  vision is down so they can wake lame manually if they want it.
+- **`VISION_STATE=ok`** — answered (OpenRouter) or local vision running;
+  output follows.
+- **`VISION_STATE=switch`** (exit 3) — OpenRouter failed AND lame is up but
+  vision is NOT running (something else is on the GPU, or it's idle). **STOP
+  and ask the human to confirm** `ssh root@lame gpu-switch run vision`
+  before switching — an automatic switch would kill whatever is currently
+  running there (thrash guard). Do not retry in a loop.
+- **`VISION_STATE=down`** (exit 4) — OpenRouter failed AND lame is
+  unreachable even after an automatic wake attempt (`cold-unlock --host lame
+  --stay` via code, bounded timeout). **Keep working WITHOUT vision**
+  (OCR/a11y/read as usual) and tell the human vision is down.
 
-Probe cheaply with `vision --check` (never wakes the host). The same state
-machine backs omp's `inspect_image` (vision role → lame-vision provider);
-when inspect_image errors with a network/connection failure, the model should
-run the same switch/down protocol (check with `vision --check`).
+Probe cheaply with `vision --check` (never wakes the host). Long videos use
+`vision --video` (local chunk+join pipeline; OpenRouter has no chunk mode).

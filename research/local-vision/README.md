@@ -132,3 +132,13 @@ instructs the caller to get human confirmation (`gpu-switch run vision`).
 `vision --check` probes passively. The same protocol is documented in the
 repo AGENTS.md for agent sessions and is what omp `inspect_image` failures
 should fall back to.
+
+## 2026-08-14 update — OpenRouter default
+
+`utils/vision` now defaults to **OpenRouter `qwen/qwen3.5-9b`**
+(`OPENROUTER_API_KEY` in `~/.omp/agent/.env`, outside the repo) and falls
+back to the local lame model on any OR failure (verified: 401 bad key →
+local; 400 bad model → local). omp `modelRoles.vision` → openrouter
+provider; `lame-vision` provider stays as the manual fallback. lame itself
+is powered off; the local fallback auto-wakes it via code per the state
+protocol above.

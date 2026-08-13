@@ -34,8 +34,8 @@ providers:
               type: enabled
 
   # Local vision on lame (7800XT, gpu-switch `vision` preset, port 8080).
-  # Powers modelRoles.vision → inspect_image for text-only sessions.
-  # Auth: none (LAN-only server). Model id must match the preset's --alias.
+  # Fallback for inspect_image when OpenRouter is down; model id must match
+  # the preset's --alias.
   lame-vision:
     baseUrl: http://10.0.10.56:8080/v1
     auth: none
@@ -48,4 +48,29 @@ providers:
         maxTokens: 8192
         compat:
           supportsToolChoice: false
+          supportsUsageInStreaming: false
+
+  # OpenRouter qwen3.5-9b — the DEFAULT vision model (key in
+  # ~/.omp/agent/.env as OPENROUTER_API_KEY, same pattern as the DeepSeek key).
+  # Used by modelRoles.vision → inspect_image. If it fails (credit/outage),
+  # fall back to the `vision` CLI which handles the lame wake/switch protocol.
+  openrouter:
+    baseUrl: https://openrouter.ai/api/v1
+    api: openai-completions
+    apiKey: OPENROUTER_API_KEY
+    authHeader: true
+    models:
+      - id: qwen/qwen3.5-9b
+        name: Qwen3.5 9B (OpenRouter)
+        reasoning: false
+        input: [text, image]
+        contextWindow: 262144
+        maxTokens: 8192
+        cost:
+          input: 0.10
+          output: 0.15
+          cacheRead: 0
+          cacheWrite: 0
+        compat:
+          supportsReasoningEffort: false
           supportsUsageInStreaming: false
