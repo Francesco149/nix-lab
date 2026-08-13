@@ -761,13 +761,22 @@ module (supersedes the 2026-06-30 note).
   omp-nix`.
 - **Scope**: wslop-only, via `hosts/wslop/hm/omp.nix` in the wslop headpats HM
   set. Not (yet) on other interactive hosts.
-- **Config** (declarative, HM-managed in `~/.omp/agent/`):
+- **Config** (declarative, seeded into `~/.omp/agent/` on HM activation):
   - `models.yml` — custom `deepseek` provider entry for `deepseek-v4-flash`
     with the full compat block from the official DeepSeek docs (this is what
     prevents 400s on tool calls in thinking mode; the built-in entry lacks it).
   - `config.yml` — all text roles (`default/smol/slow/plan/commit/task`) → the
     flash model; `defaultThinkingLevel: high` (DeepSeek V4's minimum tier,
-    what sentdex benched); `ultrathink` per-turn for xhigh.
+    what sentdex benched); `ultrathink` per-turn for xhigh; `startup.quiet` +
+    `startup.setupWizard: false`.
+- **Why config is activation-copied, not `home.file`**: omp's settings flush
+  writes a temp file *next to the symlink target* and renames, so a HM store
+  symlink fails with EROFS — the first-run wizard's `setupVersion` write could
+  never persist ("asks again" every start, and skipping crashed). omp's own
+  `nix/home-manager.nix` documents the same limitation. `home.activation`
+  copies config.yml/models.yml over the symlinks every switch (declarative
+  seed, runtime edits revert on next switch — same semantics as omp's official
+  module), and `startup.setupWizard: false` keeps the wizard off entirely.
 - **Secret**: `DEEPSEEK_API_KEY` in `~/.omp/agent/.env` (0600, created outside
   nix — never in the store). omp loads that file eagerly.
 - **Verified**: tool-calling one-shot loop (bash + write, no 400s) and

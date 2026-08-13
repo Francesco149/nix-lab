@@ -1,0 +1,21 @@
+# Single-model routing: only DeepSeek V4 Flash is wired up, so every text
+# role points at it. (tiny is deliberately unset — it is the local on-device
+# role for titles/memory; `omp tiny-models download` won't burn API credits.
+# defaultThinkingLevel: high is DeepSeek V4's minimum thinking tier (model
+# thinking.minLevel) and the level sentdex benched. Say "ultrathink" in a
+# turn to push it to xhigh (DeepSeek "max") on demand.
+#
+# startup.setupWizard: false — the first-run wizard is disabled so it can't
+# 400/crash against a config it can't persist. startup.quiet suppresses the
+# startup chrome.
+startup:
+  quiet: true
+  setupWizard: false
+modelRoles:
+  default: deepseek/deepseek-v4-flash
+  smol: deepseek/deepseek-v4-flash
+  slow: deepseek/deepseek-v4-flash
+  plan: deepseek/deepseek-v4-flash
+  commit: deepseek/deepseek-v4-flash
+  task: deepseek/deepseek-v4-flash
+defaultThinkingLevel: high
