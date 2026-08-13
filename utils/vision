@@ -177,11 +177,30 @@ cmd_use() { # media prompt...
 }
 
 cmd_check() {
-  echo "openrouter: $([ -n "${OPENROUTER_API_KEY:-}" ] && echo "key set ($OR_MODEL)" || echo "NO KEY — local only")"
+  local or_ok=no
+  [ -n "${OPENROUTER_API_KEY:-}" ] && or_ok=yes
+  echo "openrouter: $([ "$or_ok" = yes ] && echo "key set ($OR_MODEL)" || echo "NO KEY — local only")"
   case "$(check_state)" in
-    ok) echo "VISION_STATE=ok"; echo "local: $ALIAS healthy on ${LAME#*@}:$PORT" ;;
-    switch) print_switch; exit 3 ;;
-    down) print_down; exit 4 ;;
+    ok)
+      echo "VISION_STATE=ok"
+      echo "local: $ALIAS healthy on ${LAME#*@}:$PORT"
+      ;;
+    switch)
+      if [ "$or_ok" = yes ]; then
+        echo "VISION_STATE=ok"
+        echo "local: lame is on another preset (matters only if OpenRouter fails)"
+      else
+        print_switch; exit 3
+      fi
+      ;;
+    down)
+      if [ "$or_ok" = yes ]; then
+        echo "VISION_STATE=ok"
+        echo "local: lame is down (will auto-wake only if OpenRouter fails)"
+      else
+        print_down; exit 4
+      fi
+      ;;
   esac
 }
 
