@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-07-22
+Last updated: 2026-08-13
 
 ## Project
 
@@ -318,7 +318,8 @@ from source. Resolved by deploying a **surgical** update instead.
   isn't on `cache.numtide.com` (404), so enabling it forces a from-source
   bun2nix build. Verified this is **not** the `nixpkgs.follows` — pi resolves to
   the *identical* path with or without the follows, and both 404. [todo] re-enable
-  the import + block when revamping pi.
+  the import + block when revamping pi. **[superseded 2026-08-13]** — torn down
+  and replaced by omp (oh-my-pi); see the 2026-08-13 entry.
 - **Known risk — full flake update is currently blocked**: the fresh `nixpkgs`
   (`b5aa0fb`) ships `cantarell-fonts 0.311` broken to build (an `afdko`
   `otfautohint` regression) **and** uncached on every substituter, so it fails
@@ -744,3 +745,34 @@ non-WSL parts are reusable modules.
 - `grammar-helper` and other local inputs are missing in this environment,
   so `nix flake check` fails on deploy-rs checks. Host-specific builds
   (`.#nixosConfigurations.wslop`) work fine.
+
+## 2026-08-13 omp (oh-my-pi) harness on wslop — DeepSeek V4 Flash
+
+Installed the omp harness (can1357/oh-my-pi, the fork of Pi that sentdex
+concluded is the right harness for DeepSeek V4 Flash — Terminal-Bench v2.1:
+DSV4F-0731 49.4% stock → 71.9% under OMP). Replaces the torn-down pi-gemma
+module (supersedes the 2026-06-30 note).
+
+- **Package**: `omp-nix` flake input (yuxqiu/omp-nix) — ships the **prebuilt**
+  release binary wrapped for NixOS (`ld-linux` interpreter + `BUN_SELF_EXE`),
+  so nothing builds from source. nixpkgs `bun` (1.3.13) is too old for omp
+  (needs ≥1.3.14), which is why the release-binary route wins over a bun-based
+  install. omp-nix auto-updates via its CI daily; bump with `nix flake update
+  omp-nix`.
+- **Scope**: wslop-only, via `hosts/wslop/hm/omp.nix` in the wslop headpats HM
+  set. Not (yet) on other interactive hosts.
+- **Config** (declarative, HM-managed in `~/.omp/agent/`):
+  - `models.yml` — custom `deepseek` provider entry for `deepseek-v4-flash`
+    with the full compat block from the official DeepSeek docs (this is what
+    prevents 400s on tool calls in thinking mode; the built-in entry lacks it).
+  - `config.yml` — all text roles (`default/smol/slow/plan/commit/task`) → the
+    flash model; `defaultThinkingLevel: high` (DeepSeek V4's minimum tier,
+    what sentdex benched); `ultrathink` per-turn for xhigh.
+- **Secret**: `DEEPSEEK_API_KEY` in `~/.omp/agent/.env` (0600, created outside
+  nix — never in the store). omp loads that file eagerly.
+- **Verified**: tool-calling one-shot loop (bash + write, no 400s) and
+  `web_search` research one-shot both pass; lab-check wslop green.
+- **Follow-ups**: `omp tiny-models download` would move session titles/memory
+  off the paid API (tiny role is deliberately unset); consider whether omp
+  should join the shared HM set (like codex/claude-code/opencode in common.nix)
+  if it proves itself beyond wslop.
