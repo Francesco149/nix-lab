@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# vision — ask the local lame vision model what an image/video contains.
+# Works from wslop or any host that can ssh to lame.
+#
+#   vision <image-or-video> [prompt]
+#   vision -                     # read the media from stdin (binary)
+#   echo "..." | vision x.png    # prompt via stdin instead of argv
+#
+# Requires the `vision` gpu-switch preset running on lame:
+#   ssh root@lame gpu-switch run vision
+set -euo pipefail
+
+LAME=root@10.0.10.56
+PORT=8080
+SRC="${1:?usage: vision <image|video> [prompt] < input for prompt}"
+shift || true
+PROMPT="$*"
+
+if [ "$SRC" = "-" ]; then
+  TMP=$(mktemp --suffix=.bin)
+  cat > "$TMP"
+  SRC="$TMP"
+fi
+
+EXT="${SRC##*.}"
+[ -f "$SRC" ] || { echo "vision: no such file: $SRC" >&2; exit 1; }
+
+# server up?
+if ! ssh -o ConnectTimeout=5 "$LAME" "curl -sf http://127.0.0.1:$PORT/health >/dev/null 2>&1 && echo up || echo down" | grep -q up; then
+  echo "vision: lame vision server not running on :$PORT — start it with:" >&2
+  echo "  ssh $LAME gpu-switch run vision" >&2
+  exit 2
+fi
+
+# ship media + ask
+echo "$EXT" | ssh "$LAME" "cat > /tmp/vision-ext" 2>/dev/null
+cat "$SRC" | ssh "$LAME" "base64 -w0 > /tmp/vision-b64"
+if [ -n "$PROMPT" ]; then
+  echo "$PROMPT" | ssh "$LAME" "cat > /tmp/vision-prompt"
+  ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py \"\$(cat /tmp/vision-prompt)\"' < /tmp/vision-b64"
+else
+  ssh "$LAME" "nix-shell -p python3 --run 'python3 /opt/ai-lab/gpu-switch/vision-cli.py' < /tmp/vision-b64"
+fi
+rm -f "$TMP"

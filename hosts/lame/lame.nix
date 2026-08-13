@@ -9,6 +9,10 @@
     # ./open-webui.nix
     # ./ollama-proxy.nix
     # ./ingest.nix
+
+    # GPU switcheroo (vision/code/embed presets) — replaces the disabled
+    # llama.nix instances; restores the last preset at boot (2026-08-13).
+    ./gpu-switch.nix
   ];
 
   # ── ZFS, WoL, remote unlock ──────────────────────────────────────────────

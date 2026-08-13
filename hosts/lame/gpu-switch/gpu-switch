@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# gpu-switch — switcheroo for what each GPU on lame runs.
+#
+#   gpu-switch list                # presets + current + GPU state
+#   gpu-switch run <preset>        # stop current, start preset (systemd unit)
+#   gpu-switch stop                # stop the current unit
+#   gpu-switch status              # unit state + VRAM
+#   gpu-switch daemon-run          # (internal) exec the current preset's cmd
+#
+# Presets are one-shot llama.cpp / docker commands per GPU slot. The current
+# preset is persisted so a reboot restores it (gpu-switch-restore.service).
+# Models live under /opt/ai-lab/models. Runtime deps (ffmpeg for video, the
+# Vulkan llama-server build) are resolved from the nix store.
+set -euo pipefail
+
+DIR=/opt/ai-lab/gpu-switch
+CURRENT="$DIR/current"
+BIN=/opt/ai-lab/scratch/llama-mtp-bin
+ICD=/run/opengl-driver/share/vulkan/icd.d/radeon_icd.x86_64.json
+FFBIN="$(dirname "$(ls /nix/store/*-ffmpeg-8.1*/bin/ffprobe 2>/dev/null | head -1)")"
+PYBIN="$(dirname "$(ls /nix/store/*-python3-3.1*/bin/python3 2>/dev/null | head -1)")"
+WRAP="$DIR/sigpipe-wrapper.py"
+
+PORT_MAIN=8080   # 7800XT slot (lab.ports.llama-vulkan)
+PORT_EMBED=6080  # 3080 slot   (lab.ports.llama-embed)
+
+# preset table: name | gpu | port | model | mmproj | extra llama-server flags
+# gpu: vulkan (7800XT) | cuda (3080) | none (kill)
+# `none` presets only stop things; their command is ignored.
+PRESETS=(
+  "vision|vulkan|$PORT_MAIN|/opt/ai-lab/models/unsloth/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf|/opt/ai-lab/models/unsloth/Qwen3.5-9B-GGUF/mmproj-F16.gguf|--jinja -c 32768 --kv-unified --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --temp 0.2 --top-p 0.9 --alias qwen3.5-9b"
+  "code-qwen36|vulkan|$PORT_MAIN|/opt/ai-lab/models/unsloth/Qwen3.6-27B-MTP-GGUF/Qwen3.6-27B-UD-IQ2_M.gguf||--jinja -c 32768 --kv-unified --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --spec-type draft-mtp --temp 0.6 --top-p 0.95 --top-k 20 --alias qwen3.6-27b"
+  "gemma26|vulkan|$PORT_MAIN|/opt/ai-lab/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Mini.gguf|/opt/ai-lab/models/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-F32.gguf|--jinja -c 32768 --kv-unified --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --temp 1.0 --top-p 0.95 --top-k 64 --alias gemma4-26b"
+  "embed|none|$PORT_EMBED|||"
+  "idle|none|0|||"
+)
+
+preset_row() { # name -> row or ""
+  for row in "${PRESETS[@]}"; do
+    [ "${row%%|*}" = "$1" ] && { echo "$row"; return; }
+  done
+}
+
+log() { echo "[gpu-switch] $*"; }
+
+kill_llamas() {
+  pkill -f "llama-server" 2>/dev/null || true
+  for _ in $(seq 1 40); do
+    pgrep -f llama-server >/dev/null || break
+    sleep 0.5
+  done
+  # wait for VRAM to drain (7800XT)
+  for _ in $(seq 1 40); do
+    used=$(cat /sys/class/drm/card0/device/mem_info_vram_used 2>/dev/null || echo 0)
+    [ "$used" -lt 1073741824 ] && break
+    sleep 0.5
+  done
+}
+
+start_server() { # gpu port model mmproj extra
+  local gpu="$1" port="$2" model="$3" mmproj="$4" extra="$5"
+  [ "$gpu" = none ] && return 0
+  [ -f "$model" ] || { log "ERROR: model missing: $model"; return 1; }
+  local flags=(--host 0.0.0.0 --port "$port" -ngl 99 --n-cpu-moe 0)
+  if [ -n "$mmproj" ]; then flags+=(--mmproj "$mmproj"); fi
+  if [ "$gpu" = vulkan ]; then
+    if [ -n "$PYBIN" ] && [ -f "$WRAP" ]; then
+      exec env LD_LIBRARY_PATH="$BIN" VK_ICD_FILENAMES="$ICD" PATH="$FFBIN:$PATH" \
+        "$PYBIN/python3" "$WRAP" "$BIN/llama-server" "${flags[@]}" $extra -m "$model"
+    fi
+    exec env LD_LIBRARY_PATH="$BIN" VK_ICD_FILENAMES="$ICD" PATH="$FFBIN:$PATH" \
+      "$BIN/llama-server" "${flags[@]}" $extra -m "$model"
+  fi
+  log "ERROR: unknown gpu '$gpu'"; return 1
+}
+
+case "${1:-list}" in
+  list)
+    echo "current: $(cat "$CURRENT" 2>/dev/null || echo none)"
+    echo "7800XT vram: $(awk '{printf "%.2f GB", $1/1e9}' /sys/class/drm/card0/device/mem_info_vram_used 2>/dev/null || echo n/a)"
+    echo "3080: $(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1) MiB used"
+    echo "presets:"
+    for row in "${PRESETS[@]}"; do
+      IFS='|' read -r name gpu port model _ <<<"$row"
+      printf "  %-14s %-7s port %-5s %s\n" "$name" "$gpu" "$port" "$(basename "${model:-}")"
+    done
+    ;;
+  run)
+    preset="${2:?usage: gpu-switch run <preset>}"
+    preset_row "$preset" >/dev/null || { log "unknown preset: $preset"; exit 2; }
+    systemctl stop gpu-switch 2>/dev/null || true
+    kill_llamas
+    echo "$preset" > "$CURRENT"
+    systemd-run --unit=gpu-switch --collect "$DIR/gpu-switch" daemon-run
+    sleep 1
+    systemctl status gpu-switch --no-pager 2>/dev/null | head -6 || true
+    log "preset '$preset' starting; check 'gpu-switch status' for health"
+    ;;
+  stop)
+    systemctl stop gpu-switch 2>/dev/null || true
+    kill_llamas
+    rm -f "$CURRENT"
+    log "all llama servers stopped"
+    ;;
+  status)
+    systemctl is-active gpu-switch 2>/dev/null || echo "unit: inactive"
+    [ -f "$CURRENT" ] && echo "current: $(cat "$CURRENT")"
+    curl -sf "http://127.0.0.1:$PORT_MAIN/health" >/dev/null 2>&1 && echo "main port $PORT_MAIN: up" || echo "main port $PORT_MAIN: down"
+    curl -sf "http://127.0.0.1:$PORT_EMBED/health" >/dev/null 2>&1 && echo "embed port $PORT_EMBED: up" || echo "embed port $PORT_EMBED: down"
+    ;;
+  daemon-run)
+    preset="$(cat "$CURRENT" 2>/dev/null || echo idle)"
+    row="$(preset_row "$preset")"
+    IFS='|' read -r _ gpu port model mmproj extra <<<"$row"
+    log "daemon-run: preset=$preset gpu=$gpu port=$port"
+    start_server "$gpu" "$port" "$model" "$mmproj" "$extra"
+    ;;
+  *) echo "usage: gpu-switch <list|run preset|stop|status>"; exit 2 ;;
+esac
