@@ -180,3 +180,10 @@ Pasted images in omp: when the active model is text-only, omp replaces the
 attachment with `<image path="local://…">description</image>` (vision model
 output). That description IS the image content — do NOT re-inspect the
 local:// path with inspect_image unless a specific detail is missing.
+
+**xd:// devices are not functions.** `inspect_image`, `browser`, `ast_edit`,
+`lsp`, `debug` don't appear in the agent's named tool list; they are invoked
+by writing JSON args to `xd://<tool>` (e.g. `write(path="xd://inspect_image",
+content={...})`). The absence from the function list does NOT mean they are
+unmounted — this has burned agents into "no vision in this session" while the
+route worked all along. See `hosts/wslop/hm/APPEND_SYSTEM.md`.
