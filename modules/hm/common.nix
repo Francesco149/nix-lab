@@ -52,6 +52,7 @@ in
       codex
       claude-code
       opencode
+      antigravity-cli
     ]);
 
   services.gpg-agent = {
