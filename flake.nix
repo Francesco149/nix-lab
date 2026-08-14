@@ -134,6 +134,7 @@
           ./modules/hm/default-apps.nix
           ./modules/hm/mpv.nix
           ./hosts/wslop/hm/omp.nix
+          ./hosts/wslop/hm/dev.nix
         ];
 
         hosts.wslop = [
