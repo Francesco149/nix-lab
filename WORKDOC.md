@@ -947,3 +947,41 @@ Two persistent fixes landed:
   endpoint still 429'd intermittently during the incident even authenticated
   — that class of failure is GitHub-side and transient; locked flake.lock +
   store cache keeps `nixos-rebuild` offline-safe.
+
+### 2026-08-17 — Gemini (Google AI Pro subscription) wired into omp via google-antigravity
+
+The user has a Google AI Pro ("Gemini Pro") subscription and wants it usable
+in omp. Research (can1357/oh-my-pi docs + source at /tmp/opencode/omp-src):
+
+- The subscription route is the **`google-antigravity`** provider: OAuth
+  installed-app flow (PKCE on port 51121, paste-code supported), no API key.
+  It mimics the consumer Antigravity app backend
+  (daily-cloudcode-pa.googleapis.com with sandbox failover) — this is the
+  successor to Gemini CLI, which Google stopped serving to individual AI Pro
+  accounts on 2026-06-18 (gemini-cli discussions #28017 / #28717).
+- `google-gemini-cli` (cloudcode-pa.googleapis.com, port 8085) is the older
+  route; expect it to silently fall back to API-key onboarding for personal
+  accounts. `google` (GEMINI_API_KEY) is the metered API — NOT the
+  subscription.
+- Antigravity exposes collapsed model ids: `google-antigravity/gemini-3.1-pro`
+  (default; high effort routes to gemini-pro-agent), `gemini-3.5-flash`,
+  `gemini-3.6-flash` (newer ids gated on client version), plus claude-* via
+  the same backend. Usage/quota is tracked per account with auto-rotation;
+  credentials are stored by omp (outside nix, untouched by HM activation).
+
+Decision (user): provider-only wiring — all text roles stay on DeepSeek V4
+Flash; switch to Gemini manually. Config change was comment-only in
+`hosts/wslop/hm/omp-config.yml` (no deploy needed).
+
+Runbook (on wslop, interactive):
+1. `omp` → `/login google-antigravity` → browser opens; sign in with the
+   Google account holding the AI Pro subscription (paste-code fallback if
+   the browser can't open the callback: `/login <redirect-url>`).
+2. `Ctrl+P` (or `--model google-antigravity/gemini-3.1-pro`) to select.
+3. If `/login` completes but no quota lands (backend gates the account),
+   the unofficial route is dead for that account — tell the human; do NOT
+   keep retrying in a loop.
+
+Known risk: unofficial route; Google can gate it at any time (as happened to
+gemini-cli). If it breaks, the fallback is GEMINI_API_KEY (metered) or
+google-gemini-cli (deprecated for individuals).

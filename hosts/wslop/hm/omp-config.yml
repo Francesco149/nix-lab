@@ -1,5 +1,12 @@
 # Single-model routing: only DeepSeek V4 Flash is wired up, so every text
-# role points at it. (tiny is deliberately unset — it is the local on-device
+# role points at it. Gemini is NOT assigned to a role — it is available for
+# manual switching (Ctrl+P / --model) after `omp` → `/login
+# google-antigravity` with the Google account that holds the AI Pro
+# subscription (OAuth, no API key; see WORKDOC 2026-08-17 for the runbook).
+# Selectable id: google-antigravity/gemini-3.1-pro (also gemini-3.5-flash,
+# gemini-3.6-flash once discovered). The `google` provider (GEMINI_API_KEY)
+# is the metered API and NOT the subscription route.
+# (tiny is deliberately unset — it is the local on-device
 # role for titles/memory; `omp tiny-models download` won't burn API credits.
 # defaultThinkingLevel: high is DeepSeek V4's minimum thinking tier (model
 # thinking.minLevel) and the level sentdex benched. Say "ultrathink" in a
