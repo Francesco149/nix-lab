@@ -34,3 +34,14 @@ Rules:
 
 3. **Other discoverable xd:// devices (browser, ast_edit, lsp, debug)**:
    - Available across sessions and invoked by writing JSON args to `xd://<tool>`.
+
+# Native Desktop UI/UX & Creation Tool Principles
+
+When working on native desktop apps (C++, Lua, Dear ImGui, SDL3, D3D11):
+1. Consult `skill://native-ui-ux`, `skill://scaffold-native-app`, and `skill://imgui-recipes` for interaction standards, blueprints, and UI recipes.
+2. **Feel is Priority #1**: 60 FPS / refresh rate locked, DXGI waitable object on Windows / vsynced SDL3, input pumped immediately before frame build, zero drawing latency on brush/draw strokes.
+3. **Navigation & Physics**: Cursor-anchored zoom (mouse world coordinate invariant across zoom), pan via Middle-drag or Space+Left-drag, smooth inertial lerp on camera motion, 3-4px drag deadzones.
+4. **Tool Ergonomics**: Single-key shortcuts (V=Select, H=Pan, B=Brush, E=Eraser, R=Rect, C=Circle, G=Grab, S=Scale, Z=Zoom, X=Swap, D=Default, F=Focus), right-click context menus at mouse cursor, informative tooltips with hotkey badges on EVERY button/tool.
+5. **Visual Styling**: Modern sleek dark theme (custom palette, rounded corners `WindowRounding=6.0, FrameRounding=4.0, PopupRounding=6.0`, soft borders, amber/azure vivid accents), embedded vector & icon fonts (Inter, JetBrains Mono, icon glyphs) — NEVER default gray ImGui or single-letter text buttons.
+6. **State & Safety**: Non-destructive document tree, infinite multi-session undo (`undo.jsonl`) with continuous drag coalescing (`IsItemDeactivatedAfterEdit()`), debounced 300ms autosave + backup rotation.
+7. **Headless Verification**: Every project must support `--shot <out.png> [--frames N]` offscreen screenshot capture and `--test` / `--eval` headless state verification from Day 1.
