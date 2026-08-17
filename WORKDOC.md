@@ -917,3 +917,33 @@ vision role (openrouter qwen3.7-flash) describes it → `<image path=...>
 description</image>` injected into context. The earlier "long pause" on
 pasted images was the drvfs read + resize with no payoff; it now pays off
 with the description. `images.describeForTextModels` defaults true.
+
+### 2026-08-17 — nix fetch hardening: registry disabled, gh token via extra-access-tokens
+
+`nix shell nixpkgs#python3` hung for minutes and `nix flake metadata
+github:NixOS/nixpkgs` 504'd. Diagnosed as upstream degradation, not local:
+channels.nixos.org flake-registry.json (NixOS infra) accepted TCP then ate
+the response (Varnish "first byte timeout"); api.github.com
+`/repos/NixOS/nixpkgs/commits/HEAD` returned 504 for anonymous requests but
+200 authenticated (verified with `gh api`); codeload.github.com was ~8s to
+first byte. Local proof of health: `git clone`, cache.nixos.org,
+cache.box.headpats.uk, api.github.com contents endpoints all fine; IPv6 is
+effectively dead from wslop (all failures reproduced on IPv4).
+
+Two persistent fixes landed:
+
+- `nix.settings.flake-registry = ""` in `modules/nix.nix` (deployed to
+  wslop). Nix no longer refreshes the channels.nixos.org registry; shorthand
+  flakes resolve via `/etc/nix/registry.json`, which NixOS pins to this
+  flake's nixpkgs input — deterministic and offline. `nix shell nixpkgs#hello`
+  now resolves+copies in ~1s.
+- GitHub ref fetches now authenticate: `extra-access-tokens = github.com=<gh
+  token>` in `~/.config/nix/nix.conf` (600, created by the existing
+  `refresh-nix-tokens` fish helper in `modules/hm/fish/dev.fish`; token never
+  enters the repo or the Nix store). This fixed the anonymous 504 on
+  commits/HEAD. Known risk: fresh hosts/users must run `refresh-nix-tokens`
+  (or write that file) or nix falls back to anonymous GitHub API (60 req/h,
+  and the 504s recur during GitHub incidents). The api.github.com tarball
+  endpoint still 429'd intermittently during the incident even authenticated
+  — that class of failure is GitHub-side and transient; locked flake.lock +
+  store cache keeps `nixos-rebuild` offline-safe.

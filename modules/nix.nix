@@ -20,6 +20,14 @@
       "nix-command"
     ];
 
+    # Avoid the channels.nixos.org flake-registry refresh on every invocation:
+    # it has repeatedly 503'd/timeout and hangs nix for minutes. With an empty
+    # registry, shorthand flakes (nixpkgs#...) resolve via /etc/nix/registry.json
+    # (NixOS pins nixpkgs to this flake's input) — deterministic and offline.
+    # GitHub refs still need a token: `refresh-nix-tokens` in dev.fish writes
+    # extra-access-tokens to ~/.config/nix/nix.conf (kept out of the repo/store).
+    flake-registry = "";
+
     substituters = [
       "https://nix-community.cachix.org"
       "https://cache.nixos-cuda.org"
