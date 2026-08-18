@@ -1,6 +1,6 @@
 # nix-lab Workdoc
 
-Last updated: 2026-08-13
+Last updated: 2026-08-18
 
 ## Project
 
@@ -985,3 +985,67 @@ Runbook (on wslop, interactive):
 Known risk: unofficial route; Google can gate it at any time (as happened to
 gemini-cli). If it breaks, the fallback is GEMINI_API_KEY (metered) or
 google-gemini-cli (deprecated for individuals).
+
+### 2026-08-18 — second google-antigravity account via refresh token
+
+The user has a 3-month Google Antigravity refresh token for a second
+account (separate from the AI Pro subscription account) and wants it usable
+in omp without the interactive OAuth flow. Decision (user): both accounts
+live in the DEFAULT omp auth store (`~/.omp/agent/agent.db`, table
+`auth_credentials`, row JSON: `access/refresh/expires/projectId/email/
+authorizedAt`). Goal: burn both accounts' limits; no per-account separation.
+
+Setup done (on wslop):
+- Token exchanged against omp's hardcoded Antigravity OAuth client (client
+  id/secret live in omp source `packages/ai/src/registry/oauth/
+  google-antigravity.ts`; token URL `https://oauth2.googleapis.com/token`),
+  identity (email + Antigravity project) discovered from the live token,
+  credential row injected into `auth_credentials`.
+- `~/.local/bin/omp-token` (bash) + fish wrapper
+  `~/.config/fish/functions/omp-token.fish`:
+  - `omp-token add <refresh-token>` — exchange, discover identity, upsert row
+  - `omp-token remove <email>` — drop that account (refuses the protected
+    main account and the last remaining account)
+  - `omp-token list` — show stored accounts
+  DB writes use `sqlite3` from PATH, falling back to
+  `nix shell nixpkgs#sqlite` when no sqlite3 binary is installed.
+
+Account behavior (VERIFIED 2026-08-18 with live requests, not
+hash/round-robin as the docs suggest):
+- omp ranks accounts per model family by usage urgency ("use it or lose
+  it"): the account whose remaining quota for that counter would expire
+  unused first wins; hot (>=90% used) accounts rank last. Source:
+  `packages/ai/src/usage/google-antigravity.ts`
+  (`antigravityRankingStrategy`), `auth-storage.ts`
+  (`#orderUsageRankedCandidates`). Counter per model: `claude-*` →
+  anthropic, `gemini-*`/`gemma-*` → google, `gpt-*`/`openai/*` → openai.
+- Verified: claude models route to the token account when the main
+  account's anthropic counter is exhausted; gemini models route by drain
+  urgency; forcing a `counter:google` block on the main account's row
+  (auth_credential_blocks) made the token account serve gemini-3.7-flash
+  successfully.
+- Token account is FREE-TIER Antigravity (both accounts are free-tier).
+  Verified 2026-08-18: claude models DO work on the token account —
+  `claude-sonnet-4-6` and `claude-opus-4-6` both returned OK live. The
+  earlier claude 404 was STALE WIRE IDS, not a tier/account problem: the
+  catalog maps `claude-*-4-5` to wire ids (`claude-sonnet-4-5`,
+  `claude-opus-4-5-thinking`) that the backend no longer advertises
+  (`fetchAvailableModels` on daily-cloudcode-pa.googleapis.com), so they
+  404 "Requested entity was not found" for ANY account. Use the 4.6
+  variants; `gemini-3.7-flash` is what the user runs day-to-day.
+  Main account's claude/openai counters currently exhausted (100%).
+- `omp usage --provider google-antigravity` shows both accounts' quotas.
+
+Runbook (rotate when a token expires):
+1. `omp-token list` to see which account to drop.
+2. `omp-token remove <email-of-expired-token-account>`.
+3. `omp-token add <new-refresh-token>`.
+4. `omp token google-antigravity --list` to confirm; `omp usage` to see
+   both accounts' quotas.
+
+Security: refresh tokens are client-scoped — only Antigravity-client tokens
+work. Never put token values, client credentials, or account emails in this
+repo; the OAuth client constants belong to omp's source, and the script
+reads tokens only from its arguments.
+
+Known risk: unofficial route; same gating risk as the main account.
