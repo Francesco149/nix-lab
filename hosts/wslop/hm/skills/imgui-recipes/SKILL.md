@@ -54,7 +54,7 @@ function canvas.render_viewport(w, h, draw_callback)
     
     -- 1. Zoom centered on cursor
     if is_hovered and io.mouse_wheel ~= 0 then
-        local zoom_factor = math.pow(1.15, io.mouse_wheel)
+        local zoom_factor = 1.15 ^ io.mouse_wheel
         local new_target_zoom = math.max(canvas.min_zoom, math.min(canvas.max_zoom, canvas.target_zoom * zoom_factor))
         
         -- Anchor mouse world position
@@ -65,7 +65,7 @@ function canvas.render_viewport(w, h, draw_callback)
     end
     
     -- 2. Pan via Middle-Mouse or Space+Left-Mouse
-    local space_down = ig.is_key_down(ig.Key_Space)
+    local space_down = ig.key and ig.is_key_down(ig.key.Space)
     if is_hovered and (ig.is_mouse_clicked(2) or (space_down and ig.is_mouse_clicked(0))) then
         canvas.is_panning = true
         canvas.pan_start.x = mouse_x - canvas.target_pan.x
@@ -258,4 +258,311 @@ function ui.context_menu(menu_id, items)
         ig.end_popup()
     end
 end
+
+---
+
+## 6. Direct Manipulation Modal Transform State Machine (Blender/Figma Standard)
+
+Eliminates clunky button-based manipulation by handling hotkey triggers, live mouse pulling, and commit/cancel states:
+
+```lua
+-- In preview.lua / tool state machine
+local modal = {
+    action = nil, -- nil, "extrude", "move", "scale"
+    orig_state = nil,
+    drag_start = nil,
+}
+
+function modal.handle_triggers(doc, is_hovered, mx, my)
+    if not is_hovered or modal.action or not doc.selected_face then return end
+    local io = ig.get_io()
+    if io.want_text_input then return end
+
+    -- 'E' -> Extrude Face
+    if ig.key and ig.is_key_pressed(ig.key.E) and not io.key_ctrl then
+        modal.action = "extrude"
+        modal.orig_state = doc.snapshot() -- Capture PRE-ACTION state
+        modal.drag_start = { mx, my }
+        mesh.extrude_face(doc.mesh, doc.selected_face, 0.0) -- Start extrusion at 0
+    end
+
+    -- 'G' -> Grab / Move Selection
+    if ig.key and ig.is_key_pressed(ig.key.G) then
+        modal.action = "move"
+        modal.orig_state = doc.snapshot()
+        modal.drag_start = { mx, my }
+    end
+end
+
+function modal.update_and_render_hud(doc, undo, mx, my, avail_w, avail_h, x0, y0)
+    if not modal.action then return end
+    local io = ig.get_io()
+    local dl = ig.get_window_draw_list()
+
+    -- Apply real-time transformation from mouse motion
+    local start_m = modal.drag_start or { mx, my }
+    local dy = (start_m[2] - my) * 0.02
+    if modal.action == "extrude" and doc.mesh and doc.selected_face then
+        -- Pull face along normal in real-time
+        mesh.set_extrude_distance(doc.mesh, doc.selected_face, modal.orig_state, dy)
+    end
+
+    -- Confirm on Left-Click / Enter
+    if ig.is_mouse_clicked(0) or (ig.key and ig.is_key_pressed(ig.key.Enter)) then
+        undo.push_state(modal.action:upper() .. " Face", modal.orig_state)
+        modal.action = nil
+        modal.orig_state = nil
+        doc.mark_dirty()
+    end
+
+    -- Cancel on Right-Click / Escape
+    if ig.is_mouse_clicked(1) or (ig.key and ig.is_key_pressed(ig.key.Escape)) then
+        doc.restore(modal.orig_state)
+        modal.action = nil
+        modal.orig_state = nil
+    end
+
+    -- Render In-Flight Floating HUD Status Badge
+    if modal.action then
+        local hud_text = string.format("%s: %+.2fm  |  LClick/Enter: Confirm  ·  RClick/Esc: Cancel",
+            modal.action:upper(), dy)
+        local tw = ig.calc_text_size(hud_text)
+        local hx = x0 + (avail_w - tw) * 0.5
+        local hy = y0 + 16.0
+        ig.dl_add_rect_filled(dl, hx - 12, hy - 4, hx + tw + 12, hy + 24, 0.12, 0.13, 0.16, 0.95)
+        ig.dl_add_text(dl, hx, hy, 0.96, 0.62, 0.04, 1.0, hud_text)
+    end
+end
 ```
+
+---
+
+## 7. 3D DrawList Rendering with Painter's Algorithm (Depth Sorting)
+
+ImGui DrawList has **no Z-buffer**. Rendering 3D meshes via projected triangles requires sorting faces back-to-front (painter's algorithm) before drawing. Without this, back faces render on top of front faces.
+
+```lua
+function render_mesh_sorted(dl, doc, world_to_screen, mesh)
+    -- Phase 1: Project all faces, compute average depth
+    local sorted_faces = {}
+    for f_idx, f in ipairs(doc.mesh.faces) do
+        local pts = {}
+        local all_front = true
+        local avg_z = 0
+        for _, vi in ipairs(f.verts) do
+            local v = doc.mesh.vertices[vi]
+            if v and v.pos then
+                local sx, sy, sz = world_to_screen(v.pos[1], v.pos[2], v.pos[3])
+                pts[#pts + 1] = { sx, sy, sz }
+                avg_z = avg_z + sz
+                if sz <= 0 then all_front = false end
+            end
+        end
+        if all_front and #pts >= 3 then
+            avg_z = avg_z / #pts
+            sorted_faces[#sorted_faces + 1] = {
+                f_idx = f_idx, f = f, pts = pts, avg_z = avg_z
+            }
+        end
+    end
+
+    -- Phase 2: Sort farthest-first (larger Z = farther from camera)
+    table.sort(sorted_faces, function(a, b) return a.avg_z > b.avg_z end)
+
+    -- Phase 3: Draw in sorted order
+    for _, sf in ipairs(sorted_faces) do
+        local f_idx, f, pts = sf.f_idx, sf.f, sf.pts
+        local is_selected = (f_idx == doc.selected_face)
+
+        -- Compute face normal for lighting
+        local norm = f.normal or mesh.calculate_face_normal(doc.mesh, f)
+        local light_dot = math.max(0.15, norm[1] * 0.5 + norm[2] * 0.7 + norm[3] * 0.5)
+
+        local r = is_selected and 0.86 or (0.45 * light_dot)
+        local g = is_selected and 0.56 or (0.50 * light_dot)
+        local b = is_selected and 0.04 or (0.60 * light_dot)
+
+        -- Filled triangles (fan from first vertex for quads)
+        ig.dl_add_triangle_filled(dl,
+            pts[1][1], pts[1][2], pts[2][1], pts[2][2], pts[3][1], pts[3][2],
+            r, g, b, 0.95)
+        if #pts == 4 then
+            ig.dl_add_triangle_filled(dl,
+                pts[1][1], pts[1][2], pts[3][1], pts[3][2], pts[4][1], pts[4][2],
+                r, g, b, 0.95)
+        end
+
+        -- Wireframe edges
+        for i = 1, #pts do
+            local ni = (i % #pts) + 1
+            ig.dl_add_line(dl, pts[i][1], pts[i][2], pts[ni][1], pts[ni][2],
+                0.28, 0.32, 0.40, 0.85, is_selected and 2.5 or 1.0)
+        end
+    end
+end
+```
+
+---
+
+## 8. Interactive 3D Axis Gizmo with Mouse Drag (Move/Scale)
+
+Visual-only gizmo arrows are insufficient. Gizmo axes MUST be draggable to move/scale objects directly in the viewport. This recipe implements hit-testing on projected axis lines and constrained dragging.
+
+```lua
+local gizmo = {
+    active_axis = nil,  -- "x", "y", "z", or nil
+    drag_origin = nil,  -- world position at drag start
+    drag_start_mouse = nil,
+}
+
+function gizmo.draw_and_interact(dl, obj, world_to_screen, screen_to_ray, mx, my, is_hovered)
+    local bx, by, bz = obj.pos[1], obj.pos[2], obj.pos[3]
+    local g_len = 1.5
+
+    -- Project axis endpoints
+    local gc_x, gc_y, gc_z = world_to_screen(bx, by, bz)
+    local gx_x, gx_y, gx_z = world_to_screen(bx + g_len, by, bz)
+    local gy_x, gy_y, gy_z = world_to_screen(bx, by + g_len, bz)
+    local gz_x, gz_y, gz_z = world_to_screen(bx, by, bz + g_len)
+
+    if gc_z <= 0 then return end
+
+    -- Axis definitions: {endpoint_screen, color, name}
+    local axes = {
+        { gx_x, gx_y, 0.95, 0.2, 0.2, "x" },
+        { gy_x, gy_y, 0.2, 0.95, 0.2, "y" },
+        { gz_x, gz_y, 0.2, 0.5, 0.95, "z" },
+    }
+
+    -- Hit test: distance from mouse to axis line segment
+    local function point_to_seg_dist(px, py, ax, ay, bx2, by2)
+        local dx, dy = bx2 - ax, by2 - ay
+        local len_sq = dx * dx + dy * dy
+        if len_sq < 1e-6 then return math.huge end
+        local t = math.max(0, math.min(1, ((px - ax) * dx + (py - ay) * dy) / len_sq))
+        local cx2, cy2 = ax + t * dx, ay + t * dy
+        return math.sqrt((px - cx2) ^ 2 + (py - cy2) ^ 2)
+    end
+
+    -- Start drag on click near axis
+    if is_hovered and ig.is_mouse_clicked(0) and not gizmo.active_axis then
+        local best_dist, best_axis = 12.0, nil -- 12px hit threshold
+        for _, a in ipairs(axes) do
+            local d = point_to_seg_dist(mx, my, gc_x, gc_y, a[1], a[2])
+            if d < best_dist then best_dist = d; best_axis = a[6] end
+        end
+        if best_axis then
+            gizmo.active_axis = best_axis
+            gizmo.drag_origin = { bx, by, bz }
+            gizmo.drag_start_mouse = { mx, my }
+        end
+    end
+
+    -- Apply constrained drag
+    if gizmo.active_axis and ig.is_mouse_down(0) then
+        local dmx = mx - gizmo.drag_start_mouse[1]
+        local dmy = my - gizmo.drag_start_mouse[2]
+        -- Project mouse delta onto axis screen direction
+        local ax_info = axes[gizmo.active_axis == "x" and 1 or (gizmo.active_axis == "y" and 2 or 3)]
+        local ax_dx = ax_info[1] - gc_x
+        local ax_dy = ax_info[2] - gc_y
+        local ax_len = math.sqrt(ax_dx * ax_dx + ax_dy * ax_dy)
+        if ax_len > 1e-3 then
+            local proj = (dmx * ax_dx + dmy * ax_dy) / ax_len
+            local world_scale = g_len / ax_len -- screen px to world units
+            local delta = proj * world_scale
+            local idx = gizmo.active_axis == "x" and 1 or (gizmo.active_axis == "y" and 2 or 3)
+            obj.pos[idx] = gizmo.drag_origin[idx] + delta
+        end
+    else
+        if gizmo.active_axis then
+            gizmo.active_axis = nil -- commit on release
+        end
+    end
+
+    -- Draw axes (highlight active)
+    for _, a in ipairs(axes) do
+        local is_active = (gizmo.active_axis == a[6])
+        local thick = is_active and 4.0 or 3.0
+        local alpha = is_active and 1.0 or 0.85
+        ig.dl_add_line(dl, gc_x, gc_y, a[1], a[2], a[3], a[4], a[5], alpha, thick)
+        ig.dl_add_circle_filled(dl, a[1], a[2], is_active and 6.0 or 4.0, a[3], a[4], a[5], alpha)
+    end
+end
+```
+
+
+---
+
+## 9. 3D Line & Grid Drawing with Near-Plane Clipping
+
+In perspective projection, points behind the camera ($z_{cam} > 0$ or $w < 0$) invert their $X/Y$ coordinates when divided by $w$. If a 3D line segment has one endpoint in front of the camera and one endpoint behind the camera:
+1. Checking `sz > 0` on both endpoints drops the entire line as soon as one end goes behind the camera near plane (causing grid lines to vanish near the ground or during camera rotation).
+2. Projecting unclipped endpoints connects the valid point to an inverted point on the opposite side of the screen, creating stray lines that shoot across the viewport to a fake horizon vanishing point.
+
+### Recipe: Camera-Space Near-Plane Line Clipping
+```lua
+-- Clips 3D line segment against camera near plane before projection
+local function draw_line_3d(dl, x1, y1, z1, x2, y2, z2, r, g, b, a, thickness, eye, fwd, world_to_screen, near_plane)
+    near_plane = near_plane or 0.15
+    local d1 = (x1 - eye[1]) * fwd[1] + (y1 - eye[2]) * fwd[2] + (z1 - eye[3]) * fwd[3]
+    local d2 = (x2 - eye[1]) * fwd[1] + (y2 - eye[2]) * fwd[2] + (z2 - eye[3]) * fwd[3]
+
+    if d1 < near_plane and d2 < near_plane then
+        return -- both endpoints behind near plane: cull completely
+    end
+
+    local px1, py1, pz1 = x1, y1, z1
+    local px2, py2, pz2 = x2, y2, z2
+
+    if d1 < near_plane then
+        local t = (near_plane - d1) / (d2 - d1)
+        px1 = x1 + t * (x2 - x1)
+        py1 = y1 + t * (y2 - y1)
+        pz1 = z1 + t * (z2 - z1)
+    elseif d2 < near_plane then
+        local t = (near_plane - d1) / (d2 - d1)
+        px2 = x1 + t * (x2 - x1)
+        py2 = y1 + t * (y2 - y1)
+        pz2 = z1 + t * (z2 - z1)
+    end
+
+    local s1x, s1y, s1z = world_to_screen(px1, py1, pz1)
+    local s2x, s2y, s2z = world_to_screen(px2, py2, pz2)
+
+    if s1z > 0 and s2z > 0 then
+        ig.dl_add_line(dl, s1x, s1y, s2x, s2y, r, g, b, a, thickness or 1.0)
+    end
+end
+```
+
+---
+
+## 10. Toolbar Sequential Layout & Relative Spacing
+
+❌ **NEVER** use hardcoded absolute horizontal coordinates (e.g. `ig.same_line(390)`) for sequential toolbar buttons. Adding or changing button labels causes subsequent buttons to overlap and clobber each other.
+
+✅ **ALWAYS** use relative flow with `ig.same_line()` and separators:
+```lua
+if ig.button("+ Box") then ... end
+ig.same_line()
+if ig.button("+ Cylinder") then ... end
+ig.same_line()
+if ig.button("+ Wedge") then ... end
+ig.same_line()
+if ig.button("+ Stairs") then ... end
+
+ig.same_line()
+ig.text_colored("|", 0.35, 0.35, 0.4, 1.0)
+
+ig.same_line()
+if ig.button("Undo") then undo.do_undo() end
+ig.same_line()
+if ig.button("Redo") then undo.do_redo() end
+```
+Right-aligned items (such as Export or Settings) should compute offsets relative to the right edge (`dw - 180`):
+```lua
+ig.same_line(dw - 180)
+if ig.button("Export (.tscn)") then ... end
+```
+**CRITICAL**: Gizmo arrows that only draw lines without drag interaction are useless decoration. Every gizmo MUST support mouse drag with axis-constrained movement. The recipe above provides: hit-testing → constrained drag → visual feedback → commit on release.

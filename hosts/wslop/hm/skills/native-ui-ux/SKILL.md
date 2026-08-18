@@ -48,7 +48,37 @@ A tool with clunky, sluggish interactions will never be used, no matter how many
 3. **In-Flight Modal HUD**:
    - When an interactive action is active, display a floating status badge:
      `EXTRUDE: +0.85m  |  Left-Click: Confirm  ·  Right-Click / Esc: Cancel`
+4. **Interactive Gizmo Dragging (MANDATORY)**:
+   - Gizmo arrows MUST be draggable, not visual-only decoration. See `skill://imgui-recipes` Section 8 for the hit-test + constrained-drag recipe.
+   - Every axis gizmo MUST: detect mouse proximity (12px threshold), highlight the hovered axis, drag-constrain movement to the projected screen direction, and commit on release.
 
+**MANDATORY**: Every geometric transform operation (move, scale, rotate, extrude) MUST be implemented as a modal state machine activated by a single-key hotkey, with real-time mouse-following preview, commit on Left-Click/Enter, and cancel on Right-Click/Escape. Sidebar buttons MAY exist as secondary access but MUST NOT be the primary interaction path.
+
+❌ **WRONG** (button-driven, the default LLM output — never do this):
+```lua
+if ig.button("Extrude") then mesh.extrude_face(doc.mesh, sel, 1.0) end
+if ig.button("Move") then obj.pos[1] = obj.pos[1] + 1 end
+```
+
+❌ **WRONG** (visual-only gizmo arrows with no drag interaction):
+```lua
+-- Draws arrows but they do NOTHING when clicked/dragged
+ig.dl_add_line(dl, cx, cy, ax, ay, 0.95, 0.2, 0.2, 1.0, 3.0)
+ig.dl_add_circle_filled(dl, ax, ay, 4.0, 0.95, 0.2, 0.2, 1.0)
+```
+
+✅ **RIGHT** (direct manipulation with modal state + interactive gizmo):
+```lua
+if not doc.action and ig.is_key_pressed(ig.key.E) and doc.selected_face then
+    doc.action = "extrude"
+    doc.action_orig = doc.snapshot()  -- PRE-action state for undo
+    mesh.extrude_face(doc.mesh, doc.selected_face, 0)
+end
+if doc.action == "extrude" then
+    -- mouse delta → extrusion distance each frame, HUD badge, commit/cancel
+end
+-- Gizmo: see skill://imgui-recipes Section 8 for hit-test + drag recipe
+```
 ---
 
 ## 3. ImGui 1.92+ Keycode Invariant
@@ -58,6 +88,137 @@ A tool with clunky, sluggish interactions will never be used, no matter how many
 ✅ **ALWAYS** use `ig.key.*` named key constants:
 - `ig.key.Space`, `ig.key.Equal` (`+`), `ig.key.Minus` (`-`), `ig.key.F`, `ig.key.G`, `ig.key.E`, `ig.key.S`, `ig.key.Z`, `ig.key.Y`, `ig.key.Delete`, `ig.key.Escape`, `ig.key["0"]`, `ig.key["1"]`, `ig.key["2"]`, `ig.key["3"]`.
 
+
+---
+
+## 3a. Lua 5.4 Compatibility Invariants
+
+❌ **NEVER** use APIs removed in Lua 5.4:
+- `math.pow(base, exp)` → Use `base ^ exp` (the `^` operator). `math.pow` does not exist in Lua 5.4.
+- `math.atan2(y, x)` → Use `math.atan(y, x)` (two-argument form).
+- `math.ldexp(m, e)` → Use `m * 2.0 ^ e`.
+- `math.frexp()` → removed; restructure the algorithm.
+- `math.cosh/sinh/tanh` → removed; compute manually if needed.
+- `math.log10(x)` → Use `math.log(x, 10)`.
+- `unpack()` → Use `table.unpack()`.
+- `loadstring()` → Use `load()`.
+- `setfenv/getfenv` → removed (Lua 5.1 only).
+
+✅ **ALWAYS** use the `^` operator for exponentiation:
+```lua
+local factor = 1.15 ^ io.mouse_wheel  -- CORRECT: Lua 5.4
+local factor = math.pow(1.15, io.mouse_wheel)  -- WRONG: crashes in Lua 5.4
+```
+
+---
+
+## 3b. 3D DrawList Rendering: Painter's Algorithm Required
+
+ImGui DrawList is a **2D immediate-mode API with no Z-buffer**. When rendering 3D meshes via projected triangles (`dl_add_triangle_filled`), faces MUST be sorted back-to-front before drawing. Without this, back faces render on top of front faces.
+
+❌ **WRONG** — drawing faces in array order:
+```lua
+for f_idx, f in ipairs(doc.mesh.faces) do
+    -- project and draw → back faces occlude front faces
+end
+```
+
+✅ **RIGHT** — painter's algorithm (sort by average Z, farthest first):
+```lua
+local sorted = {}
+for f_idx, f in ipairs(doc.mesh.faces) do
+    local pts, avg_z, ok = {}, 0, true
+    for _, vi in ipairs(f.verts) do
+        local sx, sy, sz = world_to_screen(v.pos[1], v.pos[2], v.pos[3])
+        pts[#pts + 1] = { sx, sy, sz }
+        avg_z = avg_z + sz
+        if sz <= 0 then ok = false end
+    end
+    if ok and #pts >= 3 then
+        sorted[#sorted + 1] = { f_idx = f_idx, f = f, pts = pts, avg_z = avg_z / #pts }
+    end
+end
+table.sort(sorted, function(a, b) return a.avg_z > b.avg_z end) -- far first
+for _, sf in ipairs(sorted) do
+    -- draw sf.pts triangles, wireframe, gizmos
+end
+
+---
+
+## 3c. 3D Line & Grid Rendering: Camera Near-Plane Clipping Required
+
+In perspective projection, points behind the camera ($z_{cam} > 0$ or $w < 0$) invert their $X/Y$ coordinates when divided by $w$.
+
+❌ **WRONG** — projecting raw endpoints and testing `sz > 0`:
+```lua
+local x1, y1, z1 = world_to_screen(i, 0, -16)
+local x2, y2, z2 = world_to_screen(i, 0,  16)
+if z1 > 0 and z2 > 0 then
+    ig.dl_add_line(dl, x1, y1, x2, y2, ...)  -- Drops entire line when near ground!
+end
+```
+
+✅ **RIGHT** — clip line segments against the camera near plane in camera space before projecting:
+```lua
+-- See skill://imgui-recipes Section 9 for the complete draw_line_3d implementation
+draw_line_3d(dl, x1, y1, z1, x2, y2, z2, r, g, b, a, thick, cam_eye, cam_fwd, world_to_screen)
+```
+
+---
+
+## 3d. Toolbar Layout: Relative Flow Required
+
+❌ **NEVER** hardcode absolute horizontal pixel offsets (e.g. `ig.same_line(390)`) for sequential action buttons in toolbars or ribbons. Button label additions/translations will cause subsequent buttons to overlap.
+
+✅ **ALWAYS** use relative flow with `ig.same_line()` and visual separators (`|`):
+```lua
+if ig.button("+ Box") then ... end
+ig.same_line()
+if ig.button("+ Cylinder") then ... end
+ig.same_line()
+if ig.button("+ Wedge") then ... end
+ig.same_line()
+if ig.button("+ Stairs") then ... end
+ig.same_line()
+ig.text_colored("|", 0.35, 0.35, 0.4, 1.0)
+ig.same_line()
+if ig.button("Undo") then undo.do_undo() end
+ig.same_line()
+if ig.button("Redo") then undo.do_redo() end
+```
+```
+
+---
+
+## 3e. Numeric Counters, FPS Readouts, & Monospace Isolation
+
+❌ **NEVER** place fluctuating numeric readouts (FPS, frame times, dimensions) in variable-pitch proportional fonts right next to other dynamic widgets without fixed-width isolation. As the numbers change width each frame, surrounding elements jitter and vibrate visually.
+
+✅ **ALWAYS** isolate numeric meters:
+1. Use fixed-width / monospace font (`JetBrains Mono`).
+2. Position in a dedicated fixed-width slot or right-aligned anchor.
+3. Smooth high-frequency counters (e.g. FPS) with an exponential moving average:
+```lua
+local cur_fps = io.delta_time > 0 and (1.0 / io.delta_time) or 60.0
+avg_fps = avg_fps + (cur_fps - avg_fps) * 0.05
+local info = string.format("%d×%d · %2dfps · comp %4.1fms", w, h, math.floor(avg_fps + 0.5), comp_ms)
+ig.set_cursor_pos(rect.w - 240, 9)
+ig.push_font(1) -- JetBrains Mono
+ig.text_colored(info, 0.45, 0.47, 0.52, 1)
+ig.pop_font()
+```
+
+---
+
+## 3f. 3D Raycast Face Picking & Front-Face Culling
+
+❌ **NEVER** pick 3D faces using 2D screen-space point-in-triangle or arbitrary vertex depth (`v0.z`). On convex or overlapping meshes, back faces will frequently be picked over front faces.
+
+✅ **ALWAYS** use 3D unprojected raycasting with front-face normal validation:
+1. Unproject mouse coordinate $(mx, my)$ into a 3D world ray $(origin, dir)$.
+2. Cull backfaces: skip any face where $Normal \cdot RayDir \ge 0$.
+3. Test front-facing triangles with Möller–Trumbore ray-triangle intersection.
+4. Select the face with minimum positive ray distance ($t > 0$).
 ---
 
 ## 4. ImGui Visual Ergonomics & Theme Aesthetics
