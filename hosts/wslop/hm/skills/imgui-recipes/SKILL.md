@@ -9,6 +9,128 @@ Copy-pasteable, robust recipes designed for native creation tools.
 
 ---
 
+## 0. Scoped ImGui API (Mandatory)
+
+**ALWAYS** use the scoped wrappers for every Begin/End pair. They take a Lua callback as the last argument, call the matching `End` unconditionally (even when the body raises a Lua error), and are depth-tracked by the frame-end balance checker. Raw `ig.begin_*` / `ig.end_*` functions remain registered ONLY as an escape hatch.
+
+### The Pattern
+
+Instead of pairing a `Begin` with a manually-remembered `End`:
+
+❌ **WRONG** — raw begin/end (easy to forget the `End`; an early `return` inside the body leaks an open scope):
+```lua
+if ig.begin_child("layer_list", 0, 0, true) then
+    -- ... content ...
+    -- must remember ig.end_child() on every path
+end
+ig.end_child()
+```
+
+✅ **RIGHT** — scoped wrapper (the wrapper always calls `End` for you, even on Lua errors inside the body):
+```lua
+ig.child("layer_list", 0, 0, function()
+    -- ... content ...  -- no End needed; guaranteed by the wrapper
+end)
+```
+
+### All Scoped Functions
+
+| Wrapper | Signature (Lua) | Ends |
+|---|---|---|
+| `ig.window` | `ig.window(name, [flags], fn)` | `end_` |
+| `ig.child` | `ig.child(name, [w], [h], [child_flags], [window_flags], fn)` | `end_child` |
+| `ig.popup` | `ig.popup(name, fn)` | `end_popup` |
+| `ig.popup_modal` | `ig.popup_modal(name, [flags], fn)` | `end_popup` |
+| `ig.popup_context_window` | `ig.popup_context_window([id], [flags], fn)` | `end_popup` |
+| `ig.popup_context_item` | `ig.popup_context_item([id], [flags], fn)` | `end_popup` |
+| `ig.menu` | `ig.menu(name, [enabled], fn)` | `end_menu` |
+| `ig.menu_bar` | `ig.menu_bar(fn)` | `end_menu_bar` |
+| `ig.table_` | `ig.table_(name, columns, [flags], fn)` | `end_table` |
+| `ig.tab_bar` | `ig.tab_bar(name, [flags], fn)` | `end_tab_bar` |
+| `ig.tab_item` | `ig.tab_item(name, [flags], fn)` | `end_tab_item` |
+| `ig.list_box` | `ig.list_box(name, [w], [h], fn)` | `end_list_box` |
+| `ig.tree` | `ig.tree(name, [flags], fn)` | `tree_pop` |
+| `ig.tooltip_` | `ig.tooltip_(fn)` | `end_tooltip` |
+| `ig.group` | `ig.group(fn)` | `end_group` |
+| `ig.disabled` | `ig.disabled(cond, fn)` | `end_disabled` |
+
+Two end policies, both safe:
+- **Always-End** (`window`, `child`, `tooltip_`, `group`, `disabled`): `End` is called regardless of the `Begin` result; the body only runs when content is visible.
+- **Conditional-End** (`popup*`, `menu`, `menu_bar`, `table_`, `tab_bar`, `tab_item`, `list_box`, `tree`): body and `End` run only when the `Begin` returns true.
+
+### Concrete Examples
+
+```lua
+-- Window with flags
+ig.window("Inspector", ig.WindowFlags_NoCollapse, function()
+    ig.text("Hello")
+end)
+
+-- Child with explicit size
+ig.child("mesh_list", 240, 320, function()
+    for i = 1, #items do
+        ig.selectable(items[i], i == sel, 0, 0, 20)
+    end
+end)
+
+-- Context popup + nested menu
+ig.popup_context_window(nil, ig.PopupFlags_MouseButtonRight, function()
+    ig.menu("Add", function()
+        if ig.menu_item("Box") then add_box() end
+        if ig.menu_item("Sphere") then add_sphere() end
+    end)
+    ig.separator()
+    if ig.menu_item("Delete", nil, false, can_delete) then delete_sel() end
+end)
+
+-- Modal
+ig.popup_modal("Confirm", function()
+    ig.text("Delete selected layer?")
+    if ig.button("Yes") then do_delete() end
+    ig.same_line()
+    if ig.button("No") then ig.close_current_popup() end
+end)
+
+-- Table
+ig.table_("props", 2, ig.TableFlags_Borders, function()
+    ig.table_setup_column("Name")
+    ig.table_setup_column("Value")
+    ig.table_headers_row()
+    ig.table_next_row()
+    ig.table_next_column(); ig.text("Scale")
+    ig.table_next_column(); ig.text("1.0")
+end)
+
+-- Tooltip (BeginTooltip has no return value)
+ig.button("Hover me")
+ig.tooltip_(function()
+    ig.text("Fancy multi-line tooltip")
+end)
+
+-- Disabled block
+ig.disabled(not doc.has_selection, function()
+    if ig.button("Extrude") then extrude() end
+end)
+
+-- Group (BeginGroup/EndGroup have no return value)
+ig.group(function()
+    ig.text("Grouped")
+    ig.button("A")
+    ig.same_line()
+    ig.button("B")
+end)
+```
+
+### Balance Tracker Safety Net
+
+Every scoped call increments a per-category depth counter; `ig_balance_check()` at frame end force-closes any unbalanced pair with a `[ig] WARNING: force-closing unbalanced …` diagnostic instead of corrupting the frame stack. It catches errors that slip through — but it is a backstop, NOT a license to skip `End`, since an unbalanced scope can still clip or misplace content mid-frame.
+
+### Escape Hatch Only
+
+Raw `ig.begin` / `ig.end_`, `ig.begin_child` / `ig.end_child`, `ig.begin_popup` / `ig.end_popup`, and friends remain registered for the rare case a wrapper cannot express (e.g. a `Begin` whose body must span multiple Lua functions or frames). **AVOID them for ordinary UI** — the scoped wrapper is the default and the review standard.
+
+---
+
 ## 1. Infinite 2D Canvas (Pan, Cursor Zoom & World Transform)
 
 ### Lua Implementation
@@ -137,7 +259,7 @@ function ui.floating_toolbar(tools, active_tool_id, on_select)
     ig.set_next_window_bg_alpha(0.92)
     
     local flags = ig.WindowFlags_NoDecoration | ig.WindowFlags_NoMove | ig.WindowFlags_NoSavedSettings
-    if ig.begin_window("##floating_toolbar", true, flags) then
+    ig.window("##floating_toolbar", flags, function()
         for i, tool in ipairs(tools) do
             if i > 1 then ig.same_line(0, 4.0) end
             
@@ -157,8 +279,7 @@ function ui.floating_toolbar(tools, active_tool_id, on_select)
             
             ui.tooltip(tool.name, tool.shortcut, tool.desc)
         end
-    end
-    ig.end_window()
+    end)
 end
 ```
 
@@ -168,50 +289,50 @@ end
 
 ```lua
 function ui.layer_stack(layers, selected_idx, on_select, on_reorder, on_toggle_vis)
-    ig.begin_child("layer_list", 0, 0, true)
+    ig.child("layer_list", 0, 0, function()
     
-    for i = #layers, 1, -1 do -- Top layers displayed first
-        local layer = layers[i]
-        ig.push_id(layer.id or i)
-        
-        -- Visibility Eye Button
-        local eye_icon = layer.visible and "👁" or " "
-        if ig.button(eye_icon .. "##vis", 24, 24) then
-            on_toggle_vis(i)
-        end
-        ui.tooltip("Toggle Visibility", nil, "Show or hide this layer")
-        
-        ig.same_line()
-        
-        -- Selectable layer row
-        local is_selected = (i == selected_idx)
-        if ig.selectable(layer.name .. "##row", is_selected, ig.SelectableFlags_AllowDoubleClick, 0, 24) then
-            on_select(i)
-        end
-        
-        -- Drag-and-Drop Source
-        if ig.begin_drag_drop_source(ig.DragDropFlags_None) then
-            ig.set_drag_drop_payload("LAYER_INDEX", tostring(i))
-            ig.text("Move " .. layer.name)
-            ig.end_drag_drop_source()
-        end
-        
-        -- Drag-and-Drop Target
-        if ig.begin_drag_drop_target() then
-            local payload = ig.accept_drag_drop_payload("LAYER_INDEX")
-            if payload then
-                local from_idx = tonumber(payload)
-                if from_idx and from_idx ~= i then
-                    on_reorder(from_idx, i)
-                end
+        for i = #layers, 1, -1 do -- Top layers displayed first
+            local layer = layers[i]
+            ig.push_id(layer.id or i)
+            
+            -- Visibility Eye Button
+            local eye_icon = layer.visible and "👁" or " "
+            if ig.button(eye_icon .. "##vis", 24, 24) then
+                on_toggle_vis(i)
             end
-            ig.end_drag_drop_target()
+            ui.tooltip("Toggle Visibility", nil, "Show or hide this layer")
+            
+            ig.same_line()
+            
+            -- Selectable layer row
+            local is_selected = (i == selected_idx)
+            if ig.selectable(layer.name .. "##row", is_selected, ig.SelectableFlags_AllowDoubleClick, 0, 24) then
+                on_select(i)
+            end
+            
+            -- Drag-and-Drop Source
+            if ig.begin_drag_drop_source(ig.DragDropFlags_None) then
+                ig.set_drag_drop_payload("LAYER_INDEX", tostring(i))
+                ig.text("Move " .. layer.name)
+                ig.end_drag_drop_source()
+            end
+            
+            -- Drag-and-Drop Target
+            if ig.begin_drag_drop_target() then
+                local payload = ig.accept_drag_drop_payload("LAYER_INDEX")
+                if payload then
+                    local from_idx = tonumber(payload)
+                    if from_idx and from_idx ~= i then
+                        on_reorder(from_idx, i)
+                    end
+                end
+                ig.end_drag_drop_target()
+            end
+            
+            ig.pop_id()
         end
-        
-        ig.pop_id()
-    end
     
-    ig.end_child()
+    end)
 end
 ```
 
@@ -245,7 +366,7 @@ end
 
 ```lua
 function ui.context_menu(menu_id, items)
-    if ig.begin_popup_context_window(menu_id, ig.PopupFlags_MouseButtonRight | ig.PopupFlags_NoOpenOverExistingPopup) then
+    ig.popup_context_window(menu_id, ig.PopupFlags_MouseButtonRight | ig.PopupFlags_NoOpenOverExistingPopup, function()
         for _, item in ipairs(items) do
             if item.separator then
                 ig.separator()
@@ -255,8 +376,7 @@ function ui.context_menu(menu_id, items)
                 end
             end
         end
-        ig.end_popup()
-    end
+    end)
 end
 
 ---
@@ -566,3 +686,65 @@ ig.same_line(dw - 180)
 if ig.button("Export (.tscn)") then ... end
 ```
 **CRITICAL**: Gizmo arrows that only draw lines without drag interaction are useless decoration. Every gizmo MUST support mouse drag with axis-constrained movement. The recipe above provides: hit-testing → constrained drag → visual feedback → commit on release.
+
+---
+
+## 11. Resizable Side Panel (Godot-Inspector Splitter)
+
+❌ **NEVER** implement a resize strip as a screen-space manual hit-test outside
+the ImGui window — ImGui windows overlap it, clicks pass through, the hover
+highlight bleeds under/over the window, and the cursor gets stuck.
+
+✅ **ALWAYS** make the handle a REAL ImGui widget INSIDE the window: a 6px
+`invisible_button` in a child column, with the content in a sibling child via
+`ig.same_line()`. ImGui then owns hover/click capture (no click-through), the
+highlight is clipped to the handle child, and the cursor resets on leave.
+
+```lua
+-- sidebar_w is module state (clamp 200..640)
+ig.window("##sidebar", 1 + 2 + 32, function()
+    ig.child("##splitter", 6, 0, 0, function()          -- 6px handle column
+        local sx, sy = ig.get_cursor_screen_pos()
+        local dl = ig.get_window_draw_list()
+        local aw, ah = ig.get_content_region_avail()    -- RETURNS TWO VALUES
+        ig.invisible_button("##resize_handle", 6, math.max(ah, 1))
+        local on = ig.is_item_hovered()
+        if on and ig.is_mouse_clicked(0) then resize_active = true end
+        if not ig.is_mouse_down(0) then resize_active = false end
+        if resize_active then
+            local dx = rl.get_mouse_delta()             -- or ig.get_mouse_delta
+            sidebar_w = clamp(sidebar_w - dx, 200, 640)
+        end
+        if on or resize_active then
+            rl.set_mouse_cursor(rl.CURSOR_RESIZE_EW)
+            ig.dl_add_rect_filled(dl, sx, sy, sx + 6, sy + ah, 0.96, 0.65, 0.12, 0.85)
+        else
+            rl.set_mouse_cursor(rl.CURSOR_DEFAULT)     -- never leave it stuck
+        end
+    end)
+    ig.same_line()
+    ig.child("##content", 0, 0, 0, function()          -- scrolls by default
+        -- ... panel body ...
+    end)
+end)
+```
+The drag LATCHES (`resize_active`) so the cursor may leave the 6px handle
+mid-drag. `get_content_region_avail()` returns `(w, h)` — capturing only one
+makes the handle 6px TALL (invisible). Same trap: `color_edit3/4` return
+`(changed, r, g, b[, a])` — numbers, NOT a table.
+
+---
+
+## 12. Reference Grid vs Coplanar Geometry (Z-Fighting)
+
+Never draw a reference grid coplanar with mesh geometry (raylib's `DrawGrid`
+sits at y=0 — a cube's bottom face is y=0 → the edges flicker). Draw the grid
+slightly below with manual lines:
+```lua
+local GRID_Y = -0.02
+for i = -10, 10 do
+    local alpha = (i % 5 == 0) and 90 or 30
+    rl.draw_line_3d(i, GRID_Y, -10, i, GRID_Y, 10, 200, 200, 200, alpha)
+    rl.draw_line_3d(-10, GRID_Y, i, 10, GRID_Y, i, 200, 200, 200, alpha)
+end
+```

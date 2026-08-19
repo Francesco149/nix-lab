@@ -18,23 +18,25 @@ def main():
     parser.add_argument("path", help="Target project directory")
     parser.add_argument("--name", help="Project name (default: directory name)")
     parser.add_argument("--desc", default="High-performance native desktop creation tool", help="Project description")
-    parser.add_argument("--type", choices=["raylib", "2d", "3d"], default="raylib", help="Application type (raylib 2d+3d creation tool)")
 
     args = parser.parse_args()
     target_dir = Path(args.path).resolve()
     name = args.name or target_dir.name
+    name_lower = name.lower().replace(" ", "-")
+    name_upper = name_lower.upper().replace("-", "_")
+    name_title = "".join(w.capitalize() for w in name.replace("-", " ").replace("_", " ").split())
     desc = args.desc
-    app_type = args.type
 
-    if app_type == "raylib" or not (LLM_UX_ROOT / "templates" / ("2d-canvas" if app_type == "2d" else "3d-viewport")).exists():
-        template_dir = LLM_UX_ROOT / "templates" / "raylib"
-    else:
-        template_dir = LLM_UX_ROOT / "templates" / ("2d-canvas" if app_type == "2d" else "3d-viewport")
-
-    if not template_dir.exists():
-        print(f"[!] Error: Template directory {template_dir} not found.")
+    candidate_dirs = [
+        Path(__file__).resolve().parent.parent / "templates" / "raylib",
+        Path("/opt/src/llm-ux/templates/raylib"),
+        Path(__file__).resolve().parent / "templates" / "raylib",
+    ]
+    template_dir = next((p for p in candidate_dirs if p.exists()), None)
+    if not template_dir:
+        print(f"[!] Error: Template directory not found in candidates: {candidate_dirs}")
         sys.exit(1)
-    print(f"[*] Scaffolding native '{app_type}' project '{name}' at {target_dir}...")
+    print(f"[*] Scaffolding native project '{name_title}' ({name_lower}) at {target_dir}...")
 
     # Copy template cleanly
     if target_dir.exists():
@@ -51,16 +53,14 @@ def main():
     for root, _, files in os.walk(target_dir):
         for f in files:
             fp = Path(root) / f
-            if f.endswith((".nix", ".md", ".lua", ".cpp", ".h", "Makefile")):
+            if f.endswith((".nix", ".md", ".lua", ".cpp", ".h", "Makefile", ".yml", ".yaml")):
                 try:
                     text = fp.read_text(encoding="utf-8")
-                    text = text.replace("texturewrangler", name)
-                    text = text.replace("lowpoly-painter", name)
-                    text = text.replace("godot-blockout", name)
-                    text = text.replace("Non-destructive retro texture editor", desc)
-                    text = text.replace("Specialized low-poly 3D modeler and handpainted texture painter with auto UVs and procedural bake effects", desc)
-                    text = text.replace("CSG 3D level blockout editor with Godot-grade viewport controls and 1-click .tscn/.glb export", desc)
-                    fp.write_text(text, encoding="utf-8")
+                    text = text.replace("cubeforge", name_lower)
+                    text = text.replace("CubeForge", name_title)
+                    text = text.replace("CUBEFORGE", name_upper)
+                    text = text.replace("3D block editor with Raylib + ImGui + Lua", desc)
+                    text = text.replace("High-performance native desktop creation tool", desc)
                 except Exception:
                     pass
 

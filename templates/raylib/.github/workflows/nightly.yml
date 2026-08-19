@@ -1,0 +1,145 @@
+# GitHub Actions Workflow for Continuous Integration & Nightly Builds
+#
+# Defaults:
+# - On every push to master/main and schedule: Builds all 3 targets (Linux OGL,
+#   Windows OGL, Windows D3D11) and uploads downloadable artifacts to the workflow run.
+#
+# Manual Release Dispatch:
+# - Run workflow with `release: true` to automatically bump the `nightly-N` tag,
+#   publish a GitHub Release, attach all 3 distribution ZIPs, and prune old nightlies.
+
+name: nightly
+
+on:
+  push:
+    branches: [ master, main ]
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Publish / bump nightly release tag with downloadable ZIPs'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      make_release: ${{ steps.decide.outputs.make_release }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - id: decide
+        run: |
+          if [ "${{ github.event.inputs.release }}" = "true" ]; then
+            last=$(git tag -l 'nightly-*' | sed 's/^nightly-//' | grep -E '^[0-9]+$' | sort -n | tail -1)
+            next_tag="nightly-$(( ${last:-0} + 1 ))"
+            echo "make_release=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$next_tag" >> "$GITHUB_OUTPUT"
+            echo "Creating release $next_tag"
+          else
+            echo "make_release=false" >> "$GITHUB_OUTPUT"
+            echo "Building artifacts without release publish (downloadable via workflow run)"
+          fi
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: nix-community/cache-nix-action@v6
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          gc-max-store-size-linux: 6G
+
+      - name: Build and Test Linux
+        run: |
+          nix develop --command make -C editor test package-linux zip-linux
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cubeforge-raylib-linux
+          path: build/cubeforge-raylib-linux.zip
+
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: nix-community/cache-nix-action@v6
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'flake.nix') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          gc-max-store-size-linux: 6G
+
+      - name: Build Windows Targets (OpenGL + Direct3D 11)
+        run: |
+          nix develop --command make -C editor win win-d3d11 package package-d3d11 zip-win zip-d3d11
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cubeforge-raylib-win64
+          path: build/cubeforge-raylib-win64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cubeforge-d3d11-win64
+          path: build/cubeforge-d3d11-win64.zip
+
+  release:
+    needs: [check, build-linux, build-windows]
+    if: needs.check.outputs.make_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create Tag & GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          cat > notes.md <<EOF
+          ## Automated Nightly Build \`$TAG\` (\`$(git rev-parse --short HEAD)\`)
+
+          ### 📦 Direct Downloads
+          - **[cubeforge-d3d11-win64.zip](https://github.com/${{ github.repository }}/releases/download/$TAG/cubeforge-d3d11-win64.zip)** — **Direct3D 11 (DXGI Flip Model)** for Windows 10/11 (smooth continuous 60/240Hz resize).
+          - **[cubeforge-raylib-win64.zip](https://github.com/${{ github.repository }}/releases/download/$TAG/cubeforge-raylib-win64.zip)** — **Raylib 6.0 (OpenGL 3.3)** for Windows 7+.
+          - **[cubeforge-raylib-linux.zip](https://github.com/${{ github.repository }}/releases/download/$TAG/cubeforge-raylib-linux.zip)** — **Linux x86_64** standalone portable package.
+
+          ---
+          *Built automatically from commit \`$(git rev-parse HEAD)\`.*
+          EOF
+
+          find dist/ -type f -name "*.zip" -exec cp {} ./ \;
+
+          gh release create "$TAG" *.zip \
+            --latest \
+            --title "Nightly $TAG ($(date -u +%Y-%m-%d))" \
+            --notes-file notes.md
+
+      - name: Prune Old Nightlies (Retain last 7)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 200 --json tagName -q '.[].tagName' \
+            | grep '^nightly-' | sort -t- -k2,2n | head -n -7 \
+            | while read -r t; do gh release delete "$t" --cleanup-tag --yes; done

@@ -14,20 +14,23 @@ This skill establishes the engineering and interaction standards for building hi
 A tool with clunky, sluggish interactions will never be used, no matter how many features it has. Responsiveness and smooth tactile feel are **Priority #1**.
 
 1. **Target 60 FPS / Monitor Refresh Rate with Zero Jitter**:
-   - **Backend**: Use `SDL3` + `SDL_Renderer` (`imgui_impl_sdlrenderer3.h`), which automatically uses **Direct3D 11 (`d3d11`)** on Windows (Windows 7 SP1+ compatible) and **Vulkan / OpenGL** on Linux.
+   - **3D tools**: Raylib 6.0 (GLFW/Vulkan/OpenGL underneath — hardware depth buffer, models, textures, RLSL shaders, lighting) with **rlImGui** bridging Dear ImGui panels into the same context. Complex 3D (meshes, textures, shaders, picking) is Lua-callable via `lp.rl.*` — NO hand-rolled GL.
+   - **2D tools**: Raylib `Camera2D` for pan/zoom viewports, textures/images for the canvas, ImGui via rlImGui.
    - **Input Timing**: Always pump OS events *immediately* before building the frame. Never place sleeps, locks, or busy-waits between input polling and frame rendering.
-   - **Zero Drawing Latency**: When drawing or brushing, render the in-flight stroke immediately in the current frame's drawlist. Never wait for stroke completion to show visual feedback.
+   - **Zero Drawing Latency**: When drawing or brushing, render the in-flight stroke immediately in the current frame. Never wait for stroke completion to show visual feedback.
 
 2. **Camera & Canvas Navigation (The Golden Standard)**:
    - **Scroll = Zoom Centered on Cursor**: Always anchor zoom at the mouse pointer. When the user scrolls at point $(x, y)$, $(x, y)$ in world coordinates must remain stationary under the cursor.
      $$\text{world\_pos} = \frac{\text{mouse\_pos} - \text{pan}}{\text{zoom}}$$
      $$\text{pan}' = \text{mouse\_pos} - \text{world\_pos} \times \text{zoom}'$$
+   - **2D scenes — middle-mouse is PAN** (tldraw/Figma/Photoshop language). Middle-drag pans, scroll zooms. No other button meanings.
+   - **3D scenes — Godot 3D editor language**:
+     - **Middle-drag = TILT / ORBIT** the camera (yaw/pitch around the view center).
+     - **Right-drag hold = FPS FLY**: mouse looks (yaw/pitch), WASD moves along camera axes, Q/E (or Space/Ctrl) up/down. Release to stop.
+     - **Shift+Middle-drag = 3D PAN**: translate the view center in the view plane.
+     - Scroll wheel = dolly (move closer/farther).
    - **Disengage Fit Mode on Pan/Zoom**: Panning or scrolling MUST switch zoom state from `"fit"` to `"custom"` so that pan offsets $(\Delta x, \Delta y)$ are never reset on mouse release.
-   - **Standard Pan Controls**:
-     - **Middle-Mouse Drag**: Universal pan.
-     - **Space + Left-Mouse Drag**: Universal pan.
-     - **Right-Mouse Drag**: Pan (with a 4px deadzone to distinguish from a Right-Click context menu).
-   - **Smooth Inertial Camera Smoothing**: Use critically damped springs or exponential lerp (`camera = lerp(camera, target_camera, 1.0 - exp(-dt * speed))`) for smooth panning and zooming.
+   - **Smooth Inertial Camera Smoothing**: Use critically damped springs or exponential lerp (`camera = lerp(camera, target_camera, 1.0 - exp(-dt * speed))`) for smooth panning, zooming, orbiting, and flying.
 
 ---
 
@@ -219,7 +222,71 @@ ig.pop_font()
 2. Cull backfaces: skip any face where $Normal \cdot RayDir \ge 0$.
 3. Test front-facing triangles with Möller–Trumbore ray-triangle intersection.
 4. Select the face with minimum positive ray distance ($t > 0$).
----
+|---
+
+## 3g. Scoped Begin/End API (Mandatory)
+
+❌ **NEVER** hand-write raw `ig.begin_*` / `ig.end_*` pairs in Lua UI code.
+
+✅ **ALWAYS** use the scoped wrappers (`ig.window`, `ig.child`, `ig.popup`, `ig.popup_modal`, `ig.popup_context_window`, `ig.popup_context_item`, `ig.menu`, `ig.menu_bar`, `ig.table_`, `ig.tab_bar`, `ig.tab_item`, `ig.list_box`, `ig.tree`, `ig.tooltip_`, `ig.group`, `ig.disabled` — see `skill://imgui-recipes` Section 0 for signatures). Each takes a callback as its last argument and guarantees the matching `End` is called on every path, including Lua errors raised inside the body.
+
+❌ **WRONG** (raw begin/end — forget the `End`, or early-return inside the body, and the frame stack leaks):
+```lua
+if ig.begin_child("inspector", 260, 0, true) then
+    ig.text("Selection")
+    if doc.selected then
+        ig.text(doc.selected.name)
+        return  -- leaks open EndChild for the rest of the frame!
+    end
+end
+ig.end_child()
+```
+
+✅ **RIGHT** (scoped wrapper — `EndChild` is guaranteed on every path):
+```lua
+ig.child("inspector", 260, 0, function()
+    ig.text("Selection")
+    if doc.selected then
+        ig.text(doc.selected.name)
+        return  -- safe: the wrapper still calls EndChild
+    end
+end)
+```
+
+**Auto-balance safety net**: every scoped call is depth-tracked per category, and `ig_balance_check()` force-closes any unbalanced Begin/End pair at frame end with a warning instead of crashing. It catches errors that slip through — but it is a backstop, never a reason to hand-write raw begin/end. Unbalanced scopes can still clip or misplace content mid-frame, so the review gate is: no raw `ig.begin_*` / `ig.end_*` in committed UI code.
+
+## 3h. Widget Return Conventions (Avoid Silent Snaps)
+
+The binding layer returns FLAT values, not tables, for widgets that mutate a
+buffer in place:
+- `ig.color_edit3/4`, `ig.color_picker3/4` → `(changed, r, g, b[, a])` —
+  NUMBERS. Assigning the second return to a table (`new_c[1]`) is nil-indexed
+  → the arithmetic errors, the pcall swallows it, and the picker appears to
+  snap back to the default. `ig.slider_float/int`, `drag_float/int` → also
+  `(changed, new_value)` flat.
+- `ig.get_content_region_avail()` → `(w, h)` — capture BOTH. Keeping only one
+  makes full-height hitboxes 6px tall.
+
+## 3i. File Import Doctrine (Drop / Paste / Picker — ONE Pipeline)
+
+Every tool that accepts assets MUST route drag&drop, Ctrl+V paste, and the
+file-picker button through the SAME import function (load → validate →
+apply), and MUST reject unsupported inputs gracefully (status message, no
+state change, no crash):
+
+- Drop: OS event → first path. Paste: clipboard FILE (Windows CF_HDROP via a
+  Win32 helper file — never GLFW's clipboard-string path, it errors on
+  files/empty) or text path (strip `file://`). Picker: the in-app browser is
+  the reliable picker (native dialogs need zenity/kdialog on Linux and can
+  silently fail); keep a "System…" button as a bonus.
+- Rejection path MUST be tested headlessly: bad path → false, canvas
+  unchanged; round-trip → identical pixels.
+
+## 3j. Reference Grid vs Coplanar Geometry
+
+Never place a reference grid coplanar with mesh faces (raylib `DrawGrid` at
+y=0 vs a cube bottom at y=0 → edge flicker/z-fighting). Offset the grid
+slightly below the geometry (e.g. `GRID_Y = -0.02`).
 
 ## 4. ImGui Visual Ergonomics & Theme Aesthetics
 
@@ -297,21 +364,3 @@ Every project repository MUST include a dedicated `test_ui_smoke.lua` that execu
 2. Exercises `ig.key.*` named constants, ensuring no raw integer assertions occur.
 3. Tests `reset_mouse_drag_delta`, modal state transitions (extrude/cancel/commit), and drawlist methods.
 4. **Any crash, nil call, or ImGui assertion during smoke testing MUST immediately fail `make test`.**
-
----
-
-## 7. 3D Selection Overlays & Live Model Rebuilding
-
-1. **Zero Z-Fighting Over Textures**:
-   - When rendering wireframes, face highlights, and selection boundaries on top of textured 3D models, ALWAYS push overlay vertices outward along the surface normal $\vec{N}$:
-     - Wireframe lines: $\vec{N} \times 0.002$
-     - Highlight fill triangles: $\vec{N} \times 0.003$
-     - Highlight border lines: $\vec{N} \times 0.005$
-   - Vertex handles (Mode 1): Draw as 3D spheres (`radius = 0.040..0.065`) so they extend outside the mesh surface and never clip into textures.
-
-2. **Live GPU Model Rebuilds on Transform & Paint**:
-   - NEVER drop GPU models or fall back to untextured flat renderers during live `G` (Move), `E` (Extrude), or vertex paint.
-   - Unload the old model and call `load_model_mesh(mesh_to_gl(mesh))` live on every mouse drag / stroke step so textures and vertex color gradients remain visible in real time.
-
-3. **Native Win32 File Picker Standard**:
-   - Use `GetOpenFileNameW` in a dedicated C/C++ helper file (isolated from conflicting headers) with `CoInitializeEx(NULL, COINIT_APARTMENTTHREADED)` and `OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR`.
