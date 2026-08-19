@@ -7,48 +7,39 @@ description: Turnkey scaffolding blueprint and automation guide for bootstrappin
 
 This skill guides the creation of a new, fully reproducible native desktop application repository adhering to the high-performance native tool standards.
 
+The primary turnkey template is located at `templates/raylib` (Raylib + Dear ImGui + Lua 5.4 + MinGW Windows cross + Linux native).
+
 ---
 
-## 1. Project Directory Structure Standard
+## 1. Project Directory Structure Standard (Raylib Template)
 
 ```
 my-tool/
-├── flake.nix              # Pinned Nix flake (SDL3, MinGW-w64 cross, ImGui 1.92.4, Lua 5.4)
+├── flake.nix              # Pinned Nix flake (Raylib 6.0, MinGW-w64 cross, ImGui 1.92.4, Lua 5.4)
 ├── flake.lock
-├── Makefile               # Top-level makefile (win, linux, asan, test, shot, package)
 ├── ORIENTATION.md         # Dense, single-source-of-truth front (for LLMs and humans)
 ├── README.md              # Project overview, key features, build instructions
-├── LICENSE                # MIT License
 ├── .gitignore             # build/, *.exe, *.o, etc.
-├── assets/
-│   ├── fonts/             # InterVariable.ttf, JetBrainsMono-Regular.ttf, icon font
-│   └── icon.png           # 256x256 application icon
-├── tools/
-│   ├── embed.py           # Embeds fonts/icons into C++ headers (build/fonts_embedded.h)
-│   └── make-icon.sh       # Icon conversion
 ├── editor/
-│   ├── Makefile           # Core build rules
-│   ├── src/               # C++ Core (Slim or Single TU)
-│   │   ├── main.cpp       # Entry point, CLI args (--shot, --test, --eval), window loop
-│   │   ├── app.cpp        # SDL3/D3D11 backend, input pumping, frame pacing
-│   │   ├── ig.cpp         # ImGui setup, theme, font atlas, Lua bindings
-│   │   ├── lua.cpp        # Embedded Lua 5.4 VM, error handling, pcall wrapper
-│   │   └── kernels.cpp    # High-performance computation kernels (math/pixels/mesh)
+│   ├── Makefile           # Core build rules (win, linux, package, test, shot-*)
+│   ├── src/               # C++ Core
+│   │   ├── main.cpp       # Entry point, CLI args (--shot, --test, --drive), window loop
+│   │   ├── winclip.c      # Win32 clipboard & native file dialog (GetOpenFileNameW)
+│   │   ├── ig.cpp         # ImGui setup, theme, font atlas, Lua bindings (tw.ig.*)
+│   │   ├── editor.h       # Core headers & bindings
+│   │   └── vendor/        # rlImGui, tinyfiledialogs (Linux)
 │   ├── lua/               # Pure Product Logic (Modular Lua)
-│   │   ├── main.lua       # Frame orchestration, shortcut handling, panel docking
-│   │   ├── doc.lua        # Document state model, serialization, mutation tracking
-│   │   ├── undo.lua       # Snapshot undo/redo journal + undo.jsonl
-│   │   ├── autosave.lua   # 300ms debounced autosave + backup rotation
-│   │   ├── theme.lua      # Modern dark styling, color constants
-│   │   ├── ui.lua         # Tooltips, icons, buttons, widgets
-│   │   ├── panels.lua     # Panel layout and window chrome
-│   │   └── preview.lua    # Canvas/Viewport with smooth pan/zoom and direct manipulation
-│   └── tests/             # Headless Test Suite
-│       ├── testmain.lua   # Headless test runner
-│       └── test_doc.lua   # State mutation and invariant tests
-└── .github/
-    └── workflows/
-        └── nightly.yml    # Continuous build (Windows PE + Linux binary artifacts)
+│   │   ├── main.lua       # Frame orchestration, 3D viewport, 2D canvas, shortcuts, overlays
+│   │   ├── doc.lua        # Document state model, selection modes (1..3), paint (4..5), undo
+│   │   ├── geom.lua       # Vector math, raycast picking, normals, mesh_to_gl
+│   │   └── undo.lua       # Snapshot undo/redo journal
+│   └── tests/             # Headless Test Suite & Drive Tapes
+│       ├── testmain.lua   # Headless test runner (binding & logic checks)
+│       ├── drive.lua      # Headless input driver (injects mouse/keys per frame)
+│       ├── drive_orbit.lua
+│       ├── drive_pan.lua
+│       ├── drive_paint3d.lua
+│       └── drive_import.lua
 ```
 
 ---

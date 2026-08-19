@@ -37,11 +37,17 @@ Rules:
 
 # Native Desktop UI/UX & Creation Tool Principles
 
-When working on native desktop apps (C++, Lua, Dear ImGui, SDL3, D3D11):
-1. Consult `skill://native-ui-ux`, `skill://scaffold-native-app`, and `skill://imgui-recipes` for interaction standards, blueprints, and UI recipes.
-2. **Feel is Priority #1**: 60 FPS / refresh rate locked, DXGI waitable object on Windows / vsynced SDL3, input pumped immediately before frame build, zero drawing latency on brush/draw strokes.
-3. **Navigation & Physics**: Cursor-anchored zoom (mouse world coordinate invariant across zoom), pan via Middle-drag or Space+Left-drag, smooth inertial lerp on camera motion, 3-4px drag deadzones.
-4. **Tool Ergonomics**: Single-key shortcuts (V=Select, H=Pan, B=Brush, E=Eraser, R=Rect, C=Circle, G=Grab, S=Scale, Z=Zoom, X=Swap, D=Default, F=Focus), right-click context menus at mouse cursor, informative tooltips with hotkey badges on EVERY button/tool.
-5. **Visual Styling**: Modern sleek dark theme (custom palette, rounded corners `WindowRounding=6.0, FrameRounding=4.0, PopupRounding=6.0`, soft borders, amber/azure vivid accents), embedded vector & icon fonts (Inter, JetBrains Mono, icon glyphs) — NEVER default gray ImGui or single-letter text buttons.
-6. **State & Safety**: Non-destructive document tree, infinite multi-session undo (`undo.jsonl`) with continuous drag coalescing (`IsItemDeactivatedAfterEdit()`), debounced 300ms autosave + backup rotation.
-7. **Headless Verification**: Every project must support `--shot <out.png> [--frames N]` offscreen screenshot capture and `--test` / `--eval` headless state verification from Day 1.
+When creating or working on native desktop apps (Raylib / C++, Lua, Dear ImGui):
+1. **Default Template**: Always start from or default to the turnkey Raylib + ImGui + Lua creation tool template in `templates/raylib` (or `skill://scaffold-native-app`).
+2. Consult `skill://native-ui-ux`, `skill://scaffold-native-app`, and `skill://imgui-recipes` for interaction standards, blueprints, and UI recipes.
+3. **Feel is Priority #1**: 60 FPS / refresh rate locked, input pumped immediately before frame build, zero drawing latency on brush/draw strokes.
+4. **3D & 2D Creation Standards**:
+   - Unified normal-offset overlays ($\vec{N} \times 0.003$ fill, $\vec{N} \times 0.005$ outline) so face, vertex, and edge selections render crisply over textures with zero Z-fighting.
+   - Live GPU mesh rebuilding (`geom.mesh_to_gl`) during modal move (`G`), extrude (`E`), and vertex paint so textures and vertex color gradients remain visible in real time.
+   - Mode 1: Vertex selection & move, Mode 2: Edge selection & move, Mode 3: Face selection & extrude/move, Mode 4: 3D Vertex Paint (per-vertex RGB modulation), Mode 5: 2D Texture Paint (offscreen canvas).
+   - Native Win32 file picker (`GetOpenFileNameW` with `CoInitializeEx` and `OFN_EXPLORER`).
+5. **Navigation & Physics**: Cursor-anchored zoom (mouse world coordinate invariant across zoom), pan via Middle-drag or Space+Left-drag, smooth inertial lerp on camera motion, 3-4px drag deadzones.
+6. **Tool Ergonomics**: Single-key shortcuts (V=Select, H=Pan, B=Brush, E=Eraser, R=Rect, C=Circle, G=Grab, S=Scale, Z=Zoom, X=Swap, D=Default, F=Focus), right-click context menus at mouse cursor, informative tooltips with hotkey badges on EVERY button/tool.
+7. **Visual Styling**: Modern sleek dark theme (custom palette, rounded corners `WindowRounding=6.0, FrameRounding=4.0, PopupRounding=6.0`, soft borders, amber/azure vivid accents), embedded vector & icon fonts (Inter, JetBrains Mono, icon glyphs) — NEVER default gray ImGui or single-letter text buttons.
+8. **State & Safety**: Non-destructive document tree, infinite multi-session undo (`undo.jsonl`) with continuous drag coalescing (`IsItemDeactivatedAfterEdit()`), debounced 300ms autosave + backup rotation.
+9. **Headless Verification**: Every project must support `--shot <out.png> [--frames N]` offscreen screenshot capture, `--drive <script.lua>` input injection, and `--test` headless state verification from Day 1.

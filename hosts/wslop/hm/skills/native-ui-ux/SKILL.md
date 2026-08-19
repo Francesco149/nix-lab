@@ -297,3 +297,21 @@ Every project repository MUST include a dedicated `test_ui_smoke.lua` that execu
 2. Exercises `ig.key.*` named constants, ensuring no raw integer assertions occur.
 3. Tests `reset_mouse_drag_delta`, modal state transitions (extrude/cancel/commit), and drawlist methods.
 4. **Any crash, nil call, or ImGui assertion during smoke testing MUST immediately fail `make test`.**
+
+---
+
+## 7. 3D Selection Overlays & Live Model Rebuilding
+
+1. **Zero Z-Fighting Over Textures**:
+   - When rendering wireframes, face highlights, and selection boundaries on top of textured 3D models, ALWAYS push overlay vertices outward along the surface normal $\vec{N}$:
+     - Wireframe lines: $\vec{N} \times 0.002$
+     - Highlight fill triangles: $\vec{N} \times 0.003$
+     - Highlight border lines: $\vec{N} \times 0.005$
+   - Vertex handles (Mode 1): Draw as 3D spheres (`radius = 0.040..0.065`) so they extend outside the mesh surface and never clip into textures.
+
+2. **Live GPU Model Rebuilds on Transform & Paint**:
+   - NEVER drop GPU models or fall back to untextured flat renderers during live `G` (Move), `E` (Extrude), or vertex paint.
+   - Unload the old model and call `load_model_mesh(mesh_to_gl(mesh))` live on every mouse drag / stroke step so textures and vertex color gradients remain visible in real time.
+
+3. **Native Win32 File Picker Standard**:
+   - Use `GetOpenFileNameW` in a dedicated C/C++ helper file (isolated from conflicting headers) with `CoInitializeEx(NULL, COINIT_APARTMENTTHREADED)` and `OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR`.
