@@ -228,9 +228,7 @@
     "grammar-helper": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "nixpkgs": [
-          "nixpkgs"
-        ]
+        "nixpkgs": "nixpkgs"
       },
       "locked": {
         "lastModified": 1775017184,
@@ -273,7 +271,7 @@
           "nut",
           "flake-parts"
         ],
-        "nixpkgs": "nixpkgs",
+        "nixpkgs": "nixpkgs_2",
         "systems": "systems_3",
         "treefmt-nix": "treefmt-nix"
       },
@@ -299,11 +297,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787159200,
-        "narHash": "sha256-nMQiUaz+u9P/eoYTWb/IGzNr2RKquZn+vDs2i/nOWdQ=",
+        "lastModified": 1787162226,
+        "narHash": "sha256-buVSG3rsD7ueHKBX8Axv4T9/wmJn7c1URYR48DKeAjk=",
         "ref": "refs/heads/master",
-        "rev": "86fb14a8354c8125463f2268feb16c4d9f9b843f",
-        "revCount": 34,
+        "rev": "9f796ef47b9853c2e8b033b8538cb0195416e6cc",
+        "revCount": 35,
         "type": "git",
         "url": "file:///opt/src/llm-ux"
       },
@@ -363,6 +361,22 @@
     },
     "nixpkgs": {
       "locked": {
+        "lastModified": 1787070829,
+        "narHash": "sha256-vXNVDVtvfiQuXthP0NHPFdNvvMTkGpx0UP8oddIWbNk=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "0ae2bc1419c3f345984c2629e72e7a631820fa4d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
         "lastModified": 1787111413,
         "narHash": "sha256-sFosWtq21eHGJRnTc/hvf4M1obRgLEUMNm/IzllkHMA=",
         "owner": "NixOS",
@@ -377,7 +391,7 @@
         "type": "github"
       }
     },
-    "nixpkgs_2": {
+    "nixpkgs_3": {
       "locked": {
         "lastModified": 1784497964,
         "narHash": "sha256-vlHUuqAcbcH2RKmHbPiuQzbv1pnzzavXnI62RD0bqCU=",
@@ -441,7 +455,7 @@
         "llm-ux": "llm-ux",
         "nixos-mailserver": "nixos-mailserver",
         "nixos-wsl": "nixos-wsl",
-        "nixpkgs": "nixpkgs_2",
+        "nixpkgs": "nixpkgs_3",
         "nut": "nut",
         "omp-nix": "omp-nix",
         "shigebot": "shigebot"
