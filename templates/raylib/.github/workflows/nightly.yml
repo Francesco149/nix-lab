@@ -1,12 +1,12 @@
 # GitHub Actions Workflow for Continuous Integration & Nightly Builds
 #
 # Defaults:
-# - On every push to master/main and schedule: Builds all 3 targets (Linux OGL,
-#   Windows OGL, Windows D3D11) and uploads downloadable artifacts to the workflow run.
+# - On every push to master/main and schedule: Builds both targets (Linux OGL,
+#   Windows OGL) and uploads downloadable artifacts to the workflow run.
 #
 # Manual Release Dispatch:
 # - Run workflow with `release: true` to automatically bump the `nightly-N` tag,
-#   publish a GitHub Release, attach all 3 distribution ZIPs, and prune old nightlies.
+#   publish a GitHub Release, attach both distribution ZIPs, and prune old nightlies.
 
 name: nightly
 
@@ -81,19 +81,15 @@ jobs:
           restore-prefixes-first-match: nix-${{ runner.os }}-
           gc-max-store-size-linux: 6G
 
-      - name: Build Windows Targets (OpenGL + Direct3D 11)
+      - name: Build Windows Target (OpenGL 3.3)
         run: |
-          nix develop --command make -C editor win win-d3d11 package package-d3d11 zip-win zip-d3d11
+          nix develop --command make -C editor win package zip-win
 
       - uses: actions/upload-artifact@v4
         with:
           name: cubeforge-raylib-win64
           path: build/cubeforge-raylib-win64.zip
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cubeforge-d3d11-win64
-          path: build/cubeforge-d3d11-win64.zip
 
   release:
     needs: [check, build-linux, build-windows]
@@ -121,7 +117,6 @@ jobs:
           ## Automated Nightly Build \`$TAG\` (\`$(git rev-parse --short HEAD)\`)
 
           ### 📦 Direct Downloads
-          - **[cubeforge-d3d11-win64.zip](https://github.com/${{ github.repository }}/releases/download/$TAG/cubeforge-d3d11-win64.zip)** — **Direct3D 11 (DXGI Flip Model)** for Windows 10/11 (smooth continuous 60/240Hz resize).
           - **[cubeforge-raylib-win64.zip](https://github.com/${{ github.repository }}/releases/download/$TAG/cubeforge-raylib-win64.zip)** — **Raylib 6.0 (OpenGL 3.3)** for Windows 7+.
           - **[cubeforge-raylib-linux.zip](https://github.com/${{ github.repository }}/releases/download/$TAG/cubeforge-raylib-linux.zip)** — **Linux x86_64** standalone portable package.
 

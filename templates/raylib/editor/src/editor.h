@@ -1,4 +1,6 @@
 // editor.h — cubeforge-raylib core header
+// NOTE FOR C++ CONTRIBUTORS: See docs/WINDOWS_OPENGL_RESIZE.md for Windows resize
+// and timing invariants before modifying frame loop, presentation, or timing code.
 #pragma once
 
 #include <cstdint>

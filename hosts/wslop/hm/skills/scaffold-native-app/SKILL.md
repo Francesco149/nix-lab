@@ -361,9 +361,9 @@ seamless 2D+3D integration in one codebase.
 
 **Frame structure** (the app's main loop — copy verbatim):
 `BeginDrawing` → `BeginMode3D` → `lp_draw3d()` → `EndMode3D` →
-`lp_draw2d()` (mode 5 only) → `rlImGuiBegin` → `lp_frame()` → `rlImGuiEnd` →
-`EndDrawing`.
-
+`lp_draw2d()` (mode 5 only) → `rlImGuiBeginDelta(g_own_dt)` → `lp_frame()` → `rlImGuiEnd()` →
+`EndDrawing()` (Linux) or `present_no_poll()` + one explicit `PollInputEvents()` (Windows).
+On Windows, a Win32 subclass renders this same pass during live drag-resize (see `docs/WINDOWS_OPENGL_RESIZE.md`).
 > **WARNING — BeginMode2D placement**: raylib 6.0's `BeginMode2D` no longer
 > installs an ortho projection — it only loads the camera transform into the
 > current modelview. Called inside `BeginMode3D`, the perspective projection

@@ -46,6 +46,7 @@ When creating or working on native desktop apps (Raylib / C++, Lua, Dear ImGui):
    - Live GPU mesh rebuilding (`geom.mesh_to_gl`) during modal move (`G`), extrude (`E`), and vertex paint so textures and vertex color gradients remain visible in real time.
    - Mode 1: Vertex selection & move, Mode 2: Edge selection & move, Mode 3: Face selection & extrude/move, Mode 4: 3D Vertex Paint (per-vertex RGB modulation), Mode 5: 2D Texture Paint (offscreen canvas).
    - Native Win32 file picker (`GetOpenFileNameW` with `CoInitializeEx` and `OFN_EXPLORER`).
+   - Single-backend Raylib 6.0 + OpenGL 3.3 everywhere; consult `docs/WINDOWS_OPENGL_RESIZE.md` for Windows continuous resize subclass, `present_no_poll`, and `g_own_dt` invariants before editing C++ frame loop or timing.
 5. **Navigation & Physics**: Cursor-anchored zoom (mouse world coordinate invariant across zoom), pan via Middle-drag or Space+Left-drag, smooth inertial lerp on camera motion, 3-4px drag deadzones.
 6. **Tool Ergonomics**: Single-key shortcuts (V=Select, H=Pan, B=Brush, E=Eraser, R=Rect, C=Circle, G=Grab, S=Scale, Z=Zoom, X=Swap, D=Default, F=Focus), right-click context menus at mouse cursor, informative tooltips with hotkey badges on EVERY button/tool.
 7. **Visual Styling**: Modern sleek dark theme (custom palette, rounded corners `WindowRounding=6.0, FrameRounding=4.0, PopupRounding=6.0`, soft borders, amber/azure vivid accents), embedded vector & icon fonts (Inter, JetBrains Mono, icon glyphs) — NEVER default gray ImGui or single-letter text buttons.

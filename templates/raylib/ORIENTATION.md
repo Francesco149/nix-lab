@@ -16,7 +16,7 @@ document state are embedded Lua 5.4.
 - **2D Rendering**: offscreen canvas (CPU `Image` + GPU `Texture2D`) drawn in a world-space 2D pass (`lp.rl.begin_mode2d` / `lp.cam2d`)
 - **UI Panels**: Dear ImGui 1.92 via rlImGui bridge (scoped wrappers: `ig.window`, `ig.child`, etc.)
 - **Logic**: Lua 5.4 — all tools, document model, cameras, undo
-- **Frame structure**: `BeginDrawing` → `BeginMode3D` → `lp_draw3d()` → `EndMode3D` → `lp_draw2d()` (mode 5 only) → `rlImGuiBegin` → `lp_frame()` → `rlImGuiEnd` → `EndDrawing`
+- **Frame structure**: one shared draw pass `render_frame_contents()` (`BeginDrawing` → `BeginMode3D` → `lp_draw3d()` → `EndMode3D` → `lp_draw2d()` → `rlImGuiBeginDelta(g_own_dt)` → `lp_frame()` → `rlImGuiEnd()`), then either `EndDrawing()` (Linux) or `present_no_poll()` + one explicit `PollInputEvents()` (Windows). On Windows a Win32 subclass renders this same pass from inside the drag-resize modal loop — see **`docs/WINDOWS_OPENGL_RESIZE.md`** before touching the loop.
 - **Complex 3D is Lua-only**: models, textures, and custom shaders are created/configured from Lua (`lp.rl.load_model_cube`, `load_texture_perlin`, `load_shader`, `set_material_*`, `set_shader_value_*`). New 3D features require ZERO C++ changes.
 - **2D↔3D bridge**: the canvas texture is bound to a 3D model material (`lp.tex.apply_to_model`) — painting in 2D shows up on the cube in 3D. The demo cube starts with a perlin texture; entering mode 5 swaps it for the canvas.
 
@@ -38,15 +38,13 @@ document state are embedded Lua 5.4.
 nix develop
 make -C editor linux          # → build/cubeforge-raylib (Linux OpenGL 3.3)
 make -C editor win            # → build/cubeforge-raylib.exe (Windows OpenGL 3.3)
-make -C editor win-d3d11      # → build/cubeforge-d3d11.exe (Windows Direct3D 11 DXGI Flip Model)
 
 # Standalone directory packages (binary + lua/ + tests/ + assets/fonts/)
 make -C editor package-linux  # → build/cubeforge-raylib-linux/
 make -C editor package        # → build/cubeforge-raylib-win64/
-make -C editor package-d3d11  # → build/cubeforge-d3d11-win64/
 
 # Standalone ZIP archives
-make -C editor zip-all        # → build/cubeforge-raylib-linux.zip, cubeforge-raylib-win64.zip, cubeforge-d3d11-win64.zip
+make -C editor zip-all        # → build/cubeforge-raylib-linux.zip, cubeforge-raylib-win64.zip
 
 # Primary Nix package derivation
 nix build                     # → result/bin/cubeforge + result/share/cubeforge/
@@ -249,11 +247,22 @@ canvas is untouched.
   add a second `PollInputEvents()`**: it clears the pressed-queues EndDrawing
   just filled → clicks landing mid-frame get dropped (intermittent
   unresponsiveness; tried, reverted 2026-08-19).
-- **Win32 live continuous resize hook**: on Windows, `DefWindowProc` enters a
-  modal sizing loop during window edge drags, pausing the main loop. A Win32
-  window subclass hook in `src/winclip.c` intercepts `WM_SIZING`, `WM_SIZE`,
-  and `WM_WINDOWPOSCHANGED` to invoke `app_on_live_resize()`, actively redrawing
-  the 3D viewport and ImGui UI at 60 FPS during the drag with zero freezing.
+- **Win32 smooth continuous resize**: on Windows, `DefWindowProc` runs a
+  modal sizing loop during edge drags which starves the main loop (DWM then
+  stretches the stale frame). Fixed by subclassing the GLFW window in
+  `src/main.cpp` (`cf_resize_subclass_proc`): on `WM_SIZE` during
+  `WM_ENTERSIZEMOVE` it calls GLFW's original proc FIRST, then re-renders via
+  `render_frame_contents()` + `present_no_poll()` (flush + `SwapBuffers`, NO
+  event polling — a nested `glfwPollEvents` from wndproc context corrupts
+  raylib/GLFW input state). Verified on Win11 + Win7, OGL 3.3, with
+  ImGui and Lua (coroutines/GC) running inside the subclass path. Full
+  rationale + crash rules + the dt trap: **`docs/WINDOWS_OPENGL_RESIZE.md`**.
+- **Delta time**: `rl.get_frame_time()` returns the app's own monotonic dt
+  (`GetTime()`-based, clamped), NOT raylib `GetFrameTime()` — raylib only
+  advances its frame time inside `EndDrawing()`, which the Windows loop does
+  not call; using it there freezes dt and silently kills every dt-scaled
+  interaction (MMB/RMB-hold camera, wheel dolly) while raw-delta 2D ops keep
+  working. Same reason the ImGui frame uses `rlImGuiBeginDelta(g_own_dt)`.
 - **Low-resolution display safety (800x600, 640x480)**: on displays smaller than
   1280x800, window dimensions are clamped to the monitor workarea prior to
   `InitWindow()`, and window coordinates are clamped so `x >= 0` and `y >= 0`.

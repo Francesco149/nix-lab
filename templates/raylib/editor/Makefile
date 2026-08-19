@@ -108,57 +108,6 @@ package: $(WIN_OUT)
 	@echo "packaged $(BUILD)/cubeforge-raylib-win64/"
 
 
-# ── Direct3D 11 Windows target ───────────────────────────────────────────────
-WIN_D3D11_OUT := $(BUILD)/cubeforge-d3d11.exe
-WIN_D3D11_OBJ := $(BUILD)/obj-win-d3d11
-
-WIN_D3D11_CXXFLAGS := -std=c++17 -O2 -g -Wall -Wno-unknown-pragmas \
-  -I src -I $(BUILD) -I $(IMGUI) -I $(IMGUI)/misc/cpp -I $(IMGUI)/backends \
-  -I $(LUA)/src -I $(STB_INC) \
-  -DWINVER=0x0601 -D_WIN32_WINNT=0x0601 -DUNICODE -D_UNICODE
-
-WIN_D3D11_LIBS := -ld3d11 -ldxgi -ld3dcompiler -lgdi32 -luser32 -lshell32 -lole32 \
-  -ldwmapi -lcomdlg32 -lwinmm -Wl,-Bstatic -lmcfgthread -Wl,-Bdynamic
-
-D3D11_SRC_OBJS := $(WIN_D3D11_OBJ)/main_d3d11.o $(WIN_D3D11_OBJ)/ig.o $(WIN_D3D11_OBJ)/app_paths.o $(WIN_D3D11_OBJ)/winclip.o \
-  $(WIN_D3D11_OBJ)/imgui.o $(WIN_D3D11_OBJ)/imgui_draw.o $(WIN_D3D11_OBJ)/imgui_tables.o \
-  $(WIN_D3D11_OBJ)/imgui_widgets.o $(WIN_D3D11_OBJ)/imgui_stdlib.o \
-  $(WIN_D3D11_OBJ)/imgui_impl_win32.o $(WIN_D3D11_OBJ)/imgui_impl_dx11.o
-
-WIN_D3D11_OBJ_LUA := $(addprefix $(WIN_D3D11_OBJ)/lua/,$(notdir $(LUA_C:.c=.o)))
-
-win-d3d11: package-d3d11
-
-$(WIN_D3D11_OUT): $(D3D11_SRC_OBJS) $(WIN_D3D11_OBJ_LUA) | $(BUILD)
-	$(WIN_CXX) $(D3D11_SRC_OBJS) $(WIN_D3D11_OBJ_LUA) -o $(WIN_D3D11_OUT) $(WIN_LDFLAGS) $(WIN_D3D11_LIBS)
-	@echo "built $(WIN_D3D11_OUT)"
-
-$(WIN_D3D11_OBJ)/%.o: src/%.cpp src/editor.h | $(WIN_D3D11_OBJ)
-	$(WIN_CXX) $(WIN_D3D11_CXXFLAGS) -c $< -o $@
-$(WIN_D3D11_OBJ)/winclip.o: src/winclip.c | $(WIN_D3D11_OBJ)
-	$(WIN_CC) -O2 -std=c11 -DWINVER=0x0601 -D_WIN32_WINNT=0x0601 -DUNICODE -D_UNICODE -c $< -o $@
-$(WIN_D3D11_OBJ)/%.o: $(IMGUI)/%.cpp | $(WIN_D3D11_OBJ)
-	$(WIN_CXX) $(WIN_D3D11_CXXFLAGS) -c $< -o $@
-$(WIN_D3D11_OBJ)/%.o: $(IMGUI)/misc/cpp/%.cpp | $(WIN_D3D11_OBJ)
-	$(WIN_CXX) $(WIN_D3D11_CXXFLAGS) -c $< -o $@
-$(WIN_D3D11_OBJ)/%.o: $(IMGUI)/backends/%.cpp | $(WIN_D3D11_OBJ)
-	$(WIN_CXX) $(WIN_D3D11_CXXFLAGS) -c $< -o $@
-$(WIN_D3D11_OBJ)/lua/%.o: $(LUA)/src/%.c | $(WIN_D3D11_OBJ)/lua
-	$(WIN_CC) -O2 -std=c11 -I $(LUA)/src -c $< -o $@
-
-package-d3d11: $(WIN_D3D11_OUT)
-	mkdir -p $(BUILD)/cubeforge-d3d11-win64
-	rm -f $(BUILD)/cubeforge-d3d11-win64/libmcfgthread-2.dll
-	cp $(WIN_D3D11_OUT) $(BUILD)/cubeforge-d3d11-win64/
-	cp $(MCFG_DLL) $(BUILD)/cubeforge-d3d11-win64/
-	rm -rf $(BUILD)/cubeforge-d3d11-win64/lua $(BUILD)/cubeforge-d3d11-win64/tests $(BUILD)/cubeforge-d3d11-win64/assets
-	cp -r ../editor/lua $(BUILD)/cubeforge-d3d11-win64/lua
-	cp -r ../editor/tests $(BUILD)/cubeforge-d3d11-win64/tests
-	mkdir -p $(BUILD)/cubeforge-d3d11-win64/assets/fonts
-	cp $(FONT_LATIN) $(BUILD)/cubeforge-d3d11-win64/assets/fonts/InterVariable.ttf
-	cp $(FONT_CJK) $(BUILD)/cubeforge-d3d11-win64/assets/fonts/ipag.ttf
-	@echo "packaged $(BUILD)/cubeforge-d3d11-win64/"
-
 # Standalone Linux package: binary + lua/ + tests/ + assets/fonts/
 package-linux: $(OUT)
 	mkdir -p $(BUILD)/cubeforge-raylib-linux
@@ -180,18 +129,10 @@ zip-win: package
 	cd $(BUILD) && python3 -m zipfile -c cubeforge-raylib-win64.zip cubeforge-raylib-win64
 	@echo "Created $(BUILD)/cubeforge-raylib-win64.zip"
 
-zip-d3d11: package-d3d11
-	cd $(BUILD) && python3 -m zipfile -c cubeforge-d3d11-win64.zip cubeforge-d3d11-win64
-	@echo "Created $(BUILD)/cubeforge-d3d11-win64.zip"
-
-zip-all: zip-linux zip-win zip-d3d11
-	@echo "All 3 standalone distributions zipped in $(BUILD)/"
+zip-all: zip-linux zip-win
+	@echo "All standalone distributions zipped in $(BUILD)/"
 
 
-$(WIN_D3D11_OBJ):
-	mkdir -p $(WIN_D3D11_OBJ)
-$(WIN_D3D11_OBJ)/lua:
-	mkdir -p $(WIN_D3D11_OBJ)/lua
 $(BUILD):
 	mkdir -p $(BUILD)
 $(OBJ):
@@ -246,10 +187,10 @@ test: linux
 	cd .. && ./build/cubeforge-raylib --test
 
 # Windows: run the packaged exe from a Windows path (WSLInterop)
-win-run-d3d11: package-d3d11
-	powershell.exe -Command "& '$$(wslpath -w $(abspath $(BUILD)/cubeforge-d3d11-win64/cubeforge-d3d11.exe))' --test"
+win-run: package
+	powershell.exe -Command "& '$$(wslpath -w $(abspath $(BUILD)/cubeforge-raylib-win64/cubeforge-raylib.exe))' --test"
 
 clean:
-	rm -rf $(OBJ) $(WIN_OBJ) $(WIN_D3D11_OBJ) $(OUT) $(WIN_OUT) $(WIN_D3D11_OUT) $(BUILD)/cubeforge-raylib-win64 $(BUILD)/cubeforge-d3d11-win64
+	rm -rf $(OBJ) $(WIN_OBJ) $(OUT) $(WIN_OUT) $(BUILD)/cubeforge-raylib-win64
 
-.PHONY: linux win win-d3d11 package package-d3d11 package-linux zip-linux zip-win zip-d3d11 zip-all clean run shot shot-drive shot-pan shot-paint shot-import shot-resize shot-browser shot-win-resize test win-run win-run-d3d11
+.PHONY: linux win package package-linux zip-linux zip-win zip-all clean run shot shot-drive shot-pan shot-paint shot-import shot-resize shot-browser shot-win-resize test win-run

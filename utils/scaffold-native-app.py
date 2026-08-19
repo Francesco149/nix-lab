@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 scaffold.py — Turnkey generator for high-performance native desktop creation tools.
-Copies complete, verified templates (2d-canvas or 3d-viewport) with build targets,
-embedded fonts, Lua 5.4, D3D11/SDL3, and smoke test gates.
+Copies complete, verified Raylib template (2D + 3D) with build targets,
+runtime fonts, Lua 5.4, Raylib 6.0 + OpenGL 3.3, and smoke test gates.
 """
 
 import os

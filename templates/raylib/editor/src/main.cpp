@@ -1,5 +1,22 @@
 // main.cpp — cubeforge-raylib entry point
 // Raylib for windowing + 3D, rlImGui for ImGui overlay, Lua for all logic
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// CRITICAL ARCHITECTURE NOTE FOR C++ EDITING / MAIN LOOP CHANGES:
+// Windows OpenGL 3.3 uses an in-loop Win32 window subclass (cf_resize_subclass_proc)
+// to provide smooth continuous rendering during modal drag-resizing.
+//
+// BEFORE modifying render_frame_contents(), present_no_poll(), cf_resize_subclass_proc(),
+// or the main loop, MUST read: docs/WINDOWS_OPENGL_RESIZE.md
+//
+// Key Invariants:
+// 1. NEVER call EndDrawing() or glfwPollEvents() re-entrantly from wndproc.
+// 2. Always CallWindowProcW(g_orig_proc) FIRST on WM_SIZE before re-rendering.
+// 3. Maintain single-thread re-entrancy latch (g_in_subclass_render).
+// 4. Time delta trap: raylib GetFrameTime() freezes on Windows because EndDrawing()
+//    is skipped; use g_own_dt / update_own_dt() / rlImGuiBeginDelta(g_own_dt).
+// 5. Exactly ONE input poll per frame (PollInputEvents on Win, EndDrawing on Linux).
+// ─────────────────────────────────────────────────────────────────────────────
 #include "editor.h"
 #include "app_paths.h"
 #include "editor_theme.h"
@@ -14,8 +31,17 @@ extern "C" const char* win_clipboard_file_path(void);
 extern "C" const char* win_clipboard_text(void);
 extern "C" const char* win_open_file_dialog(void);
 extern "C" void win_get_workarea(int* out_w, int* out_h);
+// Manual Win32 imports for the resize subclass below (same clash rationale:
+// windows.h's Rectangle/ShowCursor/CloseWindow macros clash with raylib).
+extern "C" {
+__declspec(dllimport) void*     __stdcall wglGetCurrentDC(void);
+__declspec(dllimport) int       __stdcall SwapBuffers(void* hdc);
+__declspec(dllimport) void*     __stdcall GetWindowLongPtrW(void* hwnd, int index);
+__declspec(dllimport) long long __stdcall SetWindowLongPtrW(void* hwnd, int index, long long value);
+__declspec(dllimport) long long __stdcall CallWindowProcW(long long proc, void* hwnd,
+                                                          unsigned msg, unsigned long long wp, long long lp);
+}
 #endif
-
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
@@ -284,9 +310,24 @@ static int l_rl_is_key_down(lua_State* L) {
     lua_pushboolean(L, IsKeyDown(code));
     return 1;
 }
+// Own delta time, independent of raylib's EndDrawing (which is skipped on
+// Windows in favor of the no-poll present; CORE.Time.frame only advances
+// inside EndDrawing, so GetFrameTime() would freeze there). GetTime() is the
+// monotonic clock and always advances. Updated once per render_frame_contents.
+static float g_own_dt = 1.0f / 60.0f;
+static double g_own_dt_prev = -1.0;
+static void update_own_dt() {
+    double now = GetTime();
+    if (g_own_dt_prev < 0.0) g_own_dt_prev = now;
+    double dt = now - g_own_dt_prev;
+    g_own_dt_prev = now;
+    if (dt < 0.0) dt = 0.0;
+    if (dt > 0.25) dt = 0.25;   // clamp stalls (breakpoints, modal dialogs)
+    g_own_dt = (float)dt;
+}
 
 static int l_rl_get_frame_time(lua_State* L) {
-    lua_pushnumber(L, GetFrameTime());
+    lua_pushnumber(L, g_own_dt);
     return 1;
 }
 
@@ -1552,6 +1593,109 @@ static const char* get_arg(int argc, char** argv, const char* name, const char* 
     return def;
 }
 
+// ── Frame render ─────────────────────────────────────────────────────────────
+// The draw pass only — shared by the main loop and (on Windows) the resize
+// subclass below. Does NOT present: the caller decides how.
+//  - Windows main loop: present_no_poll() + one explicit PollInputEvents().
+//    EndDrawing is NOT used there (its PollInputEvents must not be called
+//    while the subclass can re-enter), and its GetFrameTime() would fight
+//    our own dt — hence g_own_dt + rlImGuiBeginDelta below.
+//  - Linux main loop: EndDrawing() → flush + swap + the single input poll.
+//  - subclass (Windows, modal resize loop): present_no_poll(), NO
+//    PollInputEvents (nested glfwPollEvents from wndproc context corrupts
+//    raylib/GLFW input state).
+static void render_frame_contents() {
+    update_own_dt();
+    BeginDrawing();
+    ClearBackground({ 24, 24, 28, 255 });
+
+    BeginMode3D(g_camera);
+    lp_call_global("lp_draw3d");
+    EndMode3D();
+
+    // 2D pass after the 3D pass: raylib 6.0's BeginMode2D expects the base
+    // ortho projection (it no longer installs its own), so 2D content must
+    // be drawn OUTSIDE BeginMode3D. lp_draw2d is a no-op when absent/3D.
+    lp_call_global("lp_draw2d");
+
+    rlImGuiBeginDelta(g_own_dt);
+    if (g_drive_active) {
+        ImGuiIO& io = ImGui::GetIO();
+        io.AddMousePosEvent(g_drive_mx, g_drive_my);
+        io.AddMouseButtonEvent(0, g_drive_btn[0]);
+        io.AddMouseButtonEvent(1, g_drive_btn[1]);
+        io.AddMouseButtonEvent(2, g_drive_btn[2]);
+        if (g_drive_wheel != 0) {
+            io.AddMouseWheelEvent(0.0f, g_drive_wheel);
+        }
+        io.AddKeyEvent(ImGuiMod_Ctrl, g_drive_key_down[KEY_LEFT_CONTROL] || g_drive_key_down[KEY_RIGHT_CONTROL]);
+        io.AddKeyEvent(ImGuiMod_Shift, g_drive_key_down[KEY_LEFT_SHIFT] || g_drive_key_down[KEY_RIGHT_SHIFT]);
+        io.AddKeyEvent(ImGuiMod_Alt, g_drive_key_down[KEY_LEFT_ALT] || g_drive_key_down[KEY_RIGHT_ALT]);
+    }
+    lua_frame();
+    rlImGuiEnd();
+}
+
+#ifdef _WIN32
+// Present WITHOUT polling events — safe from wndproc (subclass) context.
+static void present_no_poll() {
+    rlDrawRenderBatchActive();
+    SwapBuffers(wglGetCurrentDC());
+}
+// ── Windows continuous-resize ────────────────────────────────────────────────
+// During a drag-resize, DefWindowProc runs a modal loop on the GUI thread; no
+// frames are presented and DWM stretches the stale backbuffer. Subclass the
+// GLFW window and render from inside the modal loop on every WM_SIZE.
+// Crash-safety rules (previous subclass attempts crashed by violating them):
+//  1. NEVER call EndDrawing()/glfwPollEvents() re-entrantly from wndproc
+//     context — nested polls corrupt GLFW's queue + raylib input state.
+//     render_frame_contents() only draws; present_no_poll() flushes+swaps.
+//  2. The modal loop runs on the main thread, entered from the outer frame's
+//     poll (after the outer swap) — GL state is at a frame boundary. Keep a
+//     re-entrancy latch anyway.
+//  3. Call the original (GLFW) wndproc FIRST so raylib's size callback has
+//     updated CORE.Window before we re-render.
+// Proven in poc_resize/ (poc_min, poc_imgui, poc_lua — incl. Lua coroutines).
+#define CF_GWLP_WNDPROC      (-4)
+#define CF_WM_SIZE           0x0005u
+#define CF_WM_ENTERSIZEMOVE  0x0231u
+#define CF_WM_EXITSIZEMOVE   0x0232u
+#define CF_SIZE_MINIMIZED    1ull
+typedef long long (*CfWndProc)(void*, unsigned, unsigned long long, long long);
+static CfWndProc g_orig_proc = nullptr;
+static bool      g_in_sizemove = false;
+static bool      g_in_subclass_render = false;
+static bool      g_headless_mode = false;   // mirrored from main; subclass render skipped
+
+static long long __stdcall cf_resize_subclass_proc(void* hwnd, unsigned msg,
+                                                   unsigned long long wp, long long lp) {
+    if (msg == CF_WM_ENTERSIZEMOVE) g_in_sizemove = true;
+    if (msg == CF_WM_EXITSIZEMOVE)  g_in_sizemove = false;
+
+    long long res = CallWindowProcW((long long)g_orig_proc, hwnd, msg, wp, lp);
+
+    if (msg == CF_WM_SIZE && wp != CF_SIZE_MINIMIZED && g_in_sizemove &&
+        !g_in_subclass_render && !g_headless_mode) {
+        g_in_subclass_render = true;
+        render_frame_contents();
+        present_no_poll();
+        g_in_subclass_render = false;
+    }
+    return res;
+}
+
+static void install_resize_subclass() {
+    void* hwnd = GetWindowHandle();
+    g_orig_proc = (CfWndProc)GetWindowLongPtrW(hwnd, CF_GWLP_WNDPROC);
+    SetWindowLongPtrW(hwnd, CF_GWLP_WNDPROC, (long long)cf_resize_subclass_proc);
+}
+static void uninstall_resize_subclass() {
+    if (!g_orig_proc) return;
+    void* hwnd = GetWindowHandle();
+    SetWindowLongPtrW(hwnd, CF_GWLP_WNDPROC, (long long)g_orig_proc);
+    g_orig_proc = nullptr;
+}
+#endif
 
 int main(int argc, char** argv) {
     const char* shot_path = get_arg(argc, argv, "--shot", nullptr);
@@ -1667,44 +1811,27 @@ int main(int argc, char** argv) {
 
     int frame = 0;
     bool running = true;
+#ifdef _WIN32
+    g_headless_mode = headless;
+    if (!headless) install_resize_subclass();  // continuous render during drag-resize
+#endif
     while (running && !WindowShouldClose()) {
-        // NOTE: do NOT call PollInputEvents() here. raylib's EndDrawing polls
-        // once per frame; a second early poll clears the pressed-queues that
-        // EndDrawing just filled → clicks landing mid-frame get dropped
-        // (intermittent unresponsiveness). One poll per frame is correct.
+        // NOTE: exactly ONE input poll per frame. On Windows the poll is the
+        // explicit PollInputEvents() after render_frame_contents() (which
+        // swaps without polling); on Linux EndDrawing() inside it does the
+        // single poll. Never poll twice — the second poll clears the
+        // pressed-queues and drops clicks (intermittent unresponsiveness).
 
         // Drive step BEFORE input is read: executes this frame's plan + boundary
         if (drive_loaded) lp_call_global("drive_step");
 
-        BeginDrawing();
-        ClearBackground({ 24, 24, 28, 255 });
-
-        BeginMode3D(g_camera);
-        lp_call_global("lp_draw3d");
-        EndMode3D();
-
-        // 2D pass after the 3D pass: raylib 6.0's BeginMode2D expects the base
-        // ortho projection (it no longer installs its own), so 2D content must
-        // be drawn OUTSIDE BeginMode3D. lp_draw2d is a no-op when absent/3D.
-        lp_call_global("lp_draw2d");
-
-        rlImGuiBegin();
-        if (g_drive_active) {
-            ImGuiIO& io = ImGui::GetIO();
-            io.AddMousePosEvent(g_drive_mx, g_drive_my);
-            io.AddMouseButtonEvent(0, g_drive_btn[0]);
-            io.AddMouseButtonEvent(1, g_drive_btn[1]);
-            io.AddMouseButtonEvent(2, g_drive_btn[2]);
-            if (g_drive_wheel != 0) {
-                io.AddMouseWheelEvent(0.0f, g_drive_wheel);
-            }
-            io.AddKeyEvent(ImGuiMod_Ctrl, g_drive_key_down[KEY_LEFT_CONTROL] || g_drive_key_down[KEY_RIGHT_CONTROL]);
-            io.AddKeyEvent(ImGuiMod_Shift, g_drive_key_down[KEY_LEFT_SHIFT] || g_drive_key_down[KEY_RIGHT_SHIFT]);
-            io.AddKeyEvent(ImGuiMod_Alt, g_drive_key_down[KEY_LEFT_ALT] || g_drive_key_down[KEY_RIGHT_ALT]);
-        }
-        lua_frame();
-        rlImGuiEnd();
-        EndDrawing();
+        render_frame_contents();
+#ifdef _WIN32
+        present_no_poll();
+        PollInputEvents();   // the one poll/frame (subclass renders never poll)
+#else
+        EndDrawing();        // flush + swap + the single poll
+#endif
         frame++;
 
         // Drive frame boundary AFTER render: prev-pos advances, wheel/pressed
@@ -1723,6 +1850,9 @@ int main(int argc, char** argv) {
         }
     }
 
+#ifdef _WIN32
+    if (!headless) uninstall_resize_subclass();  // restore GLFW proc before close
+#endif
     lua_shutdown();
     rlImGuiShutdown();
     CloseWindow();
