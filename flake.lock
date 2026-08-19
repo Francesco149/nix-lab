@@ -297,11 +297,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787163731,
-        "narHash": "sha256-YY331QjAt1vFGEiZqbHuXgWS9pYE6MExS/aRq8GXFzE=",
+        "lastModified": 1787164065,
+        "narHash": "sha256-dkEtoWVb33zTIlr68t6lp30og0Z04C+MV5MO7uz6QN0=",
         "ref": "refs/heads/master",
-        "rev": "3c12fadfbbf7da6de27f0a8f3212afabc5b42b45",
-        "revCount": 39,
+        "rev": "408bfdaa53843ed721375c7f0390b3124023f91f",
+        "revCount": 40,
         "type": "git",
         "url": "file:///opt/src/llm-ux"
       },
