@@ -18,6 +18,7 @@
     dmarc-analyzer.url = "git+file:///opt/src/dmarc-analyzer";
     shigebot.url = "git+file:///opt/src/shigebot";
     grammar-helper.url = "git+file:///opt/src/grammar-helper";
+    llm-ux.url = "git+file:///opt/src/llm-ux";
 
     nixos-mailserver.inputs.nixpkgs.follows = "nixpkgs";
     disko.inputs.nixpkgs.follows = "nixpkgs";
@@ -27,7 +28,7 @@
     dmarc-analyzer.inputs.nixpkgs.follows = "nixpkgs";
     shigebot.inputs.nixpkgs.follows = "nixpkgs";
     grammar-helper.inputs.nixpkgs.follows = "nixpkgs";
-    llm-agents.inputs.nixpkgs.follows = "nixpkgs";
+    llm-ux.inputs.nixpkgs.follows = "nixpkgs";
     omp-nix.inputs.nixpkgs.follows = "nixpkgs";
     nixos-wsl.inputs.nixpkgs.follows = "nixpkgs";
 
