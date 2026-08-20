@@ -21,12 +21,15 @@ utils/
   gmail-oauth.py          Gmail OAuth helper
 docs/
   OPERATIONS.md           deployment, secrets, recovery notes
+  UPDATING.md             step-by-step update and redeploy runbook
+  OMP.md                  Oh My Pi, model logins, token rotation, vision protocol
+  OPNSENSE.md             router firewall API, port forwards, and DNS overrides
   STRUCTURE.md            this file
+  NIRI.md                 Niri desktop setup under WSLg
   NVIM.md                 custom Neovim launcher and editor behavior
   TMUX.md                 system tmux defaults and keybindings
 AGENTS.md                 agent-facing conventions and source-of-truth map
-WORKDOC.md                cross-session goals, decisions, and task log
-```
+WORKDOC.md                high-level system state, invariants, and active goals
 
 ## Host Wiring
 
@@ -49,11 +52,14 @@ Current host entries:
 
 - `README.md` is an entrypoint and should stay compact.
 - `docs/STRUCTURE.md` documents repo layout and wiring.
-- `docs/OPERATIONS.md` documents procedures.
+- `docs/OPERATIONS.md` documents deployment, backup, and service procedures.
+- `docs/UPDATING.md` documents the step-by-step lab update runbook.
+- `docs/OMP.md` documents Oh My Pi harness configuration, model authentication, token rotation, and vision routing.
+- `docs/OPNSENSE.md` documents router API automation, port forwards, and DNS.
+- `docs/NIRI.md` documents the desktop compositor on `wslop`.
 - `docs/NVIM.md` documents the custom `e` editor setup.
 - `docs/TMUX.md` documents the system tmux setup.
-- `AGENTS.md` documents conventions for coding agents.
-- `WORKDOC.md` tracks active goals, decisions, and follow-up tasks.
-
+- `AGENTS.md` / `CLAUDE.md` documents conventions for coding agents.
+- `WORKDOC.md` tracks high-level system state, core invariants, and active goals.
 When documentation needs a value from the system, prefer naming the canonical
 `lab` attribute instead of copying the current literal value.

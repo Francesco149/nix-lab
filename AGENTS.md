@@ -87,9 +87,9 @@ Operational docs (link to these; don't duplicate their contents):
 
 - `docs/OPERATIONS.md` — deploy/recovery, backups, service notes.
 - `docs/UPDATING.md` — step-by-step manual update + redeploy runbook.
+- `docs/OMP.md` — Oh My Pi, model authentication, token rotation runbook, and vision protocol.
 - `utils/lab-check.sh` — verbose post-deploy health check with a PASS/WARN/FAIL
   summary; run after every deploy.
-
 `docs/UPDATING.md` and `utils/lab-check.sh` encode how the lab is updated,
 deployed, and verified. They drift silently and only bite during a bad deploy,
 so update them IN THE SAME CHANGE whenever structure shifts: a host

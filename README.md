@@ -64,10 +64,9 @@ check-inputs
 
 Those helpers are fish functions from `modules/hm/fish/dev.fish`.
 
-Update/redeploy runbook: [docs/UPDATING.md](docs/UPDATING.md). Router port
-forwards and DNS overrides (the OPNsense box is not managed by this flake):
-[docs/OPNSENSE.md](docs/OPNSENSE.md).
-
+Update/redeploy runbook: [docs/UPDATING.md](docs/UPDATING.md). Oh My Pi, AI models,
+and token rotation: [docs/OMP.md](docs/OMP.md). Router port forwards and DNS
+overrides: [docs/OPNSENSE.md](docs/OPNSENSE.md).
 ## Development
 
 Enter the dev shell with direnv or:
